@@ -160,41 +160,41 @@ The Circle compiler
 
 Circle is built on three main technologies:
 1. [Integrated interpreter](#integrated-interpreter)  
-  C++ extended the evolution of C, and C, a very bare language, is essentially a portable assembler. Few people would try to run C code in an interpreter, because C-flavored dynamic languages like Perl are far more productive.  
+    C++ extended the evolution of C, and C, a very bare language, is essentially a portable assembler. Few people would try to run C code in an interpreter, because C-flavored dynamic languages like Perl are far more productive.  
 
-  But as software projects grew bigger and bigger, a need for metaprogramming developed. If programming is the automation of tasks, _metaprogramming is the automation of programming_. So what language was chosen to automate C++? It wasn't C++. It was the language of partial template deduction. It wasn't an intentional choice, but the result of people pushing hard on the language to do more and more things it wasn't really equiped to do. Things devolved into riddles.
+    But as software projects grew bigger and bigger, a need for metaprogramming developed. If programming is the automation of tasks, _metaprogramming is the automation of programming_. So what language was chosen to automate C++? It wasn't C++. It was the language of partial template deduction. It wasn't an intentional choice, but the result of people pushing hard on the language to do more and more things it wasn't really equiped to do. Things devolved into riddles.
 
-  Circle fixes this by providing a second backend that does almost everything the code generator does, and quite a bit it doesn't. Now you can run any statement at compile time. In this white paper we load and parse JSON files at compile time. We even host a Lua interpreter at compile time and call Lua function during template instantiation. Because the metaprogramming language is standard C++, we use familiar, existing libraries for all of this.
+    Circle fixes this by providing a second backend that does almost everything the code generator does, and quite a bit it doesn't. Now you can run any statement at compile time. In this white paper we load and parse JSON files at compile time. We even host a Lua interpreter at compile time and call Lua function during template instantiation. Because the metaprogramming language is standard C++, we use familiar, existing libraries for all of this.
 
 1. [Same-language reflection](#same-language-reflection)  
-  The integrated interpreter only runs code, but we want to create new code programmatically. Do we provide an API for programmatically creating objects, functions and types? Not only is it hard to design an API at a level of granularity that satisfies everyone, it's hard to design one that satisfies everyone. This is exactly why programming languages exist in the first place: we want a convenient syntax for defining a program.
+    The integrated interpreter only runs code, but we want to create new code programmatically. Do we provide an API for programmatically creating objects, functions and types? Not only is it hard to design an API at a level of granularity that satisfies everyone, it's hard to design one that satisfies everyone. This is exactly why programming languages exist in the first place: we want a convenient syntax for defining a program.
 
-  Circle uses same-language reflection. If you want to declare a class member, just write the C++ for a _member-specifier_. If you want to declare a function, write a function declaration. But how do we do this in an algorithmic or data-driven way? Use compile-time control flow!
+    Circle uses same-language reflection. If you want to declare a class member, just write the C++ for a _member-specifier_. If you want to declare a function, write a function declaration. But how do we do this in an algorithmic or data-driven way? Use compile-time control flow!
 
-  By putting a real statement inside a meta _if-statement_, we guide _if_ that statement is translated into the program. 
+    By putting a real statement inside a meta _if-statement_, we guide _if_ that statement is translated into the program. 
 
-  By putting a real statement inside a meta _for-statement_, we guide _how many times_ that statement is translated into the program.
+    By putting a real statement inside a meta _for-statement_, we guide _how many times_ that statement is translated into the program.
 
 1. [Introspection keywords](#introspection-keywords)  
-  C++ programs don't use a runtime environment like Java or C#, so they don't have access to runtime type information. Circle doesn't add a runtime environment. Instead, it exposes to the programmer type information that's already maintained by the compiler.
+    C++ programs don't use a runtime environment like Java or C#, so they don't have access to runtime type information. Circle doesn't add a runtime environment. Instead, it exposes to the programmer type information that's already maintained by the compiler.
 
-  Introspect on class types:  
-  * `@member_count(type)`
-  * `@member_name(type, index)`
-  * `@member_ptr(type, index)`
-  * `@member_ref(object, index)`
-  * `@member_type(type, index)`
+    Introspect on class types:  
+    * `@member_count(type)`
+    * `@member_name(type, index)`
+    * `@member_ptr(type, index)`
+    * `@member_ref(object, index)`
+    * `@member_type(type, index)`
 
-  Introspect on enum types:  
-  * `@enum_count(type)`
-  * `@enum_name(type, index)`
-  * `@enum_value(type, index)`
+    Introspect on enum types:  
+    * `@enum_count(type)`
+    * `@enum_name(type, index)`
+    * `@enum_value(type, index)`
 
-  Generic type operators:  
-  * `@type_name(type)`
-  * `@type_id(name)`
+    Generic type operators:  
+    * `@type_name(type)`
+    * `@type_id(name)`
   
-  The arguments for all the operators above must be known at compile time. This sounds limiting--how do we benefit at runtime? Use same-language reflection to write metaprograms that query the introspection operators and bake the type information into functions. That is, the type information you want is moved into the final assembly simply by your using the operators in functions.
+    The arguments for all the operators above must be known at compile time. This sounds limiting--how do we benefit at runtime? Use same-language reflection to write metaprograms that query the introspection operators and bake the type information into functions. That is, the type information you want is moved into the final assembly simply by your using the operators in functions.
 
 The extensions in Circle cover a lot of territory, but they're federated to serve one purpose: help automate the software development process. Features like coroutines, lazy evaluation, garbage collection and modules might be worthwhile additions, but since they don't extend the vision of automation, they didn't make the cut.
 
