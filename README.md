@@ -154,8 +154,6 @@ Circle is a language that extends C++ 17. Aside from some very straight-forward 
 
 But Circle isn't just C++. What we've done is rotate C++ into the compile-time realm and went where that took us. So while the syntax is C++, and the signature features of C++ remain, like name lookup, overload resolution, implicit conversions, argument deduction, the C preprocessor, and on and on, their usage usage in Circle may have very different consequences.
 
-The Circle compiler 
-
 ## Circle is a triangle
 
 Circle is built on three main technologies:
