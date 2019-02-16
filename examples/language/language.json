@@ -1,0 +1,25 @@
+{
+  "green eggs" : {
+    "english"  : "The eggs must be green. They must.",
+    "japanese" : "卵は緑色でなければなりません。彼らは〜するべきだ。",
+    "korean"   : "알은 녹색이어야합니다. 그들은 반드시.",
+    "finnish"  : "Munien on oltava vihreitä. Heidän täytyy.",
+    "dutch"    : "De eieren moeten groen zijn. Ze moeten.",
+    "greek"    : "Τα αυγά πρέπει να είναι πράσινα. Αυτοί πρέπει."
+  },
+
+  "feline headgear" : {
+    "english"  : "The cat is not in the hat.",
+    "japanese" : "猫は帽子の中にいない。",
+    "korean"   : "고양이는 모자에 없다.",
+    "finnish"  : "Kissa ei ole hatussa.",
+    "dutch"    : "De kat zit niet in de hoed.",
+    "greek"    : "Η γάτα δεν είναι στο καπέλο."
+  },
+
+  "obligatory seinfeld reference" : {
+    "english"  : "These pretzels are making me thirsty.",
+    "finnish"  : "Nämä pretzels tekevät minut janoiseksi.",
+    "dutch"    : "Deze pretzels maken me dorstig."
+  }
+}

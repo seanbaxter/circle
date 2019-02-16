@@ -1,0 +1,5 @@
+$ circle sfinae.cxx 
+$ ./sfinae 
+Setting a_t obj.x = 1.
+a_t is big endian.
+b_t::y() called.

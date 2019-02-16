@@ -1,0 +1,32 @@
+{
+  "sin" : {
+    "f"          : "sin(x)",
+    "df"         : "cos(x)",
+    "series"     : [ 0, 1, 0, -0.1666666, 0, -0.0083333 ]
+  },    
+  
+  "tanh" : {
+    "f"          : "tanh(x)",
+    "df"         : "1 - sq(tanh(x))",
+    "series"     : [ 0, 1, 0, -0.3333333, 0, 0.1333333 ]
+  },    
+  
+  "sigmoid" : {
+    "f"          : "1 / (1 + exp(-x))",
+    "df"         : "sigmoid(x) * (1 - sigmoid(x))",
+    "series"     : [ 0.5, 0.25, 0, -0.02083333, 0, 0.00208333 ]
+  }, 
+  
+  "factorial" : {
+    "statements" : "double y = 1; while(x > 1) y *= x--; return y;",
+    "integer"    : null,
+    "comment"    : "Use a key with null value as a flag"
+  },
+
+  "E1" : {
+    "f"          : "sq(x) * exp(x) / sq(exp(x) - 1)",
+    "series"     : [ 1, 0, -0.08333333, 0, 0.00416666, 0, -0.000165344 ],
+    "note"       : "first Einstein special function",
+    "comment"    : "Note the differing number of coefficients--JSON is a schemaless formats"
+  }
+}

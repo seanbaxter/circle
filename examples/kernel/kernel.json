@@ -1,0 +1,37 @@
+[
+  {
+    "type"            : "float",
+    "sm"              : 52,
+    "bytes_per_lane"  : 8,
+    "lanes_per_thread": 5,
+    "flags"           : [ "ldg", "ftz" ]
+  },
+  {
+    "type"            : "double",
+    "sm"              : 52,
+    "bytes_per_lane"  : 16,
+    "lanes_per_thread": 5,
+    "flags"           : [ "ftz", "fast_math"]
+  },
+  {
+    "type"            : "float",
+    "sm"              : 70,
+    "bytes_per_lane"  : 8,
+    "lanes_per_thread": 7,
+    "flags"           : [ "ldg" ]
+  },
+  {
+    "type"            : "short",
+    "sm"              : 70,
+    "bytes_per_lane"  : 16,
+    "lanes_per_thread": 10,
+    "flags"           : [ ]
+  },
+  {
+    "type"            : "int",
+    "sm"              : 35,
+    "bytes_per_lane"  : 20,
+    "lanes_per_thread": 11,
+    "flags"           : [ ]
+  }
+]

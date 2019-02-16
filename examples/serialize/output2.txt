@@ -1,0 +1,37 @@
+$ circle serialize2.cxx 
+$ ./serialize2 
+struct1_t {
+  s : std::string "struct1_t instance",
+  a : std::vector<int, std::allocator<int> > [
+    int "4",
+    int "5",
+    int "6"
+  ],
+  vec : vec3_t {
+    x : double "1",
+    y : double "2",
+    z : double "3"
+  },
+  r1 : robot_t "R2D2",
+  r2 : robot_t "RutgerHauer",
+  axes : vec_map_t {
+    std::string "x" : vec3_t {
+      x : double "1",
+      y : double "0",
+      z : double "0"
+    },
+    std::string "y" : vec3_t {
+      x : double "0",
+      y : double "1",
+      z : double "0"
+    },
+    std::string "z" : vec3_t {
+      x : double "0",
+      y : double "0",
+      z : double "1"
+    }
+  },
+  opt_1 : std::optional<int> int "500",
+  opt_2 : std::optional<vec3_t> null,
+  x : int "600"
+}

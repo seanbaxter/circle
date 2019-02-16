@@ -1,0 +1,6 @@
+$ circle scopes.cxx 
+/home/sean/projects/circle_show/examples/scopes/scopes.cxx:6 I'm in global scope.
+/home/sean/projects/circle_show/examples/scopes/scopes.cxx:10 Hello namespace.
+/home/sean/projects/circle_show/examples/scopes/scopes.cxx:14 In a class definition!
+/home/sean/projects/circle_show/examples/scopes/scopes.cxx:18 I'm in your enum.
+ns::foo_t::func ... And block scope.

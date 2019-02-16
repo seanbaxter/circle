@@ -1,0 +1,25 @@
+$ circle kernel2.cxx 
+../include/luacir.hxx:41:11: error: 
+  ip: function 'luaL_newstate' is undefined
+
+$ circle -M /usr/lib/x86_64-linux-gnu/liblua5.3.so kernel2.cxx
+lua locked and loaded
+Compiling kernel { sm : 52, type : float }:
+  **Lua gets key { 52, float }
+  Params for kernel: { bytes_per_lane : 16, lanes_per_thread : 8, flags : [ ftz ] }
+
+Compiling kernel { sm : 52, type : double }:
+  **Lua gets key { 52, double }
+  Params for kernel: { bytes_per_lane : 24, lanes_per_thread : 4, flags : [ ldg ] }
+
+Compiling kernel { sm : 70, type : float }:
+  **Lua gets key { 70, float }
+  Params for kernel: { bytes_per_lane : 16, lanes_per_thread : 8, flags : [ fast_math, ftz ] }
+
+Compiling kernel { sm : 70, type : short }:
+  **Lua gets key { 70, short }
+  Params for kernel: { bytes_per_lane : 8, lanes_per_thread : 4, flags : [ ] }
+
+Compiling kernel { sm : 35, type : int }:
+  **Lua gets key { 35, int }
+  Params for kernel: { bytes_per_lane : 24, lanes_per_thread : 8, flags : [ ldg ] }

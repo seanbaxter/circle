@@ -1,0 +1,15 @@
+$ circle kernel1.cxx
+Compiling kernel { sm : 52, type : float }:
+  Params for kernel: { bytes_per_lane : 8, lanes_per_thread : 5, flags : [ ldg, ftz ] }
+
+Compiling kernel { sm : 52, type : double }:
+  Params for kernel: { bytes_per_lane : 16, lanes_per_thread : 5, flags : [ ftz, fast_math ] }
+
+Compiling kernel { sm : 70, type : float }:
+  Params for kernel: { bytes_per_lane : 8, lanes_per_thread : 7, flags : [ ldg ] }
+
+Compiling kernel { sm : 70, type : short }:
+  Params for kernel: { bytes_per_lane : 16, lanes_per_thread : 10, flags : [ ] }
+
+Compiling kernel { sm : 35, type : int }:
+  Params for kernel: { bytes_per_lane : 20, lanes_per_thread : 11, flags : [ ] }

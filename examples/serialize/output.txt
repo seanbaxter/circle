@@ -1,0 +1,12 @@
+$ circle serialize.cxx 
+$ ./serialize 
+struct1_t {
+  char c: "X"
+  double d: "3.14159"
+  const char* s: "A C string"
+}
+struct2_t {
+  std::string string: "A C++ string"
+  long l: "42"
+  bool b: "1"
+}

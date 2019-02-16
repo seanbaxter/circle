@@ -1,0 +1,4 @@
+$ circle hello.cxx 
+Hello circle
+$ ./hello 
+Hello world

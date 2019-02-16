@@ -1,0 +1,5 @@
+$ circle format.cxx
+$ ./format 
+My vector is { x : 1, y : 1.5, z : 1.8e-12 }.
+My tuple is { _0 : a tuple's string, _1 : 3.14159, _2 : q }.
+My heroes are { _0 : Frank, _1 : Whatley }.
