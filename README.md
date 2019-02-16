@@ -1602,6 +1602,76 @@ b_t::y() called.
 
 ## Generic dispatch
 
+A common task is to switch over an entity know at runtime, such as an enum, and call a function corresponding to that variable. C++ introduced virtual functions during the object-oriented programming push to address this common task: the runtime variable becomes, in essence, the virtual pointer that is implicitly created with the object.
+
+But virtual functions cannot be templated, so the dispatch problem remains. One of Circle's goals is to reduce boilerplate code, and dispatches are a big contributor of boilerplate.
+
+What we want is a single function with all of these properties:
+1. It takes generic arguments.
+1. It returns a generic return type.
+1. It works for any arity of composition.
+1. It doesn't require any special markup on the types being dispatched.
+
+The third point deserves comment. We could switch over a single enum and call an associated function. That's an arity-1 dispatch. What if we have multiple variables to switch over? Do we need to provide an associated function for each possible combination of them?
+
+```cpp
+template<typename type1_t, typename type2_t>
+struct uberfunction_t {
+  type1_t obj1;
+  type2_t obj2;
+  double go(double x);
+};
+```
+To keep things organized, let's introduce a class template, which for any arity-N dispatch, has N template parameters. The `go` function draws on functionality from the members instantiated from each of its types. If special behavior is required for a specific type parameter, the uber function gets a partial specialization for that type. If special behavior is required for a specific combination of types, an explicit specialization is provided.
+
+There are a number of challenges in front of us:
+1. Create a list of types to substitute into each template parameter.
+1. Instantiate the class template and call its function for each combination of types. That is, instantiate the class template for each element of the N-rank outer product of the type lists.
+1. Associate an enum or string (or something else we can manipulate at runtime) with each of the types in each of the type lists. It has to be something we use nested switches on, to generate the N-arity dispatch.
+
+What if we choose an enum as both the runtime type and the language feature that serves as a type list?
+1. An enumeration is a _set_. The set can name the types in each of the type lists. But how do we map an enumerator to a type?
+1. We don't want to instantiate the class template over enumerators. We want to instantiate it over class types that are associated with each enumerator. Again, we need to map an enumerator to a type.
+1. Enums are easily manipulated at runtime, and we've already explored several examples of automatically switching over enumerators in an enum.
+
+If we can figure out how to map enumerators to types, we're home free. Fortunately, there's a really convenient trick to doing this. It will feel natural to users of dynamic languages but may have a slight scent of sulfur to statically-typed folk inherently suspicious about conflating names with types. Here it is:
+
+```cpp
+template<typename enum_t>
+void func(enum_t e) {
+  switch(e) {
+    @meta for(int i = 0; i < @enum_count(enum_t); ++i) {
+      typedef @(@enum_name(enum_t, i)) type_t;
+
+      // type_t is the i'th enumerator mapped to a type!
+    }
+  }
+}
+```
+This code maps each enumerator to a type with the same spelling. How is it possible? Use `@type_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square_t`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
+
+How do we guarantee that name lookup finds the type `square` and not the enumerator `square`? Because we use a _scoped enum_, introduced in C++11:
+```cpp
+struct circle   { double val() const { return 10; } };
+struct square   { double val() const { return 20; } };
+struct octagon  { double val() const { return 30; } };
+
+enum class shapes_t {
+  circle,
+  square, 
+  octagon,
+};
+
+
+```
+
+
+> *A digression into ancient history*
+> 
+
+
+
+
 [**dispatch.cxx**](examples/dispatch/dispatch.cxx)
 ```cpp
 template<
