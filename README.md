@@ -1646,7 +1646,7 @@ void func(enum_t e) {
   }
 }
 ```
-This code maps each enumerator to a type with the same spelling. How is it possible? Use `@type_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
+This code maps each enumerator to a type with the same spelling. How is it possible? Use `@enum_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
 
 How do we guarantee that name lookup finds the type `square` and not the enumerator `square`? Because we use a _scoped enum_, introduced in C++11:
 ```cpp
