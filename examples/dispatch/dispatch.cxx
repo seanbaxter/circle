@@ -9,7 +9,7 @@ template<
   typename... args_t
 >
 auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
-  @meta if(I == sizeof...(enums_t)) {
+  if constexpr(I == sizeof...(enums_t)) {
     // Instantiate the client class template.
     return client_temp<types_t...>().go(std::forward<args_t>(args)...);
 

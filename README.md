@@ -1598,8 +1598,6 @@ a_t is big endian.
 b_t::y() called.
 ```
 
-
-
 ## Generic dispatch
 
 A common task is to switch over an entity know at runtime, such as an enum, and call a function corresponding to that variable. C++ introduced virtual functions during the object-oriented programming push to address this common task: the runtime variable becomes, in essence, the virtual pointer that is implicitly created with the object.
@@ -1648,7 +1646,7 @@ void func(enum_t e) {
   }
 }
 ```
-This code maps each enumerator to a type with the same spelling. How is it possible? Use `@type_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square_t`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
+This code maps each enumerator to a type with the same spelling. How is it possible? Use `@type_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
 
 How do we guarantee that name lookup finds the type `square` and not the enumerator `square`? Because we use a _scoped enum_, introduced in C++11:
 ```cpp
@@ -1661,18 +1659,10 @@ enum class shapes_t {
   square, 
   octagon,
 };
-
-
 ```
+The enumerators `shape`, `square` and `octagon` can only be accessed through the `shapes_t` nested name. As long as there is a class, typedef or even class template or alias template in the declarative region with the same name as the enumerator, the `@(@type_name(enum_t, i))` trick will map the enumerator name to the type name.
 
-
-> *A digression into ancient history*
-> 
-
-
-
-
-[**dispatch.cxx**](examples/dispatch/dispatch.cxx)
+[**dispatch.cxx**](examples/dispatch/dispatch.cxx)(examples/dispatch/output.txt)
 ```cpp
 template<
   size_t I,
@@ -1682,7 +1672,7 @@ template<
   typename... args_t
 >
 auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
-  @meta if(I == sizeof...(enums_t)) {
+  if constexpr(I == sizeof...(enums_t)) {
     // Instantiate the client class template.
     return client_temp<types_t...>().go(std::forward<args_t>(args)...);
 
@@ -1712,6 +1702,9 @@ auto dispatch(tuple_t<enums_t...> e, args_t&&... args) {
   return dispatch_inner<0, client_temp>(e, std::forward<args_t>(args)...);
 }
 ```
+The generic dispatch function uses enum introspection in a creative way to greatly simply template metaprogramming. The public-facing function `dispatch` takes an N-arity tuple filled with the enum for each rank we wish to expand, and the arguments to forward as an rvalue reference parameter pack. Each iteration generates a switch statement over the I'th enum, where I runs from 0 to N. The metafor loops over all enumerators in the I'th enum type, and performs the enum-to-type dynamic name trick to append the type corresponding to the enum as the I'th type in the `types_t` parameter pack.
+
+Let's consider an example usage:
 
 ```cpp
 struct circle   { double val() const { return 10; } };
@@ -1782,7 +1775,9 @@ int main(int argc, char** argv) {
   return 0;
 }
 ```
+The main function parses command line arguments and turns them into enums. The're then packed into a tuple and passed to the generic dispatch, which automatically generates the nested switch statements and instantiates `shape_computer_t` over every one of the 27-elements in the 3x3x3 outer product of types. Because we're using enumerations as sets (and not just a way to declare constant values), and Circle supports enum introspection, the generic dispatch can automatically associate enumerators with types (or any other declaration that name lookup finds) with the `@(@enum_name())` trick.
 
+[(output)](examples/dispatch/output.txt)
 ```
 $ circle dispatch.cxx 
 Instantiating { circle, red, solid }
@@ -1812,4 +1807,10 @@ Instantiating { octagon, green, halftone }
 Instantiating { octagon, yellow, solid }
 Instantiating { octagon, yellow, hatch }
 Instantiating { octagon, yellow, halftone }
+
+$ ./dispatch square green halftone 7
+The dispatch result is 42.600000
+$ ./dispatch circle red hatch 3
+The dispatch result is 6.200000
 ```
+The story gets better. Recall same-language reflection as the mechanism for [dynamic generation of enums](https://github.com/seanbaxter/circle#automating-enums)? Your application can define a stock collection of composable types, and the enums that serve as type sets for generic dispatch can be programmatically generated from configuration files. If you want it done quick and dirty, just include the comma-separated list of types in your configuration and employ `@statements` to inject all those type-naming tokens in one go.
