@@ -1,0 +1,33 @@
+$ circle dispatch.cxx 
+Instantiating { circle, red, solid }
+Instantiating { circle, red, hatch }
+Instantiating { circle, red, halftone }
+Instantiating { circle, green, solid }
+Instantiating { circle, green, hatch }
+Instantiating { circle, green, halftone }
+Instantiating { circle, yellow, solid }
+Instantiating { circle, yellow, hatch }
+Instantiating { circle, yellow, halftone }
+Instantiating { square, red, solid }
+Instantiating { square, red, hatch }
+Instantiating { square, red, halftone }
+Instantiating { square, green, solid }
+Instantiating { square, green, hatch }
+Instantiating { square, green, halftone }
+Instantiating { square, yellow, solid }
+Instantiating { square, yellow, hatch }
+Instantiating { square, yellow, halftone }
+Instantiating { octagon, red, solid }
+Instantiating { octagon, red, hatch }
+Instantiating { octagon, red, halftone }
+Instantiating { octagon, green, solid }
+Instantiating { octagon, green, hatch }
+Instantiating { octagon, green, halftone }
+Instantiating { octagon, yellow, solid }
+Instantiating { octagon, yellow, hatch }
+Instantiating { octagon, yellow, halftone }
+
+$ ./dispatch square green halftone 7
+The dispatch result is 42.600000
+$ ./dispatch circle red hatch 3
+The dispatch result is 6.200000

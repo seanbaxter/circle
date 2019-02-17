@@ -1662,7 +1662,7 @@ enum class shapes_t {
 ```
 The enumerators `shape`, `square` and `octagon` can only be accessed through the `shapes_t` nested name. As long as there is a class, typedef or even class template or alias template in the declarative region with the same name as the enumerator, the `@(@type_name(enum_t, i))` trick will map the enumerator name to the type name.
 
-[**dispatch.cxx**](examples/dispatch/dispatch.cxx)(examples/dispatch/output.txt)
+[**dispatch.cxx**](examples/dispatch/dispatch.cxx)[(output)](examples/dispatch/output.txt)
 ```cpp
 template<
   size_t I,
