@@ -1656,7 +1656,7 @@ Because the types are associated with enumerators, and enumerators are already i
 
 For added convenience, Circle introduces a _case-typename_ statement. This bit of porcelain allows the user to specify a _type-id_ in a _case-statement_ rather than specifying an integral _constant-expression_. The _type-id_ is then automatically mapped to the corresponding enumerator in the typed-enum which is used in the predicate of the enclosing _switch-statement_.
 
-* `case typename` _type-id_: - Special case statement compatible with switches over typed enums.
+* `case typename _type-id_:` - Special case statement compatible with switches over typed enums.
 
 ```cpp
 enum typename class my_enum_t {
