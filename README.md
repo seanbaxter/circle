@@ -36,6 +36,7 @@ Sean Baxter
 [Template metaprogramming](#template-metaprogramming)  
 [SFINAE](#sfinae)  
 [Typed enums](#typed-enums)  
+[Variant](#variant)  
 [Generic dispatch](#generic-dispatch)  
 
 ## Abstract
@@ -1204,7 +1205,7 @@ To reduce cost and development time, it's critical to understand how a change in
 
 [**params.hxx**](examples/kernel/params.hxx)
 ```cpp
-  enum class kernel_flag_t {
+enum class kernel_flag_t {
   ldg,
   ftz,
   fast_math
@@ -1652,6 +1653,35 @@ The variant holds an instance of the typed enum called `tag`. If the value of ta
 To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
 
 Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
+
+For added convenience, Circle introduces a _case-typename_ statement. This bit of porcelain allows the user to specify a _type-id_ in a _case-statement_ rather than specifying an integral _constant-expression_. The _type-id_ is then automatically mapped to the corresponding enumerator in the typed-enum which is used in the predicate of the enclosing _switch-statement_.
+
+```cpp
+enum typename class my_enum_t {
+  Int = int,
+  Double = double,
+  Char = char
+};
+
+my_enum_t e = my_enum_t::Double;
+switch(e) {
+  case typename int:
+    printf("It's an int\n");
+    break;
+
+  case typename double:
+    printf("It's a double\n");
+    break;
+
+  case typename char:
+    printf("It's a char\n");
+    break;
+}
+return 0;
+```
+This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time.
+
+## Variant
 
 ## Generic dispatch
 
