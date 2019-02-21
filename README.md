@@ -35,6 +35,7 @@ Sean Baxter
 [Querying Lua](#querying-lua)  
 [Template metaprogramming](#template-metaprogramming)  
 [SFINAE](#sfinae)  
+[Typed enums](#typed-enums)  
 [Generic dispatch](#generic-dispatch)  
 
 ## Abstract
@@ -123,7 +124,7 @@ Can you figure out this class?
 
 > There's quite a lot going on. Some new operator `@dynamic_type` is being used on the parameter pack and is expanded into an array `x`. Okay, so `x` likely has `count` elements, holding some kind of "dynamic type" of each of the template parameters. 
 
-`@mtype` is a new builtin type that holds a type. It's really just an opaque pointer to type info that's already maintained by the compiler. But it has overloads for all the arithmetic operators, so it's easy to work with.
+`@mtype` is a new builtin type that holds a type. It's really just an opaque pointer to type info that's already maintained by the compiler. But it has overloads for all the comparison operators, so it's easy to work with.
 
 > So you sort and unique this array using functions from `<algorithms>`. Much easier than trying to manipulate those type list things. `@dynamic_type` appears to box a type into an `@mtype` variable. It has to be that `@pack_type` goes the other direction and packages the array of `@mtype` variables as a parameter pack.
 
@@ -186,6 +187,7 @@ Circle is built on three main technologies:
     Introspect on enum types:  
     * `@enum_count(type)`
     * `@enum_name(type, index)`
+    * `@enum_type(type, index)`
     * `@enum_value(type, index)`
 
     Generic type operators:  
@@ -545,6 +547,7 @@ Introspect on class types:
 Introspect on enum types:
 * `@enum_count(type)` - Number of enumerators with unique numerical values.
 * `@enum_name(type, index)` - String literal name of i'th unique enumerator.
+* `@enum_type(type, index)` - Type associated with i'th enumerator. For [typed enums](#typed-enums) only.
 * `@enum_value(type, index)` - Expression returning i'th unique enumerator prvalue.
 
 Generic type operators:
@@ -1598,6 +1601,58 @@ a_t is big endian.
 b_t::y() called.
 ```
 
+## Typed enums
+
+A common template metaprogramming problem involves manipulation of type lists. There is no standard way to represent type lists. Often they are passed in through type parameter packs, manipulated with recursion, and expanded back into arguments to be bound to other template parameter packs.
+
+Circle extends the ordinary enum by allowing you to associate a type with each enumerator. How do we enable this? Use `typename` immediately after the `enum` keyword, right before the `class` or `struct` keywords that indicate a scoped enum:
+
+```cpp
+enum typename [class | struct] my_tuple [: underlying-type] {
+  [identifier = ] type-id, [identifier = ] type-id
+};
+```
+
+You can make scoped or unscoped typed enums. You can make a typed enum with or without a fixed underlying type. Each enumerator has an _optional_ identifier and a _mandatory_ _type-id_. If you cannot afford an identifier, one will be provided for you. (Circle follows the dynamic-name convention and provides identifiers `_0`, `_1` and so on.)
+
+Why is the name of the enumerator optional? Often you simply want to use a the typed enum as a list of types, and if those types come from a template parameter pack, there's no name to begin with.
+
+In most contexts, a typed enum functions exactly like an ordinary enum. Each enumerator is assigned an implicit integral value, starting at 0 and incrementing with each new declaration. This value maps to the implicit name of the enumerator. The associated type is just that, _associated_. So how do we access this associated type?
+
+* `@enum_type(type, index)` - Type associated with i'th enumerator.
+
+What can we do with this? Define variant classes, for one thing.
+
+```cpp
+template<typename... types_t>
+struct variant_t {
+
+  struct none { };
+
+  enum typename class tag_t {
+    none = none,
+    @meta for(int i = 0; i < sizeof...(types_t); ++i) 
+      types_t...[i];
+  };
+
+  tag_t tag { };
+
+  union {
+    // Declare a variant member for each enumerator.
+    @meta for(int i = 0; i < @enum_count(tag_t); ++i)
+      @enum_type(tag_t, i) @(i);
+  };
+};
+```
+
+The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated empty class `none`. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
+
+The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
+
+To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
+
+Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
+
 ## Generic dispatch
 
 A common task is to switch over an entity know at runtime, such as an enum, and call a function corresponding to that variable. C++ introduced virtual functions during the object-oriented programming push to address this common task: the runtime variable becomes, in essence, the virtual pointer that is implicitly created with the object.
@@ -1627,40 +1682,10 @@ There are a number of challenges in front of us:
 1. Instantiate the class template and call its function for each combination of types. That is, instantiate the class template for each element of the N-rank outer product of the type lists.
 1. Associate an enum or string (or something else we can manipulate at runtime) with each of the types in each of the type lists. It has to be something we use nested switches on, to generate the N-arity dispatch.
 
-What if we choose an enum as both the runtime type and the language feature that serves as a type list?
-1. An enumeration is a _set_. The set can name the types in each of the type lists. But how do we map an enumerator to a type?
-1. We don't want to instantiate the class template over enumerators. We want to instantiate it over class types that are associated with each enumerator. Again, we need to map an enumerator to a type.
-1. Enums are easily manipulated at runtime, and we've already explored several examples of automatically switching over enumerators in an enum.
-
-If we can figure out how to map enumerators to types, we're home free. Fortunately, there's a really convenient trick to doing this. It will feel natural to users of dynamic languages but may have a slight scent of sulfur to statically-typed folk inherently suspicious about conflating names with types. Here it is:
-
-```cpp
-template<typename enum_t>
-void func(enum_t e) {
-  switch(e) {
-    @meta for(int i = 0; i < @enum_count(enum_t); ++i) {
-      typedef @(@enum_name(enum_t, i)) type_t;
-
-      // type_t is the i'th enumerator mapped to a type!
-    }
-  }
-}
-```
-This code maps each enumerator to a type with the same spelling. How is it possible? Use `@enum_name` to get the spelling of the enumerator as a string literal. Then use the dynamic name operator `@()` to turn the string back into an identifier. So if the enumerator is called `square`, the introspection operator turns it into the string literal "square", and the dynamic name operator turns that into a token `square`. But this latter `square` is _not_ the enumerator--it is merely a token. Because we're in a typedef declaration, the compiler performs name lookup on the token and finds the type `square`, which had better be the struct we intended to specialize the uber function class on.
-
-How do we guarantee that name lookup finds the type `square` and not the enumerator `square`? Because we use a _scoped enum_, introduced in C++11:
-```cpp
-struct circle   { double val() const { return 10; } };
-struct square   { double val() const { return 20; } };
-struct octagon  { double val() const { return 30; } };
-
-enum class shapes_t {
-  circle,
-  square, 
-  octagon,
-};
-```
-The enumerators `circle`, `square` and `octagon` can only be accessed through the `shapes_t` nested name. As long as there is a class, typedef or even class template or alias template in the declarative region with the same name as the enumerator, the `@(@enum_name(enum_t, i))` trick will map the enumerator name to the type name.
+What if we choose a typed enum as both the runtime type and the language feature that serves as a type list?
+1. An enumeration is a _set_. The set can name the types in each of the type lists.
+1. Each enumerator is given a human- and program-readable identifier name. For example, "Int" for type `int` and "ntbs" for the null-terminated byte string type `const char*`.
+1. Each enumerator has an associated type which can be extracted at compile-time with the `@enum_type` operator.
 
 [**dispatch.cxx**](examples/dispatch/dispatch.cxx) [(output)](examples/dispatch/output.txt)
 ```cpp
@@ -1686,8 +1711,8 @@ auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
           return dispatch_inner<
             I + 1, 
             client_temp, 
-            types_t...,                        // Expand the old types
-            @(@enum_name(enums_t...[I], i))    // Add this as a new type
+            types_t...,                     // Expand the old types
+            @enum_type(enums_t...[I], i)    // Add this as a new type
           >(e, std::forward<args_t>(args)...);
     }
   }
@@ -1702,7 +1727,7 @@ auto dispatch(tuple_t<enums_t...> e, args_t&&... args) {
   return dispatch_inner<0, client_temp>(e, std::forward<args_t>(args)...);
 }
 ```
-The generic dispatch function uses enum introspection in a creative way to greatly simply template metaprogramming. The public-facing function `dispatch` takes an N-arity tuple filled with the enum for each rank we wish to expand, and the arguments to forward as an rvalue reference parameter pack. Each iteration generates a switch statement over the I'th enum, where I runs from 0 to N. The metafor loops over all enumerators in the I'th enum type, and performs the enum-to-type dynamic name trick to append the type corresponding to the enum as the I'th type in the `types_t` parameter pack.
+The generic dispatch function uses enum introspection in a creative way to greatly simply template metaprogramming. The public-facing function `dispatch` takes an N-arity tuple filled with the enum for each rank we wish to expand, and the arguments to forward as an rvalue reference parameter pack. Each iteration generates a switch statement over the I'th enum, where I runs from 0 to N. The metafor loops over all enumerators in the I'th enum type, extracts the type associated with the i'th enumerator, and appends the type as the I'th type in the `types_t` parameter pack.
 
 Let's consider an example usage:
 
@@ -1711,30 +1736,30 @@ struct circle   { double val() const { return 10; } };
 struct square   { double val() const { return 20; } };
 struct octagon  { double val() const { return 30; } };
 
-enum class shapes_t {
-  circle,
-  square, 
-  octagon,
+enum typename class shapes_t {
+  circle = circle,
+  square = square,
+  octagon = octagon,
 };
 
 struct red      { double val() const { return 1; } };
 struct green    { double val() const { return 2; } };
 struct yellow   { double val() const { return 3; } };
 
-enum class colors_t {
-  red,
-  green, 
-  yellow
+enum typename class colors_t {
+  red = red,
+  green = green,
+  yellow = yellow,
 };
 
 struct solid    { double val() const { return .1; } };
 struct hatch    { double val() const { return .2; } };
 struct halftone { double val() const { return .3; } };
 
-enum class fills_t {
-  solid,
-  hatch,
-  halftone
+enum typename class fills_t {
+  solid = solid,
+  hatch = hatch,
+  halftone = halftone,
 };
 
 template<typename shape_obj_t, typename color_obj_t, 
@@ -1775,7 +1800,7 @@ int main(int argc, char** argv) {
   return 0;
 }
 ```
-The main function parses command line arguments and turns them into enums. The're then packed into a tuple and passed to the generic dispatch, which automatically generates the nested switch statements and instantiates `shape_computer_t` over every one of the 27-elements in the 3x3x3 outer product of types. Because we're using enumerations as sets (and not just a way to declare constant values), and Circle supports enum introspection, the generic dispatch can automatically associate enumerators with types (or any other declaration that name lookup finds) with the `@(@enum_name())` trick.
+The main function parses command line arguments and turns them into enums. The're then packed into a tuple and passed to the generic dispatch, which automatically generates the nested switch statements and instantiates `shape_computer_t` over every one of the 27-elements in the 3x3x3 outer product of types.
 
 [(output)](examples/dispatch/output.txt)
 ```

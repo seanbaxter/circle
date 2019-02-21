@@ -23,8 +23,8 @@ auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
           return dispatch_inner<
             I + 1, 
             client_temp, 
-            types_t...,                        // Expand the old types
-            @(@enum_name(enums_t...[I], i))    // Add this as a new type
+            types_t...,                     // Expand the old types
+            @enum_type(enums_t...[I], i)    // Add this as a new type
           >(e, std::forward<args_t>(args)...);
     }
   }
@@ -45,30 +45,30 @@ struct circle   { double val() const { return 10; } };
 struct square   { double val() const { return 20; } };
 struct octagon  { double val() const { return 30; } };
 
-enum class shapes_t {
-  circle,
-  square, 
-  octagon,
+enum typename class shapes_t {
+  circle = circle,
+  square = square,
+  octagon = octagon,
 };
 
 struct red      { double val() const { return 1; } };
 struct green    { double val() const { return 2; } };
 struct yellow   { double val() const { return 3; } };
 
-enum class colors_t {
-  red,
-  green, 
-  yellow
+enum typename class colors_t {
+  red = red,
+  green = green,
+  yellow = yellow,
 };
 
 struct solid    { double val() const { return .1; } };
 struct hatch    { double val() const { return .2; } };
 struct halftone { double val() const { return .3; } };
 
-enum class fills_t {
-  solid,
-  hatch,
-  halftone
+enum typename class fills_t {
+  solid = solid,
+  hatch = hatch,
+  halftone = halftone,
 };
 
 template<typename shape_obj_t, typename color_obj_t, 
