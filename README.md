@@ -13,6 +13,7 @@ Sean Baxter
 [Hello world](#hello-world)  
 [Hello harder](#hello-harder)  
 [What is Circle](#what-is-circle)  
+[Why I wrote Circle](#why-i-wrote-circle)  
 [Circle is a triangle](#circle-is-a-triangle)  
 [Meta statements](#meta-statements)  
 [Integrated interpreter](#integrated-interpreter)  
@@ -155,7 +156,106 @@ Are you surprised it works? We've just created an array of `@mtype` variables th
 
 Circle is a language that extends C++ 17. Aside from some very straight-forward introspection operators, there's very little mechanistically new here for you to learn. If you already know C++, you know Circle. Circle doesn't require you to change how you work. C++ is the de facto systems programming language of the computing industry, and Circle supports it fully, sharp edges and all.
 
-But Circle isn't just C++. What we've done is rotate C++ into the compile-time realm and went where that took us. So while the syntax is C++, and the signature features of C++ remain, like name lookup, overload resolution, implicit conversions, argument deduction, the C preprocessor, and on and on, their usage usage in Circle may have very different consequences.
+But Circle isn't just C++. What we've done is rotate C++ into the compile-time realm and went where that took us. So while the syntax is C++, and the signature features of C++ remain, like name lookup, overload resolution, implicit conversions, argument deduction, the C preprocessor, and on and on, their usage in Circle has context-dependent consequences.
+
+## Why I wrote Circle
+
+Circle is designed with different goals than recent iterations of C++. I intend to [Keep It Simple, Stupid](https://en.wikipedia.org/wiki/KISS_principle). No feature in Circle requires anything from C++17, or 14, or 11 or even C++ at all (except for the `...[]` and `@sfinae` operators). You don't have to use object-oriented programming, but you can. You don't have to use templates, but you can. You don't have to use the STL, or lambdas, or constraints metaprogramming, but you can. Circle isn't the next version of C++ as much as it is a revisionist history of C. Imagine that a programmer from the future went back to 1990, added reflection, introspection and a compile-time interpreter to C, then let that compiler evolve into the present day.
+
+Ever since template metaprogramming began in the early 2000s, C++ practice has put an ever-increasing cognitive burden on the developer for what I feel has been very little gain in productivity or expressiveness and at a huge cost to code clarity. I think this is mainly caused by an insistence to bolt a functional aparatus onto an imperative language.
+
+Extremely common tasks became puzzles, and hundreds of millions of hours of developer time are spent each year in solving these puzzles. How much of that time and effort can we reclaim and redirect on more creative and productive work?
+
+Consider the trivial example of unrolling a loop. What's the best practice for an unrolled loop using C++14?
+```cpp
+template<int I_>
+struct number_t {
+  enum { I = I_ };
+};
+
+// The primary template is recursive. Call f on I then go to the next I.
+template<int I, int N>
+struct unroll_t {
+  template<typename F>
+  static void go(F f) {
+    f(number_t<I>());
+    unroll_t<I + 1, N>::go(f);
+  }
+};
+
+// The partial template stops the recursion by doing nothing.
+template<int N>
+struct unroll_t<N, N> { 
+  template<typename F>
+  static void go(F f) { }
+};
+
+// Call this function template at each iteration.
+template<int I>
+void func(int& x) {
+  x *= 2;
+  printf("After I = %d, x = %d\n", I, x);
+}
+
+void foo() {
+  int x = 1;
+
+  // f is the body of the loop and invoked once per iteration.
+  // The generic lambda function has its own scope, so we need to use & to
+  // capture by reference the variable x that we need inside the loop.
+  auto f = [&](auto i) {
+    // Use decltype(i) to get the type, which we expect to be a number_t.
+    // Use ::I to access the loop index contained in the enum.
+    enum { I = decltype(i)::I };
+
+    // Now do the thing we wanted to do in the body of the loop.
+    func<I>(x);
+  };
+
+  // Make 5 loop iterations.
+  unroll_t<0, 5>::go(f);  
+}
+```
+```
+After I = 0, x = 2
+After I = 1, x = 4
+After I = 2, x = 8
+After I = 3, x = 16
+After I = 4, x = 32
+```
+We just want `foo` to enter a loop that calls `func` with the template argument `I` ranging from 0 to 4. We can't write a normal for loop and hope for the optimizer to help us, because the loop iterator must be `constexpr` since we're specializing a function template with it. So how do we effect an unrolled loop without language support for one? Create a class template `unroll_t` that is specialized over the range of the loop. A partial template terminates execution when `I` equals `N`. A static member function calls the provided functor and passes in instance of `number_t`, which is a class template that defines an integer constant called `I`. The class template then instantiates itself on `I + 1` and invokes the static member function `go` to begin the next iteration.
+
+How do we use such a thing? Write a generic lambda (C++14 required) that takes an `auto` parameter i. This is actually a function template where `auto` stands in for an invented type parameter. We actually want a non-type parameter `I` (the loop index), but the generic lambda doesn't allow it. That's why we embed the loop index into the class template `number_t`. How do we get the loop index back out? Use `decltype` (C++11 required) to infer the type of the function parameter and read out the enum `I`.
+
+Without the generic lambdas that C++14 provides, the process is even more intrusive. You need to put your loop's body into a function template so that it can receive the `number_t` argument (although it can now take the loop index as a non-type template parameter directly), but you also need to capture variables like `x` that are in the context of the loop. The only way is to write a class that has reference data members to explicitly capture the loop's context and a non-static `operator()` member function template to receive the loop index argument and execute the loop body.
+
+One could say that generic lambdas lessen the pain of loop unrolling, but let's ask ourselves why we're incorporating a lot of functional programming boilerplate to emulate the most quintessentially-imperative task: executing a loop.
+```cpp
+// Call this function template at each iteration.
+template<int I>
+void func(int& x) {
+  x *= 2;
+  printf("After I = %d, x = %d\n", I, x);
+}
+
+void foo() {
+  int x = 1;
+  @meta for(int i = 0; i < 5; ++i)
+    func<i>(x);
+}
+```
+```
+After I = 0, x = 2
+After I = 1, x = 4
+After I = 2, x = 8
+After I = 3, x = 16
+After I = 4, x = 32
+```
+Circle provides compile-time variants of control flow statements like `if`, `for` and `while`. Executing the loop at compile time has the effect of unrolling the loop. The child statement is translated once for each loop iteration, creating a new function template instantiation at each step.
+
+I tried to bring the imperative constructs that C++ inherited from C into the compile-time realm. Collectively these new features support generic programming in a familiar, proven, imperative style. In the examples below, each statement has _intent_ (meaning it's clear what it does) and _heft_ (meaning it does something). Those are the traits that C brought to software design. I hope Circle is able to carry them over into generic programming, so that we can automate the tedious aspects of engineering and spend more time on the creative parts of design.
+
+Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 2026 or 2030 for technical reports to become adopted and pushed out in future C++ compilers? I've wanted to use introspection, reflection and unrestricted compile-time execution since I started programming 22 years ago. The barriers of entry for compiler development are modest: you just need a computer, time, and a high threshold for pain. When it comes to the tools that I use every day to do my work, I felt it was time to control my own destiny and write the language I've always wanted to use.
 
 ## Circle is a triangle
 
