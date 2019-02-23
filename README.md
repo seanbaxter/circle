@@ -199,8 +199,9 @@ void foo() {
   // The generic lambda function has its own scope, so we need to use & to
   // capture by reference the variable x that we need inside the loop.
   auto f = [&](auto i) {
-    // Use decltype(i) to get the type, which we expect to be a number_t.
-    // Use ::I to access the loop index contained in the enum.
+    // Use decltype(i) to get the type, which we expect to be an
+    // integral_constant. Use ::value to access the loop index contained in the
+    // structure.
     enum { I = decltype(i)::value };
 
     // Now do the thing we wanted to do in the body of the loop.
@@ -218,11 +219,11 @@ After I = 2, x = 8
 After I = 3, x = 16
 After I = 4, x = 32
 ```
-We just want `foo` to enter a loop that calls `func` with the template argument `I` ranging from 0 to 4. We can't write a normal for loop and hope for the optimizer to help us, because the loop iterator must be `constexpr` since we're specializing a function template with it. So how do we effect an unrolled loop without language support for one? Create a class template `unroll_t` that is specialized over the range of the loop. A partial template terminates execution when `I` equals `N`. A static member function calls the provided functor and passes in instance of `number_t`, which is a class template that defines an integer constant called `I`. The class template then instantiates itself on `I + 1` and invokes the static member function `go` to begin the next iteration.
+We just want `foo` to enter a loop that calls `func` with the template argument `I` ranging from 0 to 4. We can't write a normal for loop and hope for the optimizer to help us, because the loop iterator must be `constexpr` since we're specializing a function template with it. So how do we effect an unrolled loop without language support for one? Create a class template `unroll_t` that is specialized over the range of the loop. A partial template terminates execution when `I` equals `N`. A static member function calls the provided functor and passes in instance of `integral_constant`, which is a class template that defines an integer constant called `I`. The class template then instantiates itself on `I + 1` and invokes the static member function `go` to begin the next iteration.
 
-How do we use such a thing? Write a generic lambda (C++14 required) that takes an `auto` parameter i. This is actually a function template where `auto` stands in for an invented type parameter. We actually want a non-type parameter `I` (the loop index), but the generic lambda doesn't allow it. That's why we embed the loop index into the class template `number_t`. How do we get the loop index back out? Use `decltype` (C++11 required) to infer the type of the function parameter and read out the enum `I`.
+How do we use such a thing? Write a generic lambda (C++14 required) that takes an `auto` parameter i. This is actually a function template where `auto` stands in for an invented type parameter. We actually want a non-type parameter `I` (the loop index), but the generic lambda doesn't allow it. That's why we embed the loop index into the class template `integral_constant`. How do we get the loop index back out? Use `decltype` (C++11 required) to infer the type of the function parameter and read out the enum `I`.
 
-Without the generic lambdas that C++14 provides, the process is even more intrusive. You need to put your loop's body into a function template so that it can receive the `number_t` argument (although it can now take the loop index as a non-type template parameter directly), but you also need to capture variables like `x` that are in the context of the loop. The only way is to write a class that has reference data members to explicitly capture the loop's context and a non-static `operator()` member function template to receive the loop index argument and execute the loop body.
+Without the generic lambdas that C++14 provides, the process is even more intrusive. You need to put your loop's body into a function template so that it can receive the `integral_constant` argument (although it can now take the loop index as a non-type template parameter directly), but you also need to capture variables like `x` that are in the context of the loop. The only way is to write a class that has reference data members to explicitly capture the loop's context and a non-static `operator()` member function template to receive the loop index argument and execute the loop body.
 
 One could say that generic lambdas lessen the pain of loop unrolling, but let's ask ourselves why we're incorporating a lot of functional programming boilerplate to emulate the most quintessentially-imperative task: executing a loop.
 ```cpp
