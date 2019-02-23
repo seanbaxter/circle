@@ -36,6 +36,7 @@ Sean Baxter
 [Template metaprogramming](#template-metaprogramming)  
 [SFINAE](#sfinae)  
 [Typed enums](#typed-enums)  
+[case-typename](#case-typename)  
 [Variant](#variant)  
 [Generic dispatch](#generic-dispatch)  
 
@@ -1609,7 +1610,7 @@ A common template metaprogramming problem involves manipulation of type lists. T
 Circle extends the ordinary enum by allowing you to associate a type with each enumerator. How do we enable this? Use `typename` immediately after the `enum` keyword, right before the `class` or `struct` keywords that indicate a scoped enum:
 
 ```cpp
-enum typename [class | struct] my_tuple [: underlying-type] {
+enum typename [class | struct] my_typed_enum [: underlying-type] {
   [identifier = ] type-id, [identifier = ] type-id
 };
 ```
@@ -1628,10 +1629,10 @@ What can we do with this? Define variant classes, for one thing.
 template<typename... types_t>
 struct variant_t {
 
-  struct none { };
+  struct none_t { };
 
   enum typename class tag_t {
-    none = none,
+    none = none_t,
     @meta for(int i = 0; i < sizeof...(types_t); ++i) 
       types_t...[i];
   };
@@ -1643,16 +1644,86 @@ struct variant_t {
     @meta for(int i = 0; i < @enum_count(tag_t); ++i)
       @enum_type(tag_t, i) @(i);
   };
+  
+  // We need an empty constructor to tell the compiler we can be trusted
+  // with the union over non-trivial types.
+  variant_t() { }
+
+  // Use switches over tag with case statements to destruct, copy construct,
+  // move construct, copy assign and move assign variant members.
+  ~variant_t();
+
+  variant_t(const variant2_t& rhs);
+  variant_t(variant2_t&& rhs);
+
+  variant_t& operator=(const variant2_t& rhs);
+  variant_t&& operator=(variant2_t&& rhs);
 };
 ```
 
-The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated empty class `none`. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
+The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated empty class `none_t`. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
 
 The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
 
 To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
 
 Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
+
+```cpp
+struct none_t { };
+
+template<typename tag_t>
+struct variant2_t {
+  // tag_t must have a none enumerator.
+  tag_t tag = tag_t::none;
+
+  union {
+    @meta for(int i = 0; i < @enum_count(tag_t); ++i)
+      @enum_type(tag_t, i) @(@enum_name(tag_t, i));
+  };
+
+  // Member functions go here.
+};
+
+// The variant members of the anonymous union are given the same names as
+// these enumerators.
+enum typename class my_types_t {
+  none = none_t,
+  us = unsigned short,
+  d = double,
+  s = std::string,
+  m = std::map<std::string, double>,
+};
+
+// Instantiate the variant over the typed enum rather than over a parameter 
+// pack.
+variant2_t<my_types_t> my_variant;
+```
+We can also define the typed enum by hand rather than automatically through a parameter pack. This allows us to provide convenient names for each enumerator, names which will be transfered to the variant members. Now, in addition to using the standard `get` and accessor on the variant, the user can access variant members by the names they provided in the typed enum.
+
+```cpp
+
+// Instantiate the variant over the typed enum. Now each variant member of the
+// anonymous union uses the name of the corresponding enumerator. This is the 
+// same as manually writing:
+
+struct variant2_t {
+  my_types_t tag = my_types_t::none;
+
+  union {
+    none_t none;
+    unsigned short us;
+    double d;
+    std::string s;
+    std::map<std::string, double> m;
+  };
+
+  // Member functions go here.
+};
+```
+If the above instantiation `variant2_t<my_types_t>` were written by hand, it would look exactly like this. The generative code adheres very closely to the hand-written ideal. We use the enum introspection keywords and metafor over each enumerator, depositing a member-specifier into the anonymous union with each iteration.
+
+## case-typename
 
 For added convenience, Circle introduces a _case-typename_ statement. This bit of porcelain allows the user to specify a _type-id_ in a _case-statement_ rather than specifying an integral _constant-expression_. The _type-id_ is then automatically mapped to the corresponding enumerator in the typed-enum which is used in the predicate of the enclosing _switch-statement_.
 
@@ -1662,17 +1733,25 @@ For added convenience, Circle introduces a _case-typename_ statement. This bit o
 enum typename class my_enum_t {
   Int = int,
   Double = double,
-  Char = char
+  Void = void,
+  Char = char,
 };
 
 my_enum_t e = my_enum_t::Double;
 switch(e) {
   case typename int:
+    // case typename replaces the type-id with the corresponding enumerator
+    // of the enum in the switch predicate.
     printf("It's an int\n");
     break;
 
   case typename double:
     printf("It's a double\n");
+    break;
+
+  case my_enum_t::Void:
+    // We can still use normal case statements in this switch.
+    printf("It's a void\n");
     break;
 
   case typename char:
@@ -1681,9 +1760,11 @@ switch(e) {
 }
 return 0;
 ```
-This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time.
+This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time. 
 
 ## Variant
+
+Full variant examples coming soon.
 
 ## Generic dispatch
 
