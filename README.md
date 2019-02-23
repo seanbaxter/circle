@@ -1637,7 +1637,7 @@ struct variant_t {
       types_t...[i];
   };
 
-  tag_t tag { };
+  tag_t tag = tag_t::none;
 
   union {
     // Declare a variant member for each enumerator.
@@ -1657,7 +1657,7 @@ struct variant_t {
   variant_t(variant2_t&& rhs);
 
   variant_t& operator=(const variant2_t& rhs);
-  variant_t&& operator=(variant2_t&& rhs);
+  variant_t& operator=(variant2_t&& rhs);
 };
 ```
 
@@ -1758,7 +1758,6 @@ switch(e) {
     printf("It's a char\n");
     break;
 }
-return 0;
 ```
 This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time. 
 
