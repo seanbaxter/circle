@@ -1653,11 +1653,7 @@ struct variant_t {
   // move construct, copy assign and move assign variant members.
   ~variant_t();
 
-  variant_t(const variant2_t& rhs);
-  variant_t(variant2_t&& rhs);
-
-  variant_t& operator=(const variant2_t& rhs);
-  variant_t& operator=(variant2_t&& rhs);
+  // Other members here.
 };
 ```
 
