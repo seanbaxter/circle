@@ -168,17 +168,12 @@ Extremely common tasks became puzzles, and hundreds of millions of hours of deve
 
 Consider the trivial example of unrolling a loop. What's the best practice for an unrolled loop using C++14?
 ```cpp
-template<int I_>
-struct number_t {
-  enum { I = I_ };
-};
-
 // The primary template is recursive. Call f on I then go to the next I.
 template<int I, int N>
 struct unroll_t {
   template<typename F>
   static void go(F f) {
-    f(number_t<I>());
+    f(std::integral_constant<int, I>());
     unroll_t<I + 1, N>::go(f);
   }
 };
@@ -206,7 +201,7 @@ void foo() {
   auto f = [&](auto i) {
     // Use decltype(i) to get the type, which we expect to be a number_t.
     // Use ::I to access the loop index contained in the enum.
-    enum { I = decltype(i)::I };
+    enum { I = decltype(i)::value };
 
     // Now do the thing we wanted to do in the body of the loop.
     func<I>(x);
