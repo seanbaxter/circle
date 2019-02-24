@@ -31,6 +31,7 @@ Sean Baxter
 [Code injection](#code-injection)  
 [Configuration-oriented programming](#configuration-oriented-programming)  
 [Building functions from JSON](#building-functions-from-json)  
+[Errors in configuration files](#errors-in-configuration-files)  
 [Kernel parameterization](#kernel-parameterization)  
 [Querying JSON](#querying-json)  
 [Querying Lua](#querying-lua)  
@@ -1132,7 +1133,9 @@ Circle's code injection mechanisms are real frontend features. They don't run un
 
 ## Building functions from JSON
 
-[**special.json**](examples/special/special.json) [(output)](examples/special/output.txt)  
+Consider establishing a _domain-specific language_ in the form of a JSON file/Circle code contract. Certain fields in the JSON carry special meaning in the Circle code. In this example, we whip up a DSL for defining mathematical special functions using special JSON fields. The Circle code that executes the DSL loads the configuration file at compile-time, iterates over the fields, and emits ordinary C functions with external linkage that implement requests made inside the JSON.
+
+[**special.json**](examples/special/special.json)  
 ```json
 {
   "sin" : {
@@ -1167,9 +1170,18 @@ Circle's code injection mechanisms are real frontend features. They don't run un
   }
 }
 ```
+The top-most entity is an unordered object of key-value pairs. For each pair, the key is the name of the function. This is not necessarily the name of the exported function, but rather a parameter that the Circle code uses when executing the DSL.
 
+The value of each top-level pair is a collection of optional fields. The ones recognized by the Circle code implenting the DSL are:
+* `f` - A C++ expression providing the definition of the function. This is useful for functions that are clearly expressed in a single statement. The variable `x` in this expression holds the value of the argument.
+* `statements` - A sequence of C++ statements providing the definition of the function. This includes the function's return statement. The variable `x` holds the value of the argument.
+* `series` - An array of constants holding the coefficients of a Taylor series to approximate the function. The number of coefficients is not fixed; the Circle code implementing the DSL will evaluate the Taylor series using all the coefficients provided.
+* `integer` - A flag indicating that the input argument must be a positive integer. If this flag is asserted in the JSON, the Circle implementation emits code to test if the argument `x` is a positive integer, and if not, produces an error. The decision to emit this test is made at compile time. The test itself is made at runtime, when the value of the argument is available.
+* `note` - Since we're generating functions programmatically, it's useful to log the functions as they are defined by the implementation of the DSL. The `note` field is added to the log when its associated function is generated to help the developer make sense of the build process.
 
+The comment and derivative fields don't yet have corresponding implementations in the Circle implementation of the DSL. This is one of the strengths of separating code (C++/Circle) from logic (the JSON). You can version the logic and code independently of one another. Adding fields to the JSON won't break the code. Adding support for new fields in the code won't break the JSON, unless those fields are mandatory.
 
+[**special.cxx**](examples/special/special.cxx)  
 ```cpp
 // Header-only JSON parser.
 #include <json.hpp>
@@ -1213,7 +1225,32 @@ $ nm special | egrep "f_|series_"
 00000000004009b0 T series_sin
 0000000000400a00 T series_tanh
 ```
+To open the JSON file at compile time, we use [this popular JSON parser](https://github.com/nlohmann/json). It's header-only, which makes building a breeze. Meta objects for the top-level JSON object and the file stream are created in the translation unit. These objects have the storage duration of the translation unit (that's static storage duration for meta objects); they are destructed in the opposite order in which they're constructed before the compiler exits.
 
+Let's look at the output of the compile process before getting to the rest of the code. As we compile, the status of the five generated functions are logged. These logs are normal `printf` statements coming from inside the translation unit. Each of the five functions from the JSON are logged, but in alphabetical order according to their names. The note for the function `E1` is printed, because `note` is a recognized field in the example's DSL. Functions defined with expressions have those expressions printed. Functions defined with statements have those statements printed. Finally, if the function has a `series` field in the configuration, the log informs when a Taylor series function is generated.
+
+After the executable is built, the command line tool `nm` reveals the exported functions. The functions generated from expressions or statements have "f_" prepended to their JSON names. The Taylor series have "series_" prepended to their JSON names.
+
+Let's break the the code-generation algorithm down into a recipe:
+1. `@meta for` over each item in the JSON configuration.
+1. `@meta printf` to the log message to the terminal. `@meta if` there's a `note`, print that too.
+1. Declare a function with the name f_{name}. 
+  * Use string concatenation to join the substrings together. The [dynamic name operator `@()`](#dynamic-names) turns the name string into an identifier token.
+  * Mark the function with the `extern "C"` _linkage-specifier_ to turn off function name mangling. After all, we want our output binary to be usable by script engines and other clients that don't implement C++ ABI name mangling.
+1. Generate the function definition.
+  * `@meta if` the flag `integer` is found in the item's JSON, emit a runtime test that confirms that the argument variable is a positive integer.
+  * `@meta if` there is an `f` field in the JSON, turn the string value of that field into tokens and parse as a _primary-expression_ with the `@expression` extension. Return that result object. Remember to @meta printf the expression for our log.
+  * `else @meta if` there is a `statements` field, turn the string value of that field into tokens and parse as a _statements_ production with the `@statements` extension. The _return-statement_ is already part of the `statements` text, so we don't have to return anything. @meta printf the statements for the logic.
+  * `else` issue a `static_assert`, complaining that there's no definition for this function. In Circle, `static_assert` takes any meta string, so we can use some text formatting to produce a prettier error.
+1. `@meta if` there is a `series` field, declare a function called series_{name}.
+  * `@meta printf` the series to the log.
+  * Declare a real variable `xn` that holds the argument `x` raised to the current power.
+  * Declare a real variable `y` that serves as an accumulator for the Taylor series.
+  * `@meta for` each coefficient in the `series` array.
+    * Accumulate `xn * c` into `y`.
+    * Advance `xn` to the next power with `xn *= x`.
+
+[**special.cxx**](examples/special/special.cxx)  
 ```cpp
 // Loop over each json item and define the corresponding functions.
 @meta for(auto& item : j.items()) {
@@ -1284,6 +1321,52 @@ $ nm special | egrep "f_|series_"
   }
 }
 ```
+The Circle code that implements our little DSL is not really longer than the recipe when written out in bullet points. Just as there's no API for programmatically declaring data members, there's no API for declaring functions and objects; we just write the thing out with a normal declaration statement:
+
+* `extern "C" double @("f_" + name)(double x)`
+
+The dynamic name operator `@()` turns std::string into an identifier token, and that's the only extension required for this part of code generation. Most languages offering reflection do so at runtime through very elaborate and [fine-grained APIs](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.emit.typebuilder.definemethod?view=netframework-4.7.2). The mantra is _if you know C++, you already know Circle_. With very few language additions for the programmer to learn (although pretty big additions to the compiler itself), it's possible to implement a DSL that traverses a configuration file and generates a shared object based on the fields in that file. 
+
+## Errors in configuration files
+```json
+{
+  "sin" : {
+    "f"          : "sin(x)",
+    "df"         : "cos(x)",
+    "series"     : [ 0, 1, 0, -0.1666666, 0, -.0083333 ],
+    "comment"    : "See the broken numeric literal -.0083333."
+  }
+}
+```
+Involving external resources like JSON adds a real twist into the compilation process: how do we deal with errors that originate not inside C++/Circle code, but inside the resource itself?
+
+We'll take the [**special.cxx**](examples/special/special.cxx) file and break it subtly. C++ allows floating-point literals in the form -.0083333, but JSON does not: it requires an integer 0 between the _-_ and the _._, like so: -0.0083333. We can't expect an error from the C++ tokenizer, because C++ doesn't tokenize this text--that's done by the JSON parser.
+
+The Circle compiler has no specific response to this kind of error, so what happens when we try to compile **special** using this configuration file?
+```
+$ circle special.cxx
+[ERROR]: Uncaught exception:
+[json.exception.parse_error.101] parse error at line 5, column 47: syntax error while parsing value - invalid number; expected digit after '-'; last read: '-.'
+```
+We get a nicely-formatted error that provides the exact line and column of the problem along with a nice description.
+
+When the JSON library JSON library encounters a syntax error, it throws a parse error exception object. Since we're running the parser at compile time, this becomes a compile-time exception. The translation unit's source code does not catch this exception, although it could with `@meta try/catch`. Instead, the exception unwinds all the way through the translation unit until it is caught by a generic _handler_ in the `main` function of the compiler itself.
+
+The JSON exception object is part of a class hierarchy that inherits [`std::exception`](https://en.cppreference.com/w/cpp/error/exception). Circle's uncaught exception handler is able to make a successful type cast to `exception`, so it's able to call [`what`](https://en.cppreference.com/w/cpp/error/exception/what) to retrieve the error string.
+
+Here's the rub: `what` is a virtual function. Its implementation was defined by the JSON library, _inside the interpreter_. The concrete type that implements this function adds the function pointer to a vtable that exists _inside the interpreter_. The Circle uncaught exception handler is running compiled code, and wants to make a virtual function call into a function implemented in the interpreter. Is Circle able to simplify call `what` and have the function execute by the interpreter?
+
+Yes, it is. Functions that are defined in the translation unit and called from inside the interpreter don't require a foreign function interface: you simply copy the arguments and start interpreting the AST for the function definition. But what happens if we store a function pointer somewhere? We have to store a 64-bit address that is callable like any real, compiled function.
+
+Circle uses libffi to generate a foreign function "closure." This is a small allocation of memory that's marked executable. If you call the address like a function pointer, execution goes to a libffi-provided trampoline, which forwards a handle for the function and pointers to each argument to a user-provided (in this case, interpreter-provided) handler function. The handler can then push the arguments to the interpreter's call stack and execute the function from AST. There's a similar mechanism for returning result objects.
+
+This is a crucial bit of plumbing. You never have to worry about serializing function call arguments between the interpreter and compiled code.
+* All calls are intra-process, so we don't have address space concerns.
+* The interpreter and compiled codes agree on the convention for class object layout and RTTI, because each implement the C++ ABI.
+
+If we used a JSON parser that came in binary form (i.e. packaged as a shared object) and it threw an exception inside compiled code, that exception would completely unwind the interpreter, then unwind the Circle compiler process itself until it was handled by the uncaught exception handler. In this case, as in the case above, the `what` function on the exception handler is cleanly invoked. This time, however, a direct call is made to the `what` function, because the exception was implemented by compiled code (in a different shared object, sure, but in the same process); there's no call through a trampoline function.
+
+Circle's integrated interpreter features smooth interoperability with compiled code. No markup is ever required to import functions or objects that are provided by compiled code; just `#include` the appropriate header and use it as you normally would. 
 
 ## Kernel parameterization
 
