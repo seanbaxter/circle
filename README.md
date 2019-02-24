@@ -1236,12 +1236,12 @@ Let's break the the code-generation algorithm down into a recipe:
 1. `@meta printf` to the log message to the terminal. `@meta if` there's a `note`, print that too.
 1. Declare a function with the name f_{name}. 
   * Use string concatenation to join the substrings together. The [dynamic name operator `@()`](#dynamic-names) turns the name string into an identifier token.
-  * Mark the function with the `extern "C"` _linkage-specifier_ to turn off function name mangling. After all, we want our output binary to be usable by script engines and other clients that don't implement C++ ABI name mangling.
+  * Mark the function with the `extern "C"` _linkage-specifier_ to turn off function name mangling. After all, we want our output binary to be usable by script engines and other clients that don't implement C++ ABI name mangling.  
 1. Generate the function definition.
   * `@meta if` the flag `integer` is found in the item's JSON, emit a runtime test that confirms that the argument variable is a positive integer.
   * `@meta if` there is an `f` field in the JSON, turn the string value of that field into tokens and parse as a _primary-expression_ with the `@expression` extension. Return that result object. Remember to @meta printf the expression for our log.
   * `else @meta if` there is a `statements` field, turn the string value of that field into tokens and parse as a _statements_ production with the `@statements` extension. The _return-statement_ is already part of the `statements` text, so we don't have to return anything. @meta printf the statements for the logic.
-  * `else` issue a `static_assert`, complaining that there's no definition for this function. In Circle, `static_assert` takes any meta string, so we can use some text formatting to produce a prettier error.
+  * `else` issue a `static_assert`, complaining that there's no definition for this function. In Circle, `static_assert` takes any meta string, so we can use some text formatting to produce a prettier error.  
 1. `@meta if` there is a `series` field, declare a function called series_{name}.
   * `@meta printf` the series to the log.
   * Declare a real variable `xn` that holds the argument `x` raised to the current power.
