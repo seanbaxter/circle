@@ -226,7 +226,7 @@ How do we use such a thing? Write a generic lambda (C++14 required) that takes a
 
 Without the generic lambdas that C++14 provides, the process is even more intrusive. You need to put your loop's body into a function template so that it can receive the `integral_constant` argument (although it can now take the loop index as a non-type template parameter directly), but you also need to capture variables like `x` that are in the context of the loop. The only way is to write a class that has reference data members to explicitly capture the loop's context and a non-static `operator()` member function template to receive the loop index argument and execute the loop body.
 
-One could say that generic lambdas lessen the pain of loop unrolling, but let's ask ourselves why we're incorporating a lot of functional programming boilerplate to emulate the most quintessentially-imperative task: executing a loop.
+One could say that generic lambdas lessen the pain of loop unrolling, but let's ask ourselves why we're incorporating a lot of functional programming boilerplate to emulate the most quintessentially-imperative task: stepping through a loop.
 ```cpp
 // Call this function template at each iteration.
 template<int I>
@@ -252,7 +252,7 @@ Circle provides compile-time variants of control flow statements like `if`, `for
 
 I tried to bring the imperative constructs that C++ inherited from C into the compile-time realm. Collectively these new features support generic programming in a familiar, proven, imperative style. In the examples below, each statement has _intent_ (meaning it's clear what it does) and _heft_ (meaning it does something). Those are the traits that C brought to software design. I hope Circle is able to carry them over into generic programming, so that we can automate the tedious aspects of engineering and spend more time on the creative parts of design.
 
-Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 2026 or 2030 for technical reports to become adopted and pushed out in future C++ compilers? I've wanted to use introspection, reflection and unrestricted compile-time execution since I started programming 22 years ago. The barriers of entry for compiler development are modest: you just need a computer, time, and a high threshold for pain. When it comes to the tools that I use every day to do my work, I felt it was time to control my own destiny and write the language I've always wanted to use.
+Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 2026 or 2030 for technical reports to become adopted and pushed out in future C++ compilers? I've wanted to use introspection, reflection and unrestricted compile-time execution since I started programming 22 years ago. The barriers of entry for compiler development are modest: you just need a computer, time, and a high tolerance for pain. When it comes to the tools that I use every day to do my work, I felt it was time to control my own destiny and write the language I've always wanted to use.
 
 ## Circle is a triangle
 
@@ -2089,7 +2089,7 @@ int main(int argc, char** argv) {
 ```
 The main function parses command line arguments and turns them into enums. The're then packed into a tuple and passed to the generic dispatch, which automatically generates the nested switch statements and instantiates `shape_computer_t` over every one of the 27-elements in the 3x3x3 outer product of types.
 
-[(output)](examples/dispatch/output.txt)
+[(output)](examples/dispatch/output.txt)  
 ```
 $ circle dispatch.cxx 
 Instantiating { circle, red, solid }
