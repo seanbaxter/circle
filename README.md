@@ -8,6 +8,8 @@ Sean Baxter
 
 ## Contents
 
+** **[Circle for GPU](NVVM.md)**
+
 [Abstract](#abstract)  
 [TLDR;](#tldr)  
 [Hello world](#hello-world)  
