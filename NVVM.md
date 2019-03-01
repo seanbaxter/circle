@@ -127,7 +127,7 @@ __device__ int reduction(int x, int tid) {
 ```
 Assuming we target three GPU device generations, `nvcc` will make four front-end passes over the translation unit: one for the host code and three for the device code. When the `__device__`-tagged `reduction` function is parsed, each pass takes a different branch in the `__CUDA_ARCH__`-predicated control flow. This prevents the code from using a too-new feature on a too-old device, or using a non-performant older feature on a device that supports more efficient mechanisms. If you're enforcing what features are actually available on each device architecture _during translation_, this is a good model.
 
-Circle gets by with a single pass by exposing a codegen-time constant called `__nvvm_arch`. We can no longer use preprocessor directives to branch over this value, because the value is no longer known during tokenization. We can branch over it during translation (as if it was normal variable), and that will add both the if and else statements to the AST. We'll then _evaluate the predicate_ during code generation, when we know the values of `__nnvm_arch` and the other codegen-time constants, and either emit or skip over that subtree in the AST for that machine target.
+Circle gets by with a single pass by exposing a codegen-time constant called `__nvvm_arch`. We can no longer use preprocessor directives to branch over this value, because the value is no longer known during tokenization. We can branch over it during translation (as if it was normal variable), and that will add both the if and else statements to the AST. We'll then _evaluate the predicate_ during code generation, when we know the values of `__nnvm_arch` and the other codegen-time constants, and either emit or skip over that subtree in the AST for that machine target. `__nnvm_arch` is an instance of a scoped enum, which is why we need an explicit cast to `int` to make a value comparison. The [next section](#switching-over-architectures-in-circle) introduces that enum.
 
 How do we do this safely? Introduce a new context on objects and expressions: the _codegen context_. This is similar to the constexpr and meta contexts in Circle. When targeting NVVM, `__nvvm_arch` is a codegen constant. If it's combined with a constexpr, meta or another codegen expression, the result object is also a codegen constant. If it's combined with a non-constant expression, that's an ill-formed statement.
 
@@ -139,10 +139,10 @@ How do we make codegen-context object and _if-statement_ declarations? With the 
 __device__ int reduction(int x, int tid) {
   int y = 0;
 
-  @codegen if(__nvvm_arch < 35) {
+  @codegen if((int)__nvvm_arch < 35) {
     // Do something appropriate for old devices.
 
-  } else @codegen if(__nvvm_arch < 60) {
+  } else @codegen if((int)__nvvm_arch < 60) {
     // Do something appropriate for Maxwell.
 
   } else {
@@ -160,19 +160,17 @@ It's during code-generation and not during translation where we check for the av
 
 ## Switching over architectures in Circle
 
+When you specify at least one GPU target using an `-sm_{arch}` compiler switch, the compiler implicitly defines a scoped enumeration `nvvm_arch_t` that names each of those architectures. For example, `-sm_35 -sm_52 -sm_60` defines this enum:
 ```cpp
-// Define the supported architectures in this build. The code generator will 
-// build a module for each of these. The enum names are mostly for fun--what
-// we really care about are the values.
-enum class gpu_arch_t {
-  kepler = 35,
-  maxwell = 52,
-  pascal = 60,
-  volta = 70,
-  turing = 75,
+enum class nvvm_arch_t {
+  sm_35 = 35,
+  sm_52 = 52,
+  sm_60 = 60,
 };
-
-template<gpu_arch_t arch, typename type_t>
+```
+As the code generator targets each GPU backend, it sets the codegen constant `__nvvm_arch` to the enumerator of that architecture. Using Circle's [enum introspection](README.md#introspection-on-enums), we can mechanically iterate over each device architecture and automatically generate targeted code.
+```cpp
+template<nvvm_arch_t arch, typename type_t>
 void radix_sort_sm(type_t* data, size_t count) {
   // There's just one definition of the radix_sort_sm function template. It's 
   // specialized over the sm number, but since there's just one front-end pass,
@@ -194,14 +192,12 @@ template<typename type_t>
 void radix_sort(type_t* data, size_t count) {
   // Switch over the target machines and call to radix_sort_sm. 
   // Specialize on the sm version.
-  @meta for(int i = 0; i < @enum_count(gpu_arch_t); ++i)
-    @codegen if((int)@enum_value(gpu_arch_t, i) == __nvvm_arch)
-      radix_sort_sm<@enum_value(gpu_arch_t, i)>(data, count);
+  @meta for(int i = 0; i < @enum_count(nvvm_arch_t); ++i)
+    @codegen if(@enum_value(nvvm_arch_t, i) == __nvvm_arch)
+      radix_sort_sm<@enum_value(nvvm_arch_t, i)>(data, count);
 }
 ```
-Define an enum with one enumerator per target machine architecture. Call it `gpu_arch_t`. In the futureu, Circle might define this automatically for nvvm builds.
-
-Write a function template that defines the kernel and parameterize it over a `gpu_arch_t` enum. Following the general examples [Querying JSON](https://github.com/seanbaxter/circle#querying-json) and [Querying Lua](https://github.com/seanbaxter/circle#querying-lua), we employ meta statements to retrieve tuning constants from the target machine version and the function parameter types. The flashiest solution is to put the parameters in a separate file, but you can also define them in any ordinary data structure using a meta object in namespace scope. For example, 
+Write a function template that defines the kernel and parameterize it over an `nvvm_arch_t` enum. Following the general examples [Querying JSON](https://github.com/seanbaxter/circle#querying-json) and [Querying Lua](https://github.com/seanbaxter/circle#querying-lua), we employ meta statements to retrieve tuning constants from the target machine version and the function parameter types. The flashiest solution is to put the parameters in a separate file, but you can also define them in any ordinary data structure using a meta object in namespace scope. For example, 
 ```cpp
 @meta std::map<kernel_key_t, params_t> radix_sort_params_map {
   // Construct this map with key/value pairs for the radix sort.
@@ -209,9 +205,9 @@ Write a function template that defines the kernel and parameterize it over a `gp
 ```
 is a convenient way to make parameters indexable by kernel key. When source translation is done, the `radix_sort_params_map` is deleted with all other meta objects of static storage duration. It will not be included in your binary.
 
-[Enum introspection](https://github.com/seanbaxter/circle#introspection-on-enums) is the all-star feature in Circle, and it's used again by the `radix_sort` launcher. The metafor steps over all `gpu_arch_t` values. At each step, a codegen context _if-statement_ matches the sm version of the enumerator to the codegen constant `__nvvm_arch` and emits a call to `radix_sort_sm` specialized over that SM version. We don't know what value `__nvvm_arch` has at translation, but that's okay--Circle makes only a single front-end pass over the translation unit, so no unwanted code will be added to the AST. 
+[Enum introspection](https://github.com/seanbaxter/circle#introspection-on-enums) is the all-star feature in Circle, and it's used again by the `radix_sort` launcher. The metafor steps over all `nvvm_arch_t` values. At each step, a codegen context _if-statement_ matches the sm version of the enumerator to the codegen constant `__nvvm_arch` and emits a call to `radix_sort_sm` specialized over that SM version. We don't know what value `__nvvm_arch` has at translation, but that's okay--Circle makes only a single front-end pass over the translation unit, so no unwanted code will be added to the AST.
 
-When the code generator runs for each GPU architecture, only the child statement of the `@codegen if` statement that matches the targeted machine architecture gets emitted as NVVM code.
+When the code generator runs for each GPU architecture, only the child statement of the `@codegen if` statement that matches the targeted machine architecture gets emitted as NVVM code. It's worth sitting back to realize that the specific device architectures are not listed in this source: they are pulled using introspection. Recompiling the program with different `-sm_{arch}` options defines a different enumeration and generates different AST.
 
 If it's too burdensome to provide a parameter set for every GPU architecture being targeted, this code can easily be adjusted to match the `__nvvm_arch` to a range of targets covered by a single parameter set. That would generate M (the number of different tunings) function template instantiations and N (the number of machine targets) backend versions. Each of the N target machines uses the most appropriate of the M tunings.
 
@@ -226,7 +222,7 @@ Circle retains `__device__` tags, but only needs them on function declarations t
 Start the code generator at a kernel function. This still gets tagged with the `__global__` token. The backend traverses the kernel's AST and emits NVVM IR. When it encounters a function call, there are a few things that can happen:
 1. If the function is externally defined and marked `__device__`, the backend emits a call instruction. It's then up to the linker to find a definition.
 1. If the function is externally defined and not marked `__device__`, the program is ill-formed.
-1. If the function is locally defined, we mark it ODR-used and add it to a queue of function definitions that require NVVM code generation. This happens regardless of if the function is `__device__`-tagged or not.
+1. If the function is locally defined, we mark it ODR-used and add it to a queue of function definitions that require NVVM code generation. This happens regardless of if the function is `__device__`-tagged or not. An untagged non-inline locally-defined function is emitted to the IR module and marked with internal linkage. This prevents it from being shared with translation units that can't see its definition.
 
 NVVM IR for non-inline functions marked `__device__` are always added to the module, even if the functions aren't ODR-used from inside the translation unit. The expectation is that they'll be called from other translation units.
 
