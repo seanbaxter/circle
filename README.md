@@ -479,12 +479,18 @@ void func() {
 In C++ and most other languages, objects are pinned into the scope in which they're declared. They may only be accessed from that scope or a child scope. This is a good choice when your intent is to prepare a program for later execution. However, for automating programming itself, there are other options.
 
 Circle implements these meta control statements:
-* compound statement { }
-* try/catch statement
-* if
-* for
-* while
-* do
+* `@meta { }`
+* `@meta try`
+* `@meta if`
+* `@meta for`
+    * `@meta break`
+    * `@meta continue`
+* `@meta while`
+    * `@meta break`
+    * `@meta continue`
+* `@meta do`
+    * `@meta break`
+    * `@meta continue`
 
 Each of these statements opens at least one new scope, and that scope is **meta**. Meta declarations are nested into the current declarative region, as usual. Non-meta (i.e. _real_) declarations drop through the curlies and are nested in the innermost enclosing _real_ scope. Meta control flow serves as a scaffold, a framework that allows you to hoist real declarations into place. When the meta program is complete, all the scaffolding comes down, and your program is built.
 
@@ -581,6 +587,8 @@ void duff_copy3(char* dest, const char* source, size_t count) {
 }
 ```
 Circle's metaprogramming facilities are as template-compatible as any other C++ feature. In the function template version, the loop count is factored out into a template parameter. When the function template is instantiated, the metafor is executed, and its child statement is translated `N` times, resulting in a more generic and flexible function.
+
+Meta `break` and `continue` statements apply to the innermost meta `for`, `while` or `do` loop. Real statements that complete source translation are preserved in the AST, even if the containing meta control statement exits with an exception or a break/continue operation. 
 
 ## Dynamic names
 
