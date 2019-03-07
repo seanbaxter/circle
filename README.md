@@ -1973,6 +1973,15 @@ You can make scoped or unscoped typed enums. You can make a typed enum with or w
 
 Why is the name of the enumerator optional? Often you simply want to use a the typed enum as a list of types, and if those types come from a template parameter pack, there's no name to begin with.
 
+```cpp  
+enum typename class my_typed_enum : short {
+    Float = float,
+    Double = double,
+    void*,               // assigned name "_2"
+    String = std::string
+  };
+```
+
 In most contexts, a typed enum functions exactly like an ordinary enum. Each enumerator is assigned an implicit integral value, starting at 0 and incrementing with each new declaration. This value maps to the implicit name of the enumerator. The associated type is just that, _associated_. So how do we access this associated type?
 
 * `@enum_type(type, index)` - Type associated with i'th enumerator.
@@ -1987,7 +1996,7 @@ struct variant_t {
 
   enum typename class tag_t {
     @meta for(int i = 0; i < count; ++i) 
-      types_t...[i];
+      types_t...[i];     // Enumerators are assigned names starting from _0.
 
     none = void;
   };
@@ -2218,7 +2227,7 @@ The question now is how to implement the functional requirements of a discrimina
 * The move assignment operator resets the active variant member. It then move-constructs the nwe active member from the rhs. It then destructs the active member of the rhs.
 * Generic constructors set the active member from the constructors' parameter.
 * The accessor function template `get` returns the variant member for the index I.
-* The accessor funciton template `get` returns the variant member if it is active and is convertible to the argument type.
+* The accessor function template `get` returns the variant member if it is active and is convertible to the argument type.
 * The visitor function calls a function object (such as a generic lambda or class object with overloaded `operator()`) and passes it the active variant member. 
 
 The full variant listing is [here](examples/variant/variant.cxx). Let's look at a couple of these requirements.
