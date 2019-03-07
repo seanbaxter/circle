@@ -1979,6 +1979,7 @@ In most contexts, a typed enum functions exactly like an ordinary enum. Each enu
 
 What can we do with this? Define variant classes, for one thing.
 
+[**variant.cxx**](examples/variant/variant.cxx)  
 ```cpp
 template<typename... types_t>
 struct variant_t {
