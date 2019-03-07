@@ -210,7 +210,7 @@ Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 202
 
 Ever since template metaprogramming began in the early 2000s, C++ practice has put an ever-increasing cognitive burden on the developer for what I feel has been very little gain in productivity or expressiveness and at a huge cost to code clarity. Extremely common tasks became puzzles, and hundreds of millions of hours of developer time are spent each year in solving these puzzles. How much of that time and effort can we reclaim and redirect on more creative and productive work?
 
-> C++ has failed to evolve the core language as has piled on generics.
+> C++ has failed to evolve the core language as it has piled on generics.
 
 The basic object-oriented outline of C++ was the blueprint for most successful languages that came since. Programmers are comfortable pulling together data and methods into classes. And they're productive with the more ancient array-based imperative way to manipulate data that C popularized. The obvious next step was to add generics. 
 
