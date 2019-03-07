@@ -1,6 +1,7 @@
 #pragma once
 #include "../include/serialize.hxx"
 #include <sstream>
+#include <cassert>
 
 // Scan ahead to the next escape character '%'
 inline const char* scan_to_escape(const char* p) {

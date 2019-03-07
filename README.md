@@ -3,52 +3,90 @@ The C++ Automation Language
 2019  
 Sean Baxter
 
-> _"it's like c++ that went away to train with the league 
-                     of shadows and came back 15 years later and became batman"_
+> _"it's like c++ that went away to train with the league of shadows and came back 15 years later and became batman"_
 
 ## Contents
 
 ** **[Circle for GPU](NVVM.md)**
 
-[Abstract](#abstract)  
-[TLDR;](#tldr)  
-[Hello world](#hello-world)  
-[Hello harder](#hello-harder)  
-[What is Circle](#what-is-circle)  
-[Why I wrote Circle](#why-i-wrote-circle)  
-[Circle is a triangle](#circle-is-a-triangle)  
-[Meta statements](#meta-statements)  
-[Integrated interpreter](#integrated-interpreter)  
-[Same-language reflection](#same-language-reflection)  
-[Duff's device](#duffs-device)  
-[Dynamic names](#dynamic-names)  
-[Automating enums](#automating-enums)  
-[Introspection keywords](#introspection-keywords)  
-[Introspection on enums](#introspection-on-enums)  
-[Object serialization](#object-serialization)  
-[Better object serialization](#better-object-serialization)  
-[Metafunctions](#metafunctions)  
-[Parsing command specifiers](#parsing-command-specifiers)  
-[Contract safety](#contract-safety)  
-[Code injection](#code-injection)  
-[Configuration-oriented programming](#configuration-oriented-programming)  
-[Building functions from JSON](#building-functions-from-json)  
-[Errors in configuration files](#errors-in-configuration-files)  
-[Kernel parameterization](#kernel-parameterization)  
-[Querying JSON](#querying-json)  
-[Querying Lua](#querying-lua)  
-[Template metaprogramming](#template-metaprogramming)  
-[SFINAE](#sfinae)  
-[Typed enums](#typed-enums)  
-[case-typename](#case-typename)  
-[Variant](#variant)  
-[Generic dispatch](#generic-dispatch)  
+1. [Abstract](#abstract)  
+1. [TLDR](#tldr)  
+    Circle in a nutshell.  
+    1. [Hello world](#hello-world)  
+        An imperative approach to generic types.  
+    1. [Hello harder](#hello-harder)  
+        Using standard algorithms used in type definitions.  
+1. [What is Circle](#what-is-circle)  
+    It's C++ rotated into the compile-time realm.  
+1. [Why I wrote Circle](#why-i-wrote-circle)  
+    It only takes a PC and a high tolerance for pain.  
+1. [How C++ fails](#how-c-fails)  
+    Generic programming in an imperative style.  
+    1. [The C++ tuple](#the-c-tuple)  
+    1. [The Circle tuple](#the-circle-tuple)  
+    1. [The C++ unrolled loop](#the-c-unrolled-loop)  
+    1. [The Circle unrolled loop](#the-circle-unrolled-loop)  
+1. [Circle is a triangle](#circle-is-a-triangle)  
+    The three tentpole features.  
+    1. [Meta statements](#meta-statements)  
+        The keyword to do it now.
+    1. [Integrated interpreter](#integrated-interpreter)  
+        A special backend for metaprogramming.  
+    1. [Same-language reflection](#same-language-reflection)  
+        There's no reflection API. Just ordinary declarations.  
+1. [Circle basics](#circle-basics)          
+    1. [Duff's device](#duffs-device)  
+        Where case-statements fall through meta scopes.  
+    1. [Dynamic names](#dynamic-names)  
+        Identifiers are programmable too.  
+    1. [Automating enums](#automating-enums)  
+        Programmatically define an enum.  
+    1. [Introspection keywords](#introspection-keywords)  
+        An economical set of extensions for oft-iterated collections.  
+    1. [Introspection on enums](#introspection-on-enums)  
+        Use introspection and reflection to bake in type information.  
+    1. [Object serialization](#object-serialization)  
+        Use introspection to break open and pretty print class objects.  
+    1. [Better object serialization](#better-object-serialization)  
+        Extend the types that can be pretty printed.  
+    1. [Metafunctions](#metafunctions)  
+        Sort of like macros, but type safe and overloadable.  
+    1. [Parsing command specifiers](#parsing-command-specifiers)  
+        Roll your own printf.  
+1. [Configuration-oriented programming](#configuration-oriented-programming)  
+    A paradigm for separating _code_ from _logic_.  
+    1. [Code injection](#code-injection)  
+        Extensions for injecting text as code.  
+    1. [Building functions from JSON](#building-functions-from-json)  
+        Walk over a JSON file and compile its contents into functions.  
+    1. [Errors in configuration files](#errors-in-configuration-files)  
+        Let the configuration file issue its own diagnostics.  
+    1. [Kernel parameterization](#kernel-parameterization)  
+        Define kernel keys and parameter sets to put configuration assets in one place.
+    1. [Querying JSON](#querying-json)  
+        Feed a kernel its parameters from a JSON file.  
+    1. [Querying Lua](#querying-lua)  
+        Feed a kernel its parameters from a Lua program.  
+1. [Template metaprogramming](#template-metaprogramming)  
+    Powerful extensions make metaprogramming easy.  
+    1. [SFINAE](#sfinae)  
+        The try-before-you buy operator.  
+    1. [Typed enums](#typed-enums)  
+        Enumerations with associated types are the perfect type list.  
+    1. [case-typename](#case-typename)  
+        Use a `case typename` statement to switch over types.  
+    1. [The C++ variant](#the-c-variant)  
+        One of the STL's most difficult type...  
+    1. [The Circle variant](#the-circle-variant)  
+        ...receives the Circle treatment.  
+    1. [Generic dispatch](#generic-dispatch)  
+        A generic function dispatcher driven by introspection and reflection.  
 
 ## Abstract
 
 > Circle is a compiler that extends C++17 for new introspection, reflection and compile-time execution. An integrated interpreter allows the developer to execute any function during source translation. Compile-time flavors of control flow statements assist in generating software programmatically. The configuration-oriented programming paradigm captures some of the conveniences of dynamic languages in a statically-typed environment, helping separate a programmer's high-level goals from the low-level code and allowing teams to more effectively reason about their software.
 
-## TLDR;
+## TLDR
 
 Circle is C++ 17 with three new things:
 1. [An integrated interpreter](#integrated-interpreter) - Run anything at compile time.
@@ -75,12 +113,11 @@ Compiler details:
 * Custom C++ frontend.
 * LLVM backend. 
 * [Itanium C++ ABI](http://itanium-cxx-abi.github.io/cxx-abi/) support for wide compatibility. 
+* CUDA* backend support.
 * gdb/DWARF debug metadata.
-* Only 100,000 lines for fast feature development. 
+* Only 105,000 lines for fast feature development. 
 
-The Circle compiler is nearing the end of private development. I look forward to a public release.
-
-## Hello world
+### Hello world
 
 ```cpp
 template<typename... types_t>
@@ -114,7 +151,7 @@ struct tuple_t {
 ```
 This is the dream that inspired Circle. We're able to use C++'s imperative constructs to write code in the way usually we think about coding. In this case, for each element in a parameter pack, make a non-static data member of that type. It's easy to read. It's easy to write. It's easy to learn. You don't have to rely on expert developers of template libraries to provide generic tools when Circle has cleverly repurposed C++ to allow you to write it yourself.
 
-## Hello harder
+### Hello harder
 
 ```cpp
 template<typename... types_t>
@@ -165,11 +202,141 @@ But Circle isn't just C++. What we've done is rotate C++ into the compile-time r
 
 Circle is designed with different goals than recent iterations of C++. I intend to [Keep It Simple, Stupid](https://en.wikipedia.org/wiki/KISS_principle). No feature in Circle requires anything from C++17, or 14, or 11 or even C++ at all (except for the `...[]` and `@sfinae` operators). You don't have to use object-oriented programming, but you can. You don't have to use templates, but you can. You don't have to use the STL, or lambdas, or constraints metaprogramming, but you can. Circle isn't the next version of C++ as much as it is a revisionist history of C. Imagine that a programmer from the future went back to 1990, added reflection, introspection and a compile-time interpreter to C, then let that compiler evolve into the present day.
 
-Ever since template metaprogramming began in the early 2000s, C++ practice has put an ever-increasing cognitive burden on the developer for what I feel has been very little gain in productivity or expressiveness and at a huge cost to code clarity. I think this is mainly caused by an insistence to bolt a functional aparatus onto an imperative language.
+I tried to bring the imperative constructs that C++ inherited from C into the compile-time realm. Collectively these new features support generic programming in a familiar, proven, imperative style. In the examples below, each statement has _intent_ (meaning it's clear what it does) and _heft_ (meaning it does something). Those are the traits that C brought to software design. I hope Circle is able to carry them over into generic programming, so that we can automate the tedious aspects of engineering and spend more time on the creative parts of design.
 
-Extremely common tasks became puzzles, and hundreds of millions of hours of developer time are spent each year in solving these puzzles. How much of that time and effort can we reclaim and redirect on more creative and productive work?
+Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 2026 or 2030 for technical reports to become adopted and pushed out in future C++ compilers? I've wanted to use introspection, reflection and unrestricted compile-time execution since I started programming 22 years ago. The barriers of entry for compiler development are modest: you just need a computer, time, and a high tolerance for pain. When it comes to the tools that I use every day to do my work, I felt it was time to control my own destiny and write the language I've always wanted to use.
 
-Consider the trivial example of unrolling a loop. What's the best practice for an unrolled loop using C++14?
+## How C++ fails
+
+Ever since template metaprogramming began in the early 2000s, C++ practice has put an ever-increasing cognitive burden on the developer for what I feel has been very little gain in productivity or expressiveness and at a huge cost to code clarity. Extremely common tasks became puzzles, and hundreds of millions of hours of developer time are spent each year in solving these puzzles. How much of that time and effort can we reclaim and redirect on more creative and productive work?
+
+> C++ has failed to evolve the core language as has piled on generics.
+
+The basic object-oriented outline of C++ was the blueprint for most successful languages that came since. Programmers are comfortable pulling together data and methods into classes. And they're productive with the more ancient array-based imperative way to manipulate data that C popularized. The obvious next step was to add generics. 
+
+Class and function templates enable more generic programming by allowing you to use placeholder types (template parameters) and the dependent variable of these types in your class and function definitions. During template instantiation, the placeholders are substituted with concrete types, and unfinished semantic business, like 
+overload resolution, is finally resolved. 
+
+For generic types with a clear 1:1 relationship with their handwritten concrete-type predecessors, the template alone was a sufficient addition. `std::vector` is implemented just like an exception-safe array, but parameterized for any type. `std::sort` is an ordinary quicksort, but templated to support any input type. When you start with a quicksort for `double`, it's clear how to convert into its function template equivalent.
+
+But what about parameterizing a class not just over its member types (like `std::vector`) but over its _structure_?  
+
+### The C++ tuple
+
+A tuple is generic class that simply binds together a list of types as data members. In one regard, this is the simplest generic type, because it generalize a basic, flat class with no structure. Members are intended to be accessed by index rather than name, making it a vector of heterogeneous types.
+
+```cpp
+struct vec3_t {
+  float x, y, z;
+};
+
+struct my_concrete_tuple_t {
+  int _0;
+  double _1;
+  vec3_t _2;
+  std::vector<short> _3;
+};
+
+{
+  _0 = 100,
+  _1 = 3.1400000000000001,
+  _2 = {
+    x = 5,
+    y = 6,
+    z = 7
+  },
+  _3 = {
+    <std::_Vector_base<short, std::allocator<short> >> = {
+      _M_impl = {
+        <std::allocator<short>> = {
+          <__gnu_cxx::new_allocator<short>> = {<No data fields>}, <No data fields>},
+        members of std::_Vector_base<short, std::allocator<short> >::_Vector_impl:
+        _M_start = 0x616eb0,
+        _M_finish = 0x616eb4,
+        _M_end_of_storage = 0x616eb4
+      }
+    }, <No data fields>
+  }
+}
+```
+We initialize and view an instance of this concrete type in the debugger to reveal its structure. Except for the internal structure of the `vec3_t` and `std::vector<short>` members, the tuple has a flat layout. This is what we're used to in C/C++. Flat structures and arrays are the beef and beer or imperative languages.
+
+C++11 extended templates by introducing parameter packs, which allow us to parameterize a generic tuple. But how do we implement the actual class template? 
+
+C++ failed to evolve the core language to keep up with the demands made by generic code. You cannot write a generic tuple that follows the design of the concrete tuple in C++98, C++11, C++14, C++17 or C++20. Although types in a class definition by may parameterized, the layout of class cannot be parameterized, except by explicit or partial template specialization.
+
+How does the STL implement a tuple? It uses _class inheritance_ and _partial template specialization_. Each instance of `_Tuple_impl` stores one value in the data member `_M_head_impl`. It inherits the next successive specialization of `_Tuple_impl`, which defines the data member using the next type in the parameter pack. A partial specialization of `_Tuple_impl` inherits the sentinel class `_Head_base` to include the final data member and terminate the recursive inheritance. Special consideration is given to accessing the i'th data member: instead of direct lookup, the `std::get` accessor must recurse down this inheritance structure (again, by using partial template specialization of a class `__get_helper`), ticking down its index with each specialization, and finally return an lvalue to the `_M_head_impl` from the right base class.
+
+```cpp
+typedef std::tuple<int, double, vec3_t, std::vector<short> > my_tuple_t;
+
+{
+  <std::_Tuple_impl<0, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+    <std::_Tuple_impl<1, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+      <std::_Tuple_impl<2, vec3_t, std::vector<short, std::allocator<short> > >> = {
+        <std::_Tuple_impl<3, std::vector<short, std::allocator<short> > >> = {
+          <std::_Head_base<3, std::vector<short, std::allocator<short> >, false>> = {
+            _M_head_impl = {
+              <std::_Vector_base<short, std::allocator<short> >> = {
+                _M_impl = {
+                  <std::allocator<short>> = {
+                    <__gnu_cxx::new_allocator<short>> = {<No data fields>}, <No data fields>},
+                  members of std::_Vector_base<short, std::allocator<short> >::_Vector_impl:
+                  _M_start = 0x616e90,
+                  _M_finish = 0x616e94,
+                  _M_end_of_storage = 0x616e94
+                }
+              }, <No data fields>}
+          }, <No data fields>},
+        <std::_Head_base<2, vec3_t, false>> = {
+          _M_head_impl = {
+            x = 5,
+            y = 6,
+            z = 7
+          }
+        }, <No data fields>},
+      <std::_Head_base<1, double, false>> = {
+        _M_head_impl = 3.1400000000000001
+      }, <No data fields>},
+    <std::_Head_base<0, int, false>> = {
+      _M_head_impl = 100
+    }, <No data fields>
+  }, <No data fields>
+}
+```
+
+We had a flat structure. When we made it generic, it became a hierarchy.
+
+We had a direct index. When we made it generic, it became recursive.
+
+This flat->hierarchical and direct->recursive exercise is one that is done throughout C++ metaprogramming. 
+
+C++ was an object-oriented language. Is this tuple encapsulated? Its data members are strewn across several different class templates. 
+
+C is an imperative language with loops as its primary control structure. Can we loop over members of the tuple? No--we have to use partial template specialization to recurse over its base classes.
+
+The process of turning a concrete thing into a generic thing totally changed its identity. The investment we made in the core C/C++ language fails here; we have to adopt a completely different strategy for dealing with generic programming.
+
+### The Circle tuple
+
+```cpp
+template<typename... types_t>
+struct tuple_t {
+  @meta for(int i = 0; i < sizeof...(types_t); ++i)
+    types_t...[i] @(i); 
+};
+```
+Consider the Circle tuple. When specialized over the member types of `my_concrete_tuple_t`, it yields a class type that is identical to its concrete equivalent when viewed in a debugger. It maintains a flat data structure. Members are accessed directly (like an array) rather than through recursion. Circle has evolved the core C/C++ language to support generics. There's no complicated DOM for introspection and recursion: just the `@meta` keyword to specify compile-time execution and the dynamic name operator `@()` to generate identifiers from expressions.
+
+Circle allows you to deploy your object-oriented and imperative intuition, gained while programming C++ or Java or C# or Python, and employ it to write generic code.
+
+And how generic! Not only can you specialize your generics from types specified in the source code, you can open configuration files at compile time using your favorite library and specialize over types found in there. Or you can use Circle's introspection to examine one type and generate a new one. In Circle, you reason about generics the same way you do about any other class.
+
+### The C++ unrolled loop
+
+The tuple is the most elementary type that we can make generic. The unrolled loop is the most elemantary operation that has a generic equivalent.
+
+What's the best practice for an unrolled loop using C++14? It is disappointing but unsurprising that the lessons from the previous section are repeated here: the iterative process of stepping through a loop is replaced by a recursive process of partial template specialization.
 ```cpp
 // The primary template is recursive. Call f on I then go to the next I.
 template<int I, int N>
@@ -229,6 +396,11 @@ How do we use such a thing? Write a generic lambda (C++14 required) that takes a
 Without the generic lambdas that C++14 provides, the process is even more intrusive. You need to put your loop's body into a function template so that it can receive the `integral_constant` argument (although it can now take the loop index as a non-type template parameter directly), but you also need to capture variables like `x` that are in the context of the loop. The only way is to write a class that has reference data members to explicitly capture the loop's context and a non-static `operator()` member function template to receive the loop index argument and execute the loop body.
 
 One could say that generic lambdas lessen the pain of loop unrolling, but let's ask ourselves why we're incorporating a lot of functional programming boilerplate to emulate the most quintessentially-imperative task: stepping through a loop.
+
+There are other more indirect but possibly more convenient ways to implement a C++ unrolled loop. One approach is to generate an `std::integer_sequence`, which is an unexpanded parameter pack of integers is ascending order. You can then call the operation on the unexpanded pack while performing pack expansion to effect the same operation. But how do we generate the integer sequence in the first place? Recursive partial template specialization.
+
+### The Circle unrolled loop
+
 ```cpp
 // Call this function template at each iteration.
 template<int I>
@@ -252,9 +424,7 @@ After I = 4, x = 32
 ```
 Circle provides compile-time variants of control flow statements like `if`, `for` and `while`. Executing the loop at compile time has the effect of unrolling the loop. The child statement is translated once for each loop iteration, creating a new function template instantiation at each step.
 
-I tried to bring the imperative constructs that C++ inherited from C into the compile-time realm. Collectively these new features support generic programming in a familiar, proven, imperative style. In the examples below, each statement has _intent_ (meaning it's clear what it does) and _heft_ (meaning it does something). Those are the traits that C brought to software design. I hope Circle is able to carry them over into generic programming, so that we can automate the tedious aspects of engineering and spend more time on the creative parts of design.
-
-Finally, I wrote Circle because I was tired of waiting. Why wait for 2023 or 2026 or 2030 for technical reports to become adopted and pushed out in future C++ compilers? I've wanted to use introspection, reflection and unrestricted compile-time execution since I started programming 22 years ago. The barriers of entry for compiler development are modest: you just need a computer, time, and a high tolerance for pain. When it comes to the tools that I use every day to do my work, I felt it was time to control my own destiny and write the language I've always wanted to use.
+Circle's evolution of C++ makes generic programming feel familiar. In their compile-time variants, your favorite imperative constructs can be deployed inside class template definitions to manipulate type structure, or inside function templates to manipulate execution.
 
 ## Circle is a triangle
 
@@ -299,7 +469,7 @@ Circle is built on three main technologies:
 
 The extensions in Circle cover a lot of territory, but they're federated to serve one purpose: help automate the software development process. Features like coroutines, lazy evaluation, garbage collection and modules might be worthwhile additions, but since they don't extend the vision of automation, they didn't make the cut.
 
-## Meta statements
+### Meta statements
 
 `@meta` does it at compile time. 
 
@@ -377,7 +547,7 @@ ns::foo_t::func ... And block scope.
 ```
 All meta statements are admissible in any curly-brace scope. This is because the context for a statement's execution is independent of the runtime situation and is the same in any scope: the meta statement is run when the code is translated by the compiler.
 
-## Integrated interpreter
+### Integrated interpreter
 
 [**fibonacci.cxx**](examples/fibonacci/fibonacci.cxx) [(output)](examples/fibonacci/output.txt)  
 ```cpp
@@ -457,7 +627,7 @@ The solution is an integrated interpreter. The interpreter is a mirror of the LL
 * RTTI, exceptions, virtual functions and virtual inheritance are implemented and work exactly as expected.
 * Functions may be called from native code via function pointers or virtual functions. A foreign-function closure is created for each function exported out of the interpreter, which provides a callable address. A trampoline function loads the function arguments and executes the function's definition through the interpreter before returning the result back out through the closure.
 
-## Same-language reflection
+### Same-language reflection
 
 Circle allows automated code generation in a wonderfully natural way. Rather than providing a complex API that's fine-grained enough to emit C++ code, you just write C++ code. What's the trick that gives you enough leverage to be productive doing this? Meta control flow.
 
@@ -517,8 +687,9 @@ void func() {
   int n = k;
 }
 ```
+## Circle basics
 
-## Duff's device
+### Duff's device
 
 [**duff1.cxx**](examples/duff/duff1.cxx)
 ```cpp
@@ -590,7 +761,7 @@ Circle's metaprogramming facilities are as template-compatible as any other C++ 
 
 Meta `break` and `continue` statements apply to the innermost meta `for`, `while` or `do` loop. Real statements that complete source translation are preserved in the AST, even if the containing meta control statement exits with an exception or a break/continue operation. 
 
-## Dynamic names
+### Dynamic names
 
 Consider declarations inside metafors:
 
@@ -617,7 +788,7 @@ A dynamic name operator with a value-dependent argument is a _dependent-name_. I
 @(15 - 25)              // -> _n10
 ```
 
-## Automating enums
+### Automating enums
 
 Circle supports any meta statement in any curly-brace scope. This seems like a problem for enums, because the C++ _enum-specifier_ only supports a single comma-separated list of enumerators. Circle extends the _enum-specifier_: you can now break the comma-separated lists up into semicolon-separated lists. This is an impactful change, because we can sneak in meta statements.
 
@@ -644,7 +815,7 @@ The dynamic name operator `@()` takes this string, which must be known and is kn
 
 Circle makes it easy to feed enumeration and class definitions from external configurations, which is prime exercise of configuration-oriented programming.
 
-## Introspection keywords
+### Introspection keywords
 
 Introspect on class types:
 * `@member_count(type)` - Number of non-static data members in class.
@@ -665,7 +836,7 @@ Generic type operators:
 
 Circle provides simple introspection keywords for accessing name, type and value information of enumerators and non-static data members. There is no runtime support to this feature; these mechanisms simply expose information that all languages must maintain at compile-time. To access the introspection data in your executable, you'll need to use it in a function. Fortunately Circle's meta control flow makes it simple to automatically visit all the type information for a type and bake it into a function.
 
-## Introspection on enums
+### Introspection on enums
 
 [**enums.cxx**](examples/enums/enums.cxx)
 ```cpp
@@ -702,7 +873,7 @@ Going the other direction is just as easy. We can't switch over a string, so ins
 
 You may think that these two functions are the alpha and omega of enum introspection. They are not. Circle's metaprogramming capability has revealed enumerations as a deeply versatile data structure. They aren't just identifiers with constant values... They are immutable sets that require no storage, can specialize templates, and have enumerators with spellings that can overload other declarations in a namespace.
 
-## Object serialization
+### Object serialization
 
 Consider the task of streaming out the contents of a structure as a key/value store, either for machine storage or visual inspection. Without introspection, you'd need to manually write a serialize function for each type. Or maybe you'd use a macro to define both the structure and a corresponding table of string literals. Or maybe you subscribe to a preprocessor like [Protobuf](https://developers.google.com/protocol-buffers/), write your class definitions in a DSL and use a special-purpose compiler to generate bindings and type info.
 
@@ -777,7 +948,7 @@ struct2_t {
 }
 ```
 
-## Better object serialization
+### Better object serialization
 
 The first attempt at object serialization has a defect: it doesn't print out any recursive structure that the object may have. In static languages, objects of the same type technically have the same layout, but data structures like vectors, maps and optional fields can be used to make each object much more dynamic. Can we capture this enhanced structure in a generic serialization routine?
 
@@ -977,7 +1148,7 @@ struct1_t {
 
 Automatically converting structs to text (and back again) is useful, but just a starting point. In [Querying Lua](#querying-lua), class member introspection is used to automatically convert between C++ structs and Lua tables. These new features help deal with the interface between all kinds of data representations.
 
-## Metafunctions
+### Metafunctions
 
 * Programs are composed of functions.
 * Metaprograms are composed of metafunctions.
@@ -1049,7 +1220,7 @@ My heroes are { _0 : Frank, _1 : Whatley }.
 
 In the example program, we simply use a '%' character to indicate an argument escape. The argument type is inferred from the function parameter pack. The format specifier is a meta parameter.
 
-## Parsing command specifiers
+### Parsing command specifiers
 
 [**format.cxx**](examples/format/format.cxx) [(output)](examples/format/output.txt)  
 ```cpp
@@ -1106,10 +1277,9 @@ template<typename... args_t>
   return oss.str();
 }
 ```
+## Configuration-oriented programming
 
-## Contract safety
-
-## Code injection
+### Code injection
 
 * `@include(filename)` - Injects a file during translation.
 * `@statements(text, name)` - Parse text as a sequence of statements.
@@ -1138,10 +1308,7 @@ In this scenario, the `monday.h` is included and expanded _unconditionally_ duri
 ```
 Circle's code injection mechanisms are real frontend features. They don't run until source translation, or, in the case of value-dependent arguments, template instantiation. However, they still pass through the preprocessor and can use and modify all of that pass's macros.
 
-## Configuration-oriented programming
-
-
-## Building functions from JSON
+### Building functions from JSON
 
 Consider establishing a _domain-specific language_ in the form of a JSON file/Circle code contract. Certain fields in the JSON carry special meaning in the Circle code. In this example, we whip up a DSL for defining mathematical special functions using special JSON fields. The Circle code that executes the DSL loads the configuration file at compile-time, iterates over the fields, and emits ordinary C functions with external linkage that implement requests made inside the JSON.
 
@@ -1337,7 +1504,7 @@ The Circle code that implements our little DSL is not really longer than the rec
 
 The dynamic name operator `@()` turns std::string into an identifier token, and that's the only extension required for this part of code generation. Most languages offering reflection do so at runtime through very elaborate and [fine-grained APIs](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.emit.typebuilder.definemethod?view=netframework-4.7.2). The mantra is _if you know C++, you already know Circle_. With very few language additions for the programmer to learn (although pretty big additions to the compiler itself), it's possible to implement a DSL that traverses a configuration file and generates a shared object based on the fields in that file. 
 
-## Errors in configuration files
+### Errors in configuration files
 ```json
 {
   "sin" : {
@@ -1378,7 +1545,7 @@ If we used a JSON parser that came in binary form (i.e. packaged as a shared obj
 
 Circle's integrated interpreter features smooth interoperability with compiled code. No markup is ever required to import functions or objects that are provided by compiled code; just `#include` the appropriate header and use it as you normally would. 
 
-## Kernel parameterization
+### Kernel parameterization
 
 Consider the task of kernel development. A kernel can be any function that runs on streams of data. The field encompasses high-performance computing, data science, structural engineering, fluid mechanics, chemistry, &c &c. These critical functions are often dependent on many identifiable parameters. Drivers of this parameterization involve performance characteristics of the hardware, the size of the input, the type of input, the distribution of the input and accuracy and performance requirements. Examples of kernels are:
 
@@ -1423,7 +1590,7 @@ When the kernel's function template is instantiated, it packages its template pa
 
 Circle's interpreter will allow us to host the configuration. Circle's introspection will help the abstraction layer automatically convert the `kernel_key_t` type, a C++ structure, to the dynamic type expected by the configuration, and then convert the result object into the `params_t` type. We aim to completely abstract the kernel from the source of the configuration.
 
-## Querying JSON
+### Querying JSON
 
 [**kernel1.cxx**](examples/kernel/kernel1.cxx) [(output)](examples/kernel/output1.txt)
 ```cpp
@@ -1467,8 +1634,7 @@ Compiling kernel { sm : 35, type : int }:
   Params for kernel: { bytes_per_lane : 20, lanes_per_thread : 11, flags : [ ] }
 ```
 
-
-## Querying Lua
+### Querying Lua
 
 [**kernel.lua**](examples/kernel/kernel.lua)
 ```lua
@@ -1683,7 +1849,6 @@ When the Lua function returns, the result object is passed to `get_value`, which
 
 The Circle-powered Lua interface is a convenience for the kernel that relies on Lua for parameterization. However, the kernel is free to talk to the Lua interpreter at a lower level, even providing C functions that can be called from Lua. This mechanism is supported by Circle's interpreter--whenever the address of a function is taken in the interpreter, a libfffi closure is generated which returns a callable address and establishes a trampoline mechanism to allow calls from native code to re-enter the interpreter, which executes the function's definition.
 
-
 ## Template metaprogramming
 
 * `...[index]` - Subscript a type, non-type, template or function parameter pack.
@@ -1702,7 +1867,7 @@ struct tuple_t {
 };
 ```
 
-## SFINAE
+### SFINAE
 
 In the context of function template argument deduction, ill-formed types created from argument substitution do not result in an error. Rather, the function template is removed from the candidate set. If no functions are viable, overload resolution fails, and that breaks compilation and results in a diagnostic.
 
@@ -1792,7 +1957,7 @@ a_t is big endian.
 b_t::y() called.
 ```
 
-## Typed enums
+### Typed enums
 
 A common template metaprogramming problem involves manipulation of type lists. There is no standard way to represent type lists. Often they are passed in through type parameter packs, manipulated with recursion, and expanded back into arguments to be bound to other template parameter packs.
 
@@ -1817,36 +1982,27 @@ What can we do with this? Define variant classes, for one thing.
 ```cpp
 template<typename... types_t>
 struct variant_t {
-
-  struct none_t { };
+  enum { count = sizeof...(types_t) };
 
   enum typename class tag_t {
-    none = none_t,
-    @meta for(int i = 0; i < sizeof...(types_t); ++i) 
+    @meta for(int i = 0; i < count; ++i) 
       types_t...[i];
+
+    none = void;
   };
 
   tag_t tag = tag_t::none;
 
   union {
     // Declare a variant member for each enumerator.
-    @meta for(int i = 0; i < @enum_count(tag_t); ++i)
+    @meta for(int i = 0; i < count; ++i)
       @enum_type(tag_t, i) @(i);
   };
   
-  // We need an empty constructor to tell the compiler we can be trusted
-  // with the union over non-trivial types.
-  variant_t() { }
-
-  // Use switches over tag with case statements to destruct, copy construct,
-  // move construct, copy assign and move assign variant members.
-  ~variant_t();
-
-  // Other members here.
+  // ... Declare constructors and member functions here.
 };
 ```
-
-The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated empty class `none_t`. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
+The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated void type. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
 
 The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
 
@@ -1887,11 +2043,9 @@ variant2_t<my_types_t> my_variant;
 We can also define the typed enum by hand rather than automatically through a parameter pack. This allows us to provide convenient names for each enumerator, names which will be transfered to the variant members. Now, in addition to using the standard `get` and accessor on the variant, the user can access variant members by the names they provided in the typed enum.
 
 ```cpp
-
 // Instantiate the variant over the typed enum. Now each variant member of the
 // anonymous union uses the name of the corresponding enumerator. This is the 
 // same as manually writing:
-
 struct variant2_t {
   my_types_t tag = my_types_t::none;
 
@@ -1908,7 +2062,7 @@ struct variant2_t {
 ```
 If the above instantiation `variant2_t<my_types_t>` were written by hand, it would look exactly like this. The generative code adheres very closely to the hand-written ideal. We use the enum introspection keywords and metafor over each enumerator, depositing a member-specifier into the anonymous union with each iteration.
 
-## case-typename
+### case-typename
 
 For added convenience, Circle introduces a _case-typename_ statement. This bit of porcelain allows the user to specify a _type-id_ in a _case-statement_ rather than specifying an integral _constant-expression_. The _type-id_ is then automatically mapped to the corresponding enumerator in the typed-enum which is used in the predicate of the enclosing _switch-statement_.
 
@@ -1946,11 +2100,211 @@ switch(e) {
 ```
 This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time. 
 
-## Variant
+### The C++ variant
 
-Full variant examples coming soon.
+As said above, a variant type is a discriminated union. The concrete type has a flat layout with two members: an enumeration tag and a union with variant members for each variant type.
 
-## Generic dispatch
+A variant type was finally added to the STL with C++17. How is it implemented? With recursion and partial templates, naturally. 
+
+```cpp
+std::variant<int, double, vec3_t, std::vector<short> >
+
+{
+  <std::__detail::__variant::_Variant_base<int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+    <std::__detail::__variant::_Move_assign_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+      <std::__detail::__variant::_Copy_assign_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+        <std::__detail::__variant::_Move_ctor_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+          <std::__detail::__variant::_Copy_ctor_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+            <std::__detail::__variant::_Variant_storage<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
+              _M_u = {
+                _M_first = {
+                  _M_storage = 1374389535
+                },
+                _M_rest = {
+                  _M_first = {
+                    _M_storage = 3.1400000000000001
+                  },
+                  _M_rest = {
+                    _M_first = {
+                      _M_storage = {
+                        x = 1.26443839e+11,
+                        y = 2.14249992,
+                        z = 5.88422041e-39
+                      }
+                    },
+                    _M_rest = {
+                      _M_first = {
+                        _M_storage = {
+                          _M_storage = "\037\205\353Q\270\036\t@\320\022@\000\000\000\000\000\020\006@\000\000\000\000"
+                        }
+                      },
+                      _M_rest = {<No data fields>}
+                    }
+                  }
+                }
+              },
+              _M_index = 1 '\001',
+              static _S_vtable = <optimized out>
+            }, <No data fields>}, <No data fields>}, <No data fields>}, <No data fields>}, <No data fields>},
+  <std::_Enable_default_constructor<true, std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > > >> = {<No data fields>},
+  <std::_Enable_copy_move<true, true, true, true, std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > > >> = {<No data fields>},
+  members of std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > >:
+  static __accepted_index = 1,
+  static __exactly_once = true
+}
+```
+This debugger dump shows the structure of `std::variant` with four variant members. Six different support class templates are introduced to implement the type. As with the `tuple` case, structural recursion is again employed. But this time we can't use inheritance, because unions don't support it. We have to recursively compose a type inside a variant member: the `_M_storage` members in the class layout all have the same address. This is achieved by making `_Variant_storage` a union, and making `_M_first` and `_M_rest` variant members.
+
+With a tuple, the auto-generated special member functions (constructors and assignment operators) do everything we need. But with the variant, we have to implement all of these functions ourselves, and the limits of C++ metaprogramming makes this very difficult. How can circle make it better?
+
+### The Circle variant
+
+```cpp
+struct my_concrete_variant_t {
+  enum class tag_t {
+    _0,   // int
+    _1,   // double
+    _2,   // vec3_t
+    _3,   // std::vector<short>
+    _4,   // void 
+  };
+
+  tag_t _tag;
+
+  union {
+    int _0;
+    double _1;
+    vec3_t _2;
+    std::vector<short> _3;
+  };
+
+  //  Member functions here...
+};
+
+{
+  _tag = variant_t::tag_t::_1,
+  {
+    _0 = 1374389535,
+    _1 = 3.1400000000000001,
+    _2 = {
+      x = 1.26443839e+11,
+      y = 2.14249992,
+      z = 5.90744833e-39
+    },
+    _3 = {
+      <std::_Vector_base<short, std::allocator<short> >> = {
+        _M_impl = {
+          <std::allocator<short>> = {
+            <__gnu_cxx::new_allocator<short>> = {<No data fields>}, <No data fields>},
+          members of std::_Vector_base<short, std::allocator<short> >::_Vector_impl:
+          _M_start = 0x40091eb851eb851f,
+          _M_finish = 0x405390 <__libc_csu_init>,
+          _M_end_of_storage = 0x401040 <_start>
+        }
+      }, <No data fields>}
+  }
+}
+```
+
+The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union. We've looked at the Circle code for generating this exact class layout in [Typed enums](#typed-enums). 
+
+The question now is how to implement the functional requirements of a discriminated union:
+* The default constructor sets the active type to none.
+* The destructor resets (destructs) the active variant member.
+* The copy constructor copies the active variant member from the rhs.
+* The move constructor moves the active variant member from the rhs. It then destructs the active member of the rhs.
+* The copy assignment operator resets the active variant member. It then copy-constructs the new active member from the rhs.
+* The move assignment operator resets the active variant member. It then move-constructs the nwe active member from the rhs. It then destructs the active member of the rhs.
+* Generic constructors set the active member from the constructors' parameter.
+* The accessor function template `get` returns the variant member for the index I.
+* The accessor funciton template `get` returns the variant member if it is active and is convertible to the argument type.
+* The visitor function calls a function object (such as a generic lambda or class object with overloaded `operator()`) and passes it the active variant member. 
+
+The full variant listing is [here](examples/variant/variant.cxx). Let's look at a couple of these requirements.
+
+**variant.cxx**  
+```cpp
+template<typename... types_t>
+void variant_t<types_t...>::reset() {
+  // Destruct the variant member corresponding to the tag's value.
+  switch(_tag) {
+    @meta for(int i = 0; i < count; ++i) {
+      case @enum_value(tag_t, i):
+        // The pseudo-destructor name call becomes a no-op at substitution 
+        // for non-class types. 
+        @(i).~@enum_type(tag_t, i)();
+        break;
+    }
+
+    case tag_t::none:
+      break;
+  }
+
+  // Reset the tag.
+  _tag = tag_t::none;
+}
+```
+Because we have member types with non-trivial destructors in a union, we can't rely on the implicitly-generated destructor. We must provide our own. The `reset` member function switches to the active member and invokes the pseudo-destructor name on. When the dependent member is instantiated, the pseudo-destructor name is substituted. If it yields a non-class type, the operation is discarded. If it yields a class type, the destructor is called. This mimics exactly what we'd write by hand: write a case for each variant member with a non-trivial destructor and call its destructor.
+
+```cpp
+template<typename... types_t> template<typename func_t>
+auto variant_t<types_t...>::visit(func_t func) {
+  switch(_tag) {
+    case tag_t::none:
+      assert(false);
+
+    @meta for(int i = 0; i < count; ++i)
+      case @enum_value(tag_t, i):
+        return func(get<i>());
+  }
+}
+```
+Another function of interest is the visitor. We want to call a function object `func` with the active variant member. If the active member is `none`, we assert. Otherwise, we emit a case-statement and use the indexed-based accessor to pass it the i'th variant member.
+
+How do we use this variant? 
+```cpp
+void switch_visitor(my_variant_t& v) {
+  switch(v.tag()) {
+    case typename int:
+      cirprint("int: %\n", v.get<int>());
+      break;
+
+    case typename double:
+      cirprint("double: %\n", v.get<double>());
+      break;
+
+    case typename vec3_t:
+      cirprint("vec3_t: %\n", v.get<vec3_t>());
+      break;
+
+    case typename std::vector<short>:
+      cirprint("std::vector<short>: %\n", v.get<std::vector<short> >());
+      break;
+
+    case typename void:
+      printf("<none>\n");
+      break;
+  }
+}
+```
+The [case-typename](#case-typename) extension is very helpful here. It automatically translates types to the corresponding enumerator that's passed to the _switch-statement_.
+
+We can also provide a callback for the `visit` member function:
+```cpp
+// Demonstrate the visitor pattern.
+var = vec3_t { 5, 6, 7 };
+var.visit([](auto& member) {
+  // The variant member is passed by reference. Remove the reference type
+  // to pretty print it.
+  typedef typename std::remove_reference<decltype(member)>::type type_t;
+  cirprint("%: %\n", @type_name(type_t, true), member);
+});
+```
+This callback prints the name of the type (after stripping the reference) and its value. This compiles for all four of our variant members, because we employ [`cirprint`](#parsing-command-specifiers), the printf-like pretty printer which uses Circle's introspection to break apart and print aggregate types like `vec3_t`.
+
+With Circle, making a concrete type like a discriminated union generic involves no particular challenge, because the language's triangle of compile-time features allows you to treat the concrete and generic versions with exactly the same logic.
+
+### Generic dispatch
 
 A common task is to switch over an entity know at runtime, such as an enum, and call a function corresponding to that variable. C++ introduced virtual functions during the object-oriented programming push to address this common task: the runtime variable becomes, in essence, the virtual pointer that is implicitly created with the object.
 

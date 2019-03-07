@@ -1,0 +1,10 @@
+$ circle variant.cxx 
+$ ./variant 
+int: 100
+<none>
+int: 100
+double: 3.14
+var<1> = 3.14
+int: 15
+std::vector<short>: [ 100, 200 ]
+vec3_t: { x : 5, y : 6, z : 7 }

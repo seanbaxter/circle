@@ -19,7 +19,7 @@ template<typename key_t>
 bool compare_key(json& item, const key_t& key) {
   @meta for(int i = 0; i < @member_count(key_t); ++i) {
     if(item.count(@member_name(key_t, i))) {
-      auto x = item[@member_name(key_t, i)].get<@member_type(key_t, i)>();
+      auto x = item[@member_name(key_t, i)].template get<@member_type(key_t, i)>();
       if(@member_ref(key, i) != x)
         return false;
     }
