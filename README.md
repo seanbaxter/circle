@@ -311,7 +311,7 @@ We had a direct index. When we made it generic, it became recursive.
 
 This flat->hierarchical and direct->recursive exercise is one that is done throughout C++ metaprogramming. 
 
-C++ was an object-oriented language. Is this tuple encapsulated? Its data members are strewn across several different class templates. 
+C++ was an object-oriented language. Is this tuple encapsulated? No--its data members are strewn across several different class templates. 
 
 C is an imperative language with loops as its primary control structure. Can we loop over members of the tuple? No--we have to use partial template specialization to recurse over its base classes.
 
@@ -710,7 +710,7 @@ void duff_copy1(char* dest, const char* source, size_t count) {
   }
 }
 ```
-Reproduced above is a simplified version of Duff's device, an infamous memcpy function designed to reduce the amount of branching in the operation. Once we enter the switch, perform an assignment and unconditionally progress to the next case statement. This algorithm cries out for automation. The case statements have indices that run from 8 down to 1, modulo 8. Can we give it the Circle treatment?
+Reproduced above is a simplified version of Duff's device, an infamous memcpy function designed to reduce the amount of branching in the operation. (The loop is optimally interleaved with the switch, but I'm trying to illustrate some other points and don't want to add to the confusion.) Once we enter the switch, perform an assignment and unconditionally progress to the next case statement. This algorithm cries out for automation. The case statements have indices that run from 8 down to 1, modulo 8. Can we give it the Circle treatment?
 
 [**duff2.cxx**](examples/duff/duff2.cxx)
 ```cpp
