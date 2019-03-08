@@ -263,7 +263,7 @@ We initialize and view an instance of this concrete type in the debugger to reve
 
 C++11 extended templates by introducing parameter packs, which allow us to parameterize a generic tuple. But how do we implement the actual class template? 
 
-C++ failed to evolve the core language to keep up with the demands made by generic code. You cannot write a generic tuple that follows the design of the concrete tuple in C++98, C++11, C++14, C++17 or C++20. Although types in a class definition by may parameterized, the layout of class cannot be parameterized, except by explicit or partial template specialization.
+C++ failed to evolve the core language to keep up with the demands made by generic code. You cannot write a generic tuple that follows the design of the concrete tuple in C++98, C++11, C++14, C++17 or C++20. Although types in a class definition may be parameterized, the layout of class cannot be parameterized, except by explicit or partial template specialization.
 
 How does the STL implement a tuple? It uses _class inheritance_ and _partial template specialization_. Each instance of `_Tuple_impl` stores one value in the data member `_M_head_impl`. It inherits the next successive specialization of `_Tuple_impl`, which defines the data member using the next type in the parameter pack. A partial specialization of `_Tuple_impl` inherits the sentinel class `_Head_base` to include the final data member and terminate the recursive inheritance. Special consideration is given to accessing the i'th data member: instead of direct lookup, the `std::get` accessor must recurse down this inheritance structure (again, by using partial template specialization of a class `__get_helper`), ticking down its index with each specialization, and finally return an lvalue to the `_M_head_impl` from the right base class.
 
@@ -2165,7 +2165,7 @@ std::variant<int, double, vec3_t, std::vector<short> >
 ```
 This debugger dump shows the structure of `std::variant` with four variant members. Six different support class templates are introduced to implement the type. As with the `tuple` case, structural recursion is again employed. But this time we can't use inheritance, because unions don't support it. We have to recursively compose a type inside a variant member: the `_M_storage` members in the class layout all have the same address. This is achieved by making `_Variant_storage` a union, and making `_M_first` and `_M_rest` variant members.
 
-With a tuple, the auto-generated special member functions (constructors and assignment operators) do everything we need. But with the variant, we have to implement all of these functions ourselves, and the limits of C++ metaprogramming makes this very difficult. How can circle make it better?
+With a tuple, the auto-generated special member functions (constructors and assignment operators) do everything we need. But with the variant, we have to implement all of these functions ourselves, and the limits of C++ metaprogramming makes this very difficult. How can Circle make it better?
 
 ### The Circle variant
 
@@ -2176,10 +2176,10 @@ struct my_concrete_variant_t {
     _1,   // double
     _2,   // vec3_t
     _3,   // std::vector<short>
-    _4,   // void 
+    none, // void 
   };
 
-  tag_t _tag;
+  tag_t tag = tag_t::none;
 
   union {
     int _0;
@@ -2216,7 +2216,32 @@ struct my_concrete_variant_t {
 }
 ```
 
-The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union. We've looked at the Circle code for generating this exact class layout in [Typed enums](#typed-enums). 
+The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union. We've looked at the Circle code for generating this exact class layout in [Typed enums](#typed-enums). Here's it one more time:
+
+```cpp
+template<typename... types_t>
+struct variant_t {
+  enum { count = sizeof...(types_t) };
+
+  enum typename class tag_t {
+    @meta for(int i = 0; i < count; ++i) 
+      types_t...[i];     // Enumerators are assigned names starting from _0.
+
+    none = void;
+  };
+
+  tag_t tag = tag_t::none;
+
+  union {
+    // Declare a variant member for each enumerator.
+    @meta for(int i = 0; i < count; ++i)
+      @enum_type(tag_t, i) @(i);
+  };
+  
+  // ... Declare constructors and member functions here.
+};
+```
+The Circle variant has a 1:1 correlation with the hand-written version. The memory layout is the same. The data members and enumerators have the same names. Once we understood the requirements of the concrete version, we were able to construct a generic version with little additional effort. This is _not_ the story of template metaprogramming in standard C++.
 
 The question now is how to implement the functional requirements of a discriminated union:
 * The default constructor sets the active type to none.
