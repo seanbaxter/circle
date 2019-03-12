@@ -4,17 +4,13 @@
 #include <optional>
 
 template<typename type_t>
-const char* name_from_enum(type_t x) {
+const char* name_from_enum(type_t e) {
   static_assert(std::is_enum<type_t>::value);
-  
-  switch(x) {
-    @meta for(int i = 0; i < @enum_count(type_t); ++i) {
-      // @enum_value is the i'th unique enumerator in type_t.
-      // eg, circle, square, rhombus
-      case @enum_value(type_t, i):
-        // @enum_name returns a string literal of the enumerator.
-        return @enum_name(type_t, i);
-    }
+
+  switch(e) {
+    @meta for enum(type_t e2 : type_t)
+      case e2:
+        return @enum_name(e2);
 
     default:
       return nullptr;

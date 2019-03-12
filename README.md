@@ -45,6 +45,8 @@ Sean Baxter
         An economical set of extensions for oft-iterated collections.  
     1. [Introspection on enums](#introspection-on-enums)  
         Use introspection and reflection to bake in type information.  
+    1. [for-enum statements](#for-enum-statements)  
+        Ranged-based for loop over enumerators.  
     1. [Object serialization](#object-serialization)  
         Use introspection to break open and pretty print class objects.  
     1. [Better object serialization](#better-object-serialization)  
@@ -214,8 +216,7 @@ Ever since template metaprogramming began in the early 2000s, C++ practice has p
 
 The basic object-oriented outline of C++ was the blueprint for most successful languages that came since. Programmers are comfortable pulling together data and methods into classes. And they're productive with the more ancient array-based imperative way to manipulate data that C popularized. The obvious next step was to add generics. 
 
-Class and function templates enable more generic programming by allowing you to use placeholder types (template parameters) and the dependent variable of these types in your class and function definitions. During template instantiation, the placeholders are substituted with concrete types, and unfinished semantic business, like 
-overload resolution, is finally resolved. 
+Class and function templates enable more generic programming by allowing you to use placeholder types (template parameters) and the dependent variable of these types in your class and function definitions. During template instantiation, the placeholders are substituted with concrete types, and unfinished semantic business, like overload resolution, is finally resolved. 
 
 For generic types with a clear 1:1 relationship with their handwritten concrete-type predecessors, the template alone was a sufficient addition. `std::vector` is implemented just like an exception-safe array, but parameterized for any type. `std::sort` is an ordinary quicksort, but templated to support any input type. When you start with a quicksort for `double`, it's clear how to convert into its function template equivalent.
 
@@ -872,6 +873,25 @@ std::optional<type_t> enum_from_name(const char* name) {
 Going the other direction is just as easy. We can't switch over a string, so instead we emit a sequence of `strcmp` operations, each comparing the name of an enumeration with the argument string. If the strings match, the corresponding enumerator is returned. Note that in both of these functions, all arguments to the introspection operators _are known at compile time_.
 
 You may think that these two functions are the alpha and omega of enum introspection. They are not. Circle's metaprogramming capability has revealed enumerations as a deeply versatile data structure. They aren't just identifiers with constant values... They are immutable sets that require no storage, can specialize templates, and have enumerators with spellings that can overload other declarations in a namespace.
+
+### for-enum statements
+
+Looping over enumerators is one of the most common practices when metaprogramming with Circle. Accordingly, Circle includes a range-based _for-enum-statement_ specifically for this. These two statements are equivalent:
+
+```cpp
+@meta for(int i = 0; i < @enum_count(type_t); ++i) {
+  case @enum_value(type_t, i):
+    return @enum_name(type_t, i);
+}
+
+@meta for enum(type_t e : type_t) {
+  // e is the i'th enumerator in type_t at each step.
+  case e:
+    return @enum_name(e);
+}
+```
+
+The ranged _for-enum-statement_ loops from 0 to `@enum_count` - 1, putting the corresponding enumerator value into the declaration. The cv-unqualified type of the declaration must match the _type-id_ to the right of the :, and the type must be an enumeration.
 
 ### Object serialization
 
@@ -2392,13 +2412,13 @@ auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
       static_assert(std::is_enum<enums_t...[I]>::value);
 
       // Forward to the next level.
-      @meta for(int i = 0; i < @enum_count(enums_t...[I]); ++i) 
-        case @enum_value(enums_t...[I], i):
+      @meta for enum(auto e2 : enums_t...[I])
+        case e2:
           return dispatch_inner<
-            I + 1, 
-            client_temp, 
-            types_t...,                     // Expand the old types
-            @enum_type(enums_t...[I], i)    // Add this as a new type
+            I + 1,
+            client_temp,
+            types_t...,                    // Expand the old types
+            @enum_type(e2)                 // Add this as a new type
           >(e, std::forward<args_t>(args)...);
     }
   }

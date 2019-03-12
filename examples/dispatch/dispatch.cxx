@@ -18,13 +18,13 @@ auto dispatch_inner(tuple_t<enums_t...> e, args_t&&... args) {
       static_assert(std::is_enum<enums_t...[I]>::value);
 
       // Forward to the next level.
-      @meta for(int i = 0; i < @enum_count(enums_t...[I]); ++i) 
-        case @enum_value(enums_t...[I], i):
+      @meta for enum(auto e2 : enums_t...[I])
+        case e2:
           return dispatch_inner<
-            I + 1, 
-            client_temp, 
-            types_t...,                     // Expand the old types
-            @enum_type(enums_t...[I], i)    // Add this as a new type
+            I + 1,
+            client_temp,
+            types_t...,                    // Expand the old types
+            @enum_type(e2)                 // Add this as a new type
           >(e, std::forward<args_t>(args)...);
     }
   }
