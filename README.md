@@ -2006,92 +2006,6 @@ In most contexts, a typed enum functions exactly like an ordinary enum. Each enu
 
 * `@enum_type(type, index)` - Type associated with i'th enumerator.
 
-What can we do with this? Define variant classes, for one thing.
-
-[**variant.cxx**](examples/variant/variant.cxx)  
-```cpp
-template<typename... types_t>
-struct variant_t {
-  enum { count = sizeof...(types_t) };
-
-  enum typename class tag_t {
-    @meta for(int i = 0; i < count; ++i) 
-      types_t...[i];     // Enumerators are assigned names starting from _0.
-
-    none = void;
-  };
-
-  tag_t tag = tag_t::none;
-
-  union {
-    // Declare a variant member for each enumerator.
-    @meta for(int i = 0; i < count; ++i)
-      @enum_type(tag_t, i) @(i);
-  };
-  
-  // ... Declare constructors and member functions here.
-};
-```
-The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated void type. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
-
-The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
-
-To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
-
-Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
-
-```cpp
-struct none_t { };
-
-template<typename tag_t>
-struct variant2_t {
-  // tag_t must have a none enumerator.
-  tag_t tag = tag_t::none;
-
-  union {
-    @meta for(int i = 0; i < @enum_count(tag_t); ++i)
-      @enum_type(tag_t, i) @(@enum_name(tag_t, i));
-  };
-
-  // Member functions go here.
-};
-
-// The variant members of the anonymous union are given the same names as
-// these enumerators.
-enum typename class my_types_t {
-  none = none_t,
-  us = unsigned short,
-  d = double,
-  s = std::string,
-  m = std::map<std::string, double>,
-};
-
-// Instantiate the variant over the typed enum rather than over a parameter 
-// pack.
-variant2_t<my_types_t> my_variant;
-```
-We can also define the typed enum by hand rather than automatically through a parameter pack. This allows us to provide convenient names for each enumerator, names which will be transfered to the variant members. Now, in addition to using the standard `get` and accessor on the variant, the user can access variant members by the names they provided in the typed enum.
-
-```cpp
-// Instantiate the variant over the typed enum. Now each variant member of the
-// anonymous union uses the name of the corresponding enumerator. This is the 
-// same as manually writing:
-struct variant2_t {
-  my_types_t tag = my_types_t::none;
-
-  union {
-    none_t none;
-    unsigned short us;
-    double d;
-    std::string s;
-    std::map<std::string, double> m;
-  };
-
-  // Member functions go here.
-};
-```
-If the above instantiation `variant2_t<my_types_t>` were written by hand, it would look exactly like this. The generative code adheres very closely to the hand-written ideal. We use the enum introspection keywords and metafor over each enumerator, depositing a member-specifier into the anonymous union with each iteration.
-
 ### case-typename
 
 For added convenience, Circle introduces a _case-typename_ statement. This bit of porcelain allows the user to specify a _type-id_ in a _case-statement_ rather than specifying an integral _constant-expression_. The _type-id_ is then automatically mapped to the corresponding enumerator in the typed-enum which is used in the predicate of the enclosing _switch-statement_.
@@ -2236,8 +2150,9 @@ struct my_concrete_variant_t {
 }
 ```
 
-The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union. We've looked at the Circle code for generating this exact class layout in [Typed enums](#typed-enums). Here's it one more time:
+The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union.
 
+[**variant.cxx**](examples/variant/variant.cxx)  
 ```cpp
 template<typename... types_t>
 struct variant_t {
@@ -2261,6 +2176,14 @@ struct variant_t {
   // ... Declare constructors and member functions here.
 };
 ```
+The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated void type. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
+
+The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
+
+To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
+
+Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
+
 The Circle variant has a 1:1 correlation with the hand-written version. The memory layout is the same. The data members and enumerators have the same names. Once we understood the requirements of the concrete version, we were able to construct a generic version with little additional effort. This is _not_ the story of template metaprogramming in standard C++.
 
 The question now is how to implement the functional requirements of a discriminated union:
