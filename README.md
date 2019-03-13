@@ -7,8 +7,6 @@ Sean Baxter
 
 ## Contents
 
-** **[Circle for GPU](NVVM.md)**
-
 1. [Abstract](#abstract)  
 1. [TLDR](#tldr)  
     Circle in a nutshell.  
@@ -83,6 +81,9 @@ Sean Baxter
         ...receives the Circle treatment.  
     1. [Generic dispatch](#generic-dispatch)  
         A generic function dispatcher driven by introspection and reflection.  
+1. [GPU programming](#gpu-programming)  
+    1. [Kernel compilation](#kernel-compilation)  
+    1. [`@codegen` compilation](#codegen-compilation)  
 
 ## Abstract
 
@@ -2468,3 +2469,263 @@ $ ./dispatch circle red hatch 3
 The dispatch result is 6.200000
 ```
 The story gets better. Recall same-language reflection as the mechanism for [dynamic generation of enums](https://github.com/seanbaxter/circle#automating-enums)? Your application can define a stock collection of composable types, and the enums that serve as type sets for generic dispatch can be programmatically generated from configuration files. If you want it done quick and dirty, just include the comma-separated list of types in your configuration and employ `@statements` to inject all those type-naming tokens in one go.
+
+## GPU programming
+
+Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html)/[NVPTX](https://llvm.org/docs/NVPTXUsage.html) backend. Circle's frontend design makes two major enhacements compared to the `nvvc` and `clang++` compilers:
+
+1. **Make a _single frontend pass_ over the source.**
+    The existing CUDA compilers use the `__CUDA_ARCH__` macro to note the device architecture targeted by the current run of the code generator. Changing `__CUDA_ARCH__` to indicate a different device architecture invalidates the translation unit, requiring a completely new frontend pass for each target. The frontend is executed 1 + N times, where N is the number of targeted devices.
+
+    Circle defines a variable `__nvvm_arch`, which is available during code generation. The user performs codegen-context control flow over this variable to emit different behaviors for each architecture, and when the code generator is run, the predicates for the codegen control flow is evaluated and only the necessary branches are emitted to the module. This cuts down build times considerably by making only a single frontend pass.
+1. **Call any untagged locally-defined function.**
+    The `nvcc` compiler requires functions be marked `__device__` (or, experimentally, `constexpr`) to be used from a kernel. This was necessitated by `nvvc`'s split host/device compiler architecture, but has since fossilized into ritual. It has necessitated rewriting switches of the STL, copying classes and functions out of namespace `std` and into a new namespace, merely to add `__device__` tags. For example, classes like [`std::reverse_iterator`](https://thrust.github.io/doc/classthrust_1_1reverse__iterator.html) and [`std::tuple`](https://thrust.github.io/doc/classthrust_1_1tuple.html) have been ported into CUDA libraries, even though STL's version of the classes ought to work fine on the GPU.
+
+    Circle only requires `__device__` tags when the function performs an operation unsupported on the host target (such as calling a CUDA intrinsic), or when it wants to emit a function definition in a GPU device module when it's not ODR-used from a kernel.
+
+### Kernel compilation
+
+[**gpu1.cu**](examples/gpu/gpu1.cu) [(output)](examples/gpu/output1.txt)
+```cpp
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <algorithm>
+#include <functional>
+#include <cstdio>
+#include <vector>
+
+// Perform an inclusive prefix scan with one input per thread.
+template<int nt, typename type_t, typename op_t = std::plus<type_t> >
+__device__ type_t cta_scan(int tid, type_t x, op_t op = op_t()) {
+
+  // Provision 2 * nt shared memory slots for double-buffering. This cuts in
+  // half the number of __syncthreads required.
+  __shared__ type_t shared[2 * nt];
+
+  int first = 0;
+  shared[first + tid] = x;
+  __syncthreads();
+
+  @meta for(int offset = 1; offset < nt; offset *= 2) {
+    // Increment using the element on the left.
+    if(tid >= offset)
+      x = op(shared[first + tid - offset], x);
+
+    // Write back to tid's slot in the double buffer.
+    first = nt - first;
+    shared[first + tid] = x;
+    __syncthreads();
+  }
+
+  // Return the accumulated value.
+  return x;
+}
+
+// Kernels are still marked __global__.
+template<int nt>
+__global__ void my_kernel(int* p) {
+  int tid = __nvvm_tid_x();
+  int x = cta_scan<nt>(tid, 1, std::plus<int>());
+  p[tid] = x;
+}
+
+int main() {
+  const int nt = 64;
+  int* data;
+  cudaMalloc(&data, nt * sizeof(int));
+
+  my_kernel<nt><<<1, nt>>>(data);
+
+  std::vector<int> results(nt);
+  cudaMemcpy(results.data(), data, nt * sizeof(int), cudaMemcpyDeviceToHost);
+
+  for(int i = 0; i < nt; ++i)
+    printf("%d -> %d\n", i, results[i]);
+
+  cudaFree(data);
+
+  return 0;
+}
+```
+
+CUDA in Circle looks a lot like the CUDA you're used to. This simple program computes a scan of its inputs. The arithmetic operation is abstracted behind the template parameter `op_t`. We choose to use `std::plus` rather than a tagged version like `thrust::plus` or `mgpu::plus_t`, demonstrating the preference to use standard types.
+
+What happens when we compile?
+```
+$ circle gpu1.cu -isystem /usr/local/cuda-9.2/include/ -L /usr/local/cuda-9.2/lib64 -l cudart --verbose -sm_
+35 -sm_52 -sm_70 -O0 --save-temps
+ptxas -m64 -O0 -v --gpu-name sm_35 --output-file ./gpu1-sm-35.cubin ./gpu1-compute-35.ptx
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_35'
+ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
+    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 14 registers, 512 bytes smem, 328 bytes cmem[0]
+ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas -m64 -O0 -v --gpu-name sm_52 --output-file ./gpu1-sm-52.cubin ./gpu1-compute-52.ptx
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_52'
+ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
+    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, 512 bytes smem, 328 bytes cmem[0]
+ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas -m64 -O0 -v --gpu-name sm_70 --output-file ./gpu1-sm-70.cubin ./gpu1-compute-70.ptx
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_70'
+ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
+    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 17 registers, 512 bytes smem, 360 bytes cmem[0]
+ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+fatbinary --cuda -64 --create ./gpu1.fatbin --image=profile=sm_35,file=./gpu1-sm-35.cubin --image=profile=compute_35,file=./gpu1-compute-35.ptx --image=profile=sm_52,file=./gpu1-sm-52.cubin --image=profile=compute_52,file=./gpu1-compute-52.ptx --image=profile=sm_70,file=./gpu1-sm-70.cubin --image=profile=compute_70,file=./gpu1-compute-70.ptx
+```
+
+The `--verbose` argument echoes the programs run internally by the compiler. The way device code is bound with host symbols is pretty conventional, but let's break it down anyways:
+
+1. Run a single frontend pass over the translation unit.
+1. For each NVVM device module:
+    1. Generate ptx into a temporary file.
+    1. Invoke `ptxas` to compile the ptx into a cubin temporary file. 
+1. Gather the .ptx and .cubin files for all targets and use `fatbinary` (included with the CUDA Toolkit) to bind them together into a single archive.
+1. The compiler's code generator loads the .fatbin file into memory and stores it as a static resource in the host's module.
+1. A function `__cuda_module_ctor` is added to the translation unit's dynamic initializers. Inside this initializer we:
+    1. Call `__cudaRegisterFatBinary` to load the .fatbin resource with the CUDA driver.
+    1. Call `__cudaRegisterFunction` on each kernel function. This creates a mapping between the kernel function in the host module (the one you invoke with chevron launch arguments) and the corresponding device kernels in the fatbin resource.
+    1. Call `__cudaRegisterVariable` on each `__device__`- or `__constant__`-tagged object. This provides a mapping between host and device objects, to support CUDA runtime functions like `cudaGetSymbolAddress`.
+1. A proxy in the host's module is generated for each `__global__`-tagged kernel. When a kernel is launched using the chevron syntax, `__cudaPushCallConfiguration` is used internally to push the launch arguments onto a special stack. The proxy kernel is called. This proxy retrieves the chevron arguments with `__cudaPopCallConfiguration` and forwards them, along with the kernel's proper arguments, to the runtime API `cudaLaunchKernel`.
+
+### `@codegen` compilation
+
+How do we target code to specific device architectures without the `__CUDA_ARCH__` macro? Circle collects all the `sm-XX` build arguments and implicitly defines an enumeration and codegen object to feed us the arch versions during code generation:
+
+```cpp
+// If -sm_35 -sm_52 -sm_70 are command line arguments, this is implicitly
+// declared:
+enum class nvvm_arch_t {
+  sm_35 = 35,
+  sm_52 = 52,
+  sm_70 = 70
+};
+
+@codegen extern const nvvm_arch_t __nvvm_arch;
+```
+
+`@codegen` establishes a context where expressions are evaluated and objects are linked during code generation. The `__nvvm_arch` declaration is marked `extern` to indicate that it receives this special linking, and that the translation unit is prohibited from providing an initializer.
+
+[**gpu2.cu**](examples/gpu/gpu2.cu)
+```cpp
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <optional>
+#include <cstdio>
+
+// Print any enum.
+template<typename type_t>
+const char* name_from_enum(type_t x) {
+  switch(x) {
+    @meta for(int i = 0; i < @enum_count(type_t); ++i)
+      case @enum_value(type_t, i):
+        return @enum_name(type_t, i);
+
+    default:
+      return nullptr;
+  }
+}
+
+// Find the most compatible compiled architecture for this device.
+// This maps a runtime value (the compute capability from the driver) to 
+// a copmile-time enumerator from nvvm_arch_t, which is 
+std::optional<nvvm_arch_t> find_best_arch(int device = 0) {
+  int major, minor;
+  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device);
+  cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device);
+  int sm = 10 * major + minor;
+
+  // nvvm_arch_t is an implicitly-defined scoped enum holding all NVPTX targets
+  // for the translation unit.
+  std::optional<nvvm_arch_t> best;
+  @meta for(int i = 0; i < @enum_count(nvvm_arch_t); ++i) {
+    if(sm >= (int)@enum_value(nvvm_arch_t, i))
+      best = @enum_value(nvvm_arch_t, i);
+  }
+
+  return best;
+}
+
+// Generic kernel that instantiates its function object with the 
+// nvvm_arch_t (__nvvm_arch) currently being targeted by the LLVM backend.
+template<int nt, typename kernel_t>
+__global__ void sm_launch(kernel_t kernel) {
+  // Specialize the kernel's function template over each possible 
+  // nvvm arch. The @codegen if is evaluated during code generation and only
+  // emits code for the architecture being targeted by that module.
+  @meta for enum(nvvm_arch_t sm : nvvm_arch_t) {
+    @codegen if(sm == __nvvm_arch)
+      kernel.template go<sm, nt>();
+  }
+}
+
+// You define this bit.
+struct my_kernel_t {
+  template<nvvm_arch_t sm, int nt>
+  __device__ void go() {
+    // Look up kernel parameters by sm, parameter type, etc. Drive the kernel
+    // definition using a combination of meta and codegen control flow.
+  }
+};
+
+
+int main() {
+  // Circle enums are iterable collections. Print all the architectures 
+  // targeted in this build. That's one for each -sm_XX command-line argument.
+  @meta printf("Device architectures targeted in this build:\n");
+  @meta for enum(nvvm_arch_t sm : nvvm_arch_t)
+    @meta printf("  %s\n", @enum_name(sm));
+
+  // Print the best targeted architecture for this device.
+  nvvm_arch_t arch;
+  if(auto best = find_best_arch()) {
+    arch = *best;
+    printf("Selected device architecture %s\n", name_from_enum(arch));
+
+  } else {
+    printf("Invalid device version for these build parameters\n");
+    exit(1);
+  }
+
+  // Prepare a kernel. The go function template will be instantiated with 
+  // the value of __nvvm_arch for each backend and the block size.
+  my_kernel_t my_kernel { };
+
+  const int nt = 128;
+  sm_launch<nt><<<1, nt>>>(my_kernel);
+
+  return 0;
+}
+```
+```
+$ circle gpu2.cu -isystem /usr/local/cuda-9.2/include/ -L /usr/local/cuda-9.2/lib64 -l cudart -sm_35 -sm_52 -sm_70 -O0 --save-temps
+Device architectures targeted in this build:
+  sm_35
+  sm_52
+  sm_70
+```
+
+A big advantage of Circle's treatment of CUDA is that we know all targets for the translation unit at compile time, and enum introspection lets us iterate over these. `find_best_arch` assembles the device's SM version from its device properties and performs a [_for-enum_](#for-enum-statements) loop over the target architectures to find the best match.
+
+Since we're only making a single frontend pass, we need a way to emit only the code intended for the target architecture each time a different backend pass is executed. `sm_launch` is a simple example of this:
+```cpp
+  @meta for enum(nvvm_arch_t sm : nvvm_arch_t) {
+    @codegen if(sm == __nvvm_arch)
+      kernel.template go<sm, nt>();
+  }
+```
+It instantiates and calls the kernel function over each target architecture, but guards the call using a codegen _if-statement_. The predicate of the codegen _if-statement_ is unresolvable during the frontend pass, so the frontend compiles the specialization for each target architecture. When the backend pass runs for each architecture, it links the `__nvvm_arch` symbol with its initialized object, evaluates the _if-statement_, and emits only the desired function call. Although a specialization of `my_kernel_t::go` exists in the AST for each device architecture, only one specialization is turned into ptx by the code generator, because only that one instance is ODR-used from the kernel.
+
