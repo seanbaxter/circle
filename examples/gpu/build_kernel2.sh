@@ -1,0 +1,1 @@
+circle gpu2.cu -isystem /usr/local/cuda-9.2/include/ -L /usr/local/cuda-9.2/lib64 -l cudart --verbose -sm_35 -sm_52 -sm_70 -O0 --save-temps
