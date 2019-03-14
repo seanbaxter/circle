@@ -152,7 +152,7 @@ struct tuple_t {
     types_t...[i] @(i); 
 };
 ```
-This is the dream that inspired Circle. We're able to use C++'s imperative constructs to write code in the way usually we think about coding. In this case, for each element in a parameter pack, make a non-static data member of that type. It's easy to read. It's easy to write. It's easy to learn. You don't have to rely on expert developers of template libraries to provide generic tools when Circle has cleverly repurposed C++ to allow you to write it yourself.
+This is the dream that inspired Circle. We're able to use C++'s imperative constructs to write code in the way we prefer to think about coding. In this case, for each element in a parameter pack, make a non-static data member of that type. It's easy to read. It's easy to write. It's easy to learn. You don't have to rely on expert developers of template libraries to provide generic tools when Circle has cleverly repurposed C++ to allow you to write it yourself.
 
 ### Hello harder
 
