@@ -116,7 +116,7 @@ Compiler details:
 * Custom C++ frontend.
 * LLVM backend. 
 * [Itanium C++ ABI](http://itanium-cxx-abi.github.io/cxx-abi/) support for wide compatibility. 
-* CUDA* backend support.
+* [CUDA](#gpu-programming) backend support.
 * gdb/DWARF debug metadata.
 * Only 105,000 lines for fast feature development. 
 
