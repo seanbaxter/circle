@@ -894,6 +894,26 @@ Looping over enumerators is one of the most common practices when metaprogrammin
 
 The ranged _for-enum-statement_ loops from 0 to `@enum_count` - 1, putting the corresponding enumerator value into the declaration. The cv-unqualified type of the declaration must match the _type-id_ to the right of the :, and the type must be an enumeration.
 
+The _for-enum-statement_ is a meta-only control flow mechanism. Circle has no runtime support for introspection, and since enumerators may have non-sequential values, they cannot be visited with an ordinary for loop.
+
+[**enums.cxx**](examples/enums/enums.cxx)
+```cpp
+template<typename type_t>
+const char* name_from_enum(type_t e) {
+  static_assert(std::is_enum<type_t>::value);
+
+  switch(e) {
+    @meta for enum(type_t e2 : type_t)
+      case e2:
+        return @enum_name(e2);
+
+    default:
+      return nullptr;
+  }
+}
+```
+We can rewrite the `name_from_enum` function using a _for-enum-statements_. It operates the same way, but the bit of porcelain results in less visual noise and clearer intent.
+
 ### Object serialization
 
 Consider the task of streaming out the contents of a structure as a key/value store, either for machine storage or visual inspection. Without introspection, you'd need to manually write a serialize function for each type. Or maybe you'd use a macro to define both the structure and a corresponding table of string literals. Or maybe you subscribe to a preprocessor like [Protobuf](https://developers.google.com/protocol-buffers/), write your class definitions in a DSL and use a special-purpose compiler to generate bindings and type info.
