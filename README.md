@@ -83,7 +83,7 @@ Sean Baxter
         A generic function dispatcher driven by introspection and reflection.  
 1. [GPU programming](#gpu-programming)  
     1. [Kernel compilation](#kernel-compilation)  
-    1. [`@codegen` compilation](#codegen-compilation)  
+    1. [`@codegen` control flow](#codegen-control-flow)  
 
 ## Abstract
 
@@ -2601,12 +2601,12 @@ The `--verbose` argument echoes the programs run internally by the compiler. The
     1. Call `__cudaRegisterVariable` on each `__device__`- or `__constant__`-tagged object. This provides a mapping between host and device objects, to support CUDA runtime functions like `cudaGetSymbolAddress`.
 1. A proxy in the host's module is generated for each `__global__`-tagged kernel. When a kernel is launched using the chevron syntax, `__cudaPushCallConfiguration` is used internally to push the launch arguments onto a special stack. The proxy kernel is called. This proxy retrieves the chevron arguments with `__cudaPopCallConfiguration` and forwards them, along with the kernel's proper arguments, to the runtime API `cudaLaunchKernel`.
 
-### `@codegen` compilation
+### `@codegen` contrcol flow
 
 How do we target code to specific device architectures without the `__CUDA_ARCH__` macro? Circle collects all the `sm-XX` build arguments and implicitly defines an enumeration and codegen object to feed us the arch versions during code generation:
 
 ```cpp
-// If -sm_35 -sm_52 -sm_70 are command line arguments, this is implicitly
+// If -sm_35 -sm_52 -sm_70 are command-line arguments, this is implicitly
 // declared:
 enum class nvvm_arch_t {
   sm_35 = 35,
@@ -2722,10 +2722,13 @@ A big advantage of Circle's treatment of CUDA is that we know all targets for th
 
 Since we're only making a single frontend pass, we need a way to emit only the code intended for the target architecture each time a different backend pass is executed. `sm_launch` is a simple example of this:
 ```cpp
+template<int nt, typename kernel_t>
+__global__ void sm_launch(kernel_t kernel) {
   @meta for enum(nvvm_arch_t sm : nvvm_arch_t) {
     @codegen if(sm == __nvvm_arch)
       kernel.template go<sm, nt>();
   }
+}
 ```
 It instantiates and calls the kernel function over each target architecture, but guards the call using a codegen _if-statement_. The predicate of the codegen _if-statement_ is unresolvable during the frontend pass, so the frontend compiles the specialization for each target architecture. When the backend pass runs for each architecture, it links the `__nvvm_arch` symbol with its initialized object, evaluates the _if-statement_, and emits only the desired function call. Although a specialization of `my_kernel_t::go` exists in the AST for each device architecture, only one specialization is turned into ptx by the code generator, because only that one instance is ODR-used from the kernel.
 
