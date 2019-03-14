@@ -625,7 +625,7 @@ Some alarm bells are going off in the heads of C++ devotees:
 The solution is an integrated interpreter. The interpreter is a mirror of the LLVM code generator backend.
 * Class objects have standard data layout, for interoperability with compiled code.
 * Internally-defined functions are executed by interpreting the compiled AST.
-* Externally-defined symbols typically rely on a linker. In the interpreter, the function's name is mangled and searched for in the pre-loaded standard binaries: `libc`, `libm`, `libpthread`, `libstd++` and `libc++abi`. Additional libraries may be loaded with the -M compiler switch. When the requested function is found, a foreign-function call is made, and arguments are passed from the interpreter to the native code implementing the function.
+* Externally-defined symbols typically rely on a linker. In the interpreter, the function's name is mangled and searched for in the pre-loaded standard binaries: `libc`, `libm`, `libpthread`, `libstdc++` and `libc++abi`. Additional libraries may be loaded with the -M compiler switch. When the requested function is found, a foreign-function call is made, and arguments are passed from the interpreter to the native code implementing the function.
 * RTTI, exceptions, virtual functions and virtual inheritance are implemented and work exactly as expected.
 * Functions may be called from native code via function pointers or virtual functions. A foreign-function closure is created for each function exported out of the interpreter, which provides a callable address. A trampoline function loads the function arguments and executes the function's definition through the interpreter before returning the result back out through the closure.
 
