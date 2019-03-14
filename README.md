@@ -261,7 +261,7 @@ struct my_concrete_tuple_t {
   }
 }
 ```
-We initialize and view an instance of this concrete type in the debugger to reveal its structure. Except for the internal structure of the `vec3_t` and `std::vector<short>` members, the tuple has a flat layout. This is what we're used to in C/C++. Flat structures and arrays are the beef and beer or imperative languages.
+We initialize and view an instance of this concrete type in the debugger to reveal its structure. Except for the internal structure of the `vec3_t` and `std::vector<short>` members, the tuple has a flat layout. This is what we're used to in C/C++. Flat structures and arrays are the beef and beer of imperative languages.
 
 C++11 extended templates by introducing parameter packs, which allow us to parameterize a generic tuple. But how do we implement the actual class template? 
 
