@@ -5,11 +5,13 @@
 
 // Print any enum.
 template<typename type_t>
-const char* name_from_enum(type_t x) {
-  switch(x) {
-    @meta for(int i = 0; i < @enum_count(type_t); ++i)
-      case @enum_value(type_t, i):
-        return @enum_name(type_t, i);
+const char* name_from_enum(type_t e) {
+  static_assert(std::is_enum<type_t>::value);
+
+  switch(e) {
+    @meta for enum(type_t e2 : type_t)
+      case e2:
+        return @enum_name(e2);
 
     default:
       return nullptr;
