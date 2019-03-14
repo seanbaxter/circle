@@ -2499,7 +2499,7 @@ Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm
 
     Circle defines a variable `__nvvm_arch`, which is available during code generation. The user performs codegen-context control flow over this variable to emit different behaviors for each architecture, and when the code generator is run, the predicates for the codegen control flow is evaluated and only the necessary branches are emitted to the module. 
 
-    The single frontend pass addresses on of my biggest grievances with the CUDA platform: excessively long build times. Circle makes compilation times for GPU programs **significantly faster**.
+    The single frontend pass addresses one of my biggest grievances with the CUDA platform: excessively long build times. Circle makes compilation times for GPU programs **significantly faster**.
 
 1. **Call any untagged locally-defined function.**
     The `nvcc` compiler requires functions be marked `__device__` (or, experimentally, `constexpr`) to be used from a kernel. This was necessitated by `nvvc`'s split host/device compiler architecture, but has since fossilized into ritual. It has necessitated rewriting broad swaths of the STL, copying classes and functions out of namespace `std` and into a new namespace, merely to add `__device__` tags. For example, classes like [`std::reverse_iterator`](https://thrust.github.io/doc/classthrust_1_1reverse__iterator.html) and [`std::tuple`](https://thrust.github.io/doc/classthrust_1_1tuple.html) have been ported into CUDA libraries, even though STL's version of the classes ought to work fine on the GPU.
@@ -2666,7 +2666,7 @@ const char* name_from_enum(type_t e) {
 
 // Find the most compatible compiled architecture for this device.
 // This maps a runtime value (the compute capability from the driver) to 
-// a copmile-time enumerator from nvvm_arch_t, which is 
+// a compile-time enumerator from nvvm_arch_t, which is 
 std::optional<nvvm_arch_t> find_best_arch(int device = 0) {
   int major, minor;
   cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device);

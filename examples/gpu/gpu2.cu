@@ -20,7 +20,7 @@ const char* name_from_enum(type_t e) {
 
 // Find the most compatible compiled architecture for this device.
 // This maps a runtime value (the compute capability from the driver) to 
-// a copmile-time enumerator from nvvm_arch_t, which is 
+// a compile-time enumerator from nvvm_arch_t, which is 
 std::optional<nvvm_arch_t> find_best_arch(int device = 0) {
   int major, minor;
   cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device);
