@@ -840,7 +840,7 @@ Circle provides simple introspection keywords for accessing name, type and value
 
 ### Introspection on enums
 
-[**enums.cxx**](examples/enums/enums.cxx)
+[**enums.cxx**](examples/enums/enums.cxx)  
 ```cpp
 template<typename type_t>
 const char* name_from_enum(type_t x) {
@@ -896,7 +896,7 @@ The ranged _for-enum-statement_ loops from 0 to `@enum_count` - 1, putting the c
 
 The _for-enum-statement_ is a meta-only control flow mechanism. Circle has no runtime support for introspection, and since enumerators may have non-sequential values, they cannot be visited with an ordinary for loop.
 
-[**enums.cxx**](examples/enums/enums.cxx)
+[**enums.cxx**](examples/enums/enums.cxx)  
 ```cpp
 template<typename type_t>
 const char* name_from_enum(type_t e) {
@@ -2621,7 +2621,7 @@ The `--verbose` argument echoes the programs run internally by the compiler. The
     1. Call `__cudaRegisterVariable` on each `__device__`- or `__constant__`-tagged object. This provides a mapping between host and device objects, to support CUDA runtime functions like `cudaGetSymbolAddress`.
 1. A proxy in the host's module is generated for each `__global__`-tagged kernel. When a kernel is launched using the chevron syntax, `__cudaPushCallConfiguration` is used internally to push the launch arguments onto a special stack. The proxy kernel is called. This proxy retrieves the chevron arguments with `__cudaPopCallConfiguration` and forwards them, along with the kernel's proper arguments, to the runtime API `cudaLaunchKernel`.
 
-### `@codegen` contrcol flow
+### `@codegen` control flow
 
 How do we target code to specific device architectures without the `__CUDA_ARCH__` macro? Circle collects all the `sm-XX` build arguments and implicitly defines an enumeration and codegen object to feed us the arch versions during code generation:
 
