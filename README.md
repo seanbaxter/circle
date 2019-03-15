@@ -695,6 +695,34 @@ The `text` array has automatic storage duration at compile time. When the compil
 
 What's the lesson here? We took an ordinary C++ function, `capture_call`, and employed it in a novel context. We didn't have to spend time learning obscure features of our build system. We wrote the code that does what we want at compile time, and added `@meta` to do it at compile time.
 
+```
+$ circle version.cxx -filetype=ll -console
+; ModuleID = 'version.cxx'
+source_filename = "version.cxx"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-pc-linux-gnu"
+
+@.str = private constant [71 x i8] c"  Circle compiler\0A  2019 Sean Baxter\0A  version 1.0\0A  hash: 8156fcf08b\0A\00", align 1
+
+; Function Attrs: nounwind
+define void @_Z13print_versionv() local_unnamed_addr #0 {
+  %1 = tail call i32 @puts(i8* getelementptr inbounds ([71 x i8], [71 x i8]* @.str, i64 0, i64 0))
+  ret void
+}
+
+; Function Attrs: nounwind
+declare i32 @puts(i8* nocapture readonly) local_unnamed_addr #0
+
+; Function Attrs: nounwind
+define i32 @main() local_unnamed_addr #0 {
+  %1 = tail call i32 @puts(i8* getelementptr inbounds ([71 x i8], [71 x i8]* @.str, i64 0, i64 0)) #0
+  ret i32 0
+}
+
+attributes #0 = { nounwind }
+```
+A glance at the program's IR shows a string hard-coded with the commit hash from when the translation unit was compiled. There's no reference to `capute_call`, because it wasn't used from the code generator. Likewise, there's no reference to `popen` or its command string. Circle isn't sanitizing these outputs, because these symbols never even make it to the code generator.
+
 ### Same-language reflection
 
 Circle allows automated code generation in a wonderfully natural way. Rather than providing a complex API that's fine-grained enough to emit C++ code, you just write C++ code. What's the trick that gives you enough leverage to be productive doing this? Meta control flow.
