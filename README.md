@@ -30,6 +30,8 @@ Sean Baxter
         The keyword to do it now.
     1. [Integrated interpreter](#integrated-interpreter)  
         A special backend for metaprogramming.  
+        1. [A version printer](#a-version-printer)  
+        Query the environment at compile time.
     1. [Same-language reflection](#same-language-reflection)  
         There's no reflection API. Just ordinary declarations.  
 1. [Circle basics](#circle-basics)          
@@ -628,6 +630,70 @@ The solution is an integrated interpreter. The interpreter is a mirror of the LL
 * Externally-defined symbols typically rely on a linker. In the interpreter, the function's name is mangled and searched for in the pre-loaded standard binaries: `libc`, `libm`, `libpthread`, `libstdc++` and `libc++abi`. Additional libraries may be loaded with the -M compiler switch. When the requested function is found, a foreign-function call is made, and arguments are passed from the interpreter to the native code implementing the function.
 * RTTI, exceptions, virtual functions and virtual inheritance are implemented and work exactly as expected.
 * Functions may be called from native code via function pointers or virtual functions. A foreign-function closure is created for each function exported out of the interpreter, which provides a callable address. A trampoline function loads the function arguments and executes the function's definition through the interpreter before returning the result back out through the closure.
+
+#### A version printer
+
+```cpp
+#include <cstdlib>
+#include <cstdio>
+
+// Use popen to make a system call and capture the output in a file handle.
+// Make it inline to prevent it from being output by the backend.
+inline int capture_call(const char* cmd, char* text, int len) {
+  FILE* f = popen(cmd, "r");
+  len = f ? fread(text, 1, len, f) : 0;
+  pclose(f);
+}
+
+// Every time print_version is compiled, it runs "git rev-parse HEAD" to
+// get the current commit hash.
+void print_version() {
+  // Make a format specifier to print the first 10 digits of the git hash.
+  @meta const char* fmt =
+    "  Circle compiler\n"
+    "  2019 Sean Baxter\n"
+    "  version 1.0\n"
+    "  hash: %.10s\n";
+
+  // Retrieve the current commit hash. The hash is 40 digits long, and we
+  // include space for null.
+  @meta char hash[41];
+  @meta int len = capture_call("git rev-parse HEAD", hash, 41);
+
+  // Substitute into the format specifier.
+  @meta char text[120];
+  @meta sprintf(text, fmt, hash);
+  
+  // The text array has automatic storage duration at *compile time*. The
+  // array will expire when the end of the function is reached, so it will be
+  // inaccessible at runtime, which is when we want to print the message.
+  // Use @string to convert the compile-time data to a string literal which 
+  // is available at runtime.
+  puts(@string(text));
+}
+
+int main() {
+  print_version();
+  return 0;
+}
+```
+```
+$ circle version.cxx
+$ ./version
+  Circle compiler
+  2019 Sean Baxter
+  version 1.0
+  hash: 8156fcf08b
+```
+Let's use the integrated interpreter to define a useful build tool. Software is the subject of constant revisions, and it's useful to mark a distributable with the exact version of the source-control archive it was built with. 
+
+The git command `rev-parse HEAD` will print the 40-digit commit hash of the current repository. We'll use Circle's integrated interpreter to run the git command using the POSIX API [`popen`](http://man7.org/linux/man-pages/man3/popen.3.html). This executes a shell command and pipes the terminal output to a new file handle. We'll wrap the `popen` call in a helper function `capture_call`. This function is marked inline, so it'll only be emitted to the binary if it's actually called (ODR-used) by non-meta code.
+
+`print_version` is an ordinary function with external linkage. We want it to print version info for the program, and while it's being defined, call `capture_call` with "git rev-parse HEAD" to retrieve the repository's commit hash. At compile time, `sprintf` is called to insert the first 10 digits (no need for overkill) into the format specifier.
+
+The `text` array has automatic storage duration at compile time. When the compiler is done defining `print_version`, it'll release that variable. We can't use it directly from a real expression statement, but we can use the Circle extension `@string` to copy the null-terminated string in `text` into a string literal and print _that_ to the terminal at runtime.
+
+What's the lesson here? We took an ordinary C++ function, `capture_call`, and employed it in a novel context. We didn't have to spend time learning obscure features of our build system. We wrote the code that does what we want at compile time, and added `@meta` to do it at compile time.
 
 ### Same-language reflection
 
