@@ -1,5 +1,5 @@
 #include "../include/enums.hxx"
-#include <json.hpp>
+#include "../include/json.hpp"
 #include <fstream>
 
 @meta std::ifstream json_file("language.json");

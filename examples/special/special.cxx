@@ -6,7 +6,7 @@
 // REMINDER: Break the json
 
 // Header-only JSON parser.
-#include <json.hpp>
+#include "../include/json.hpp"
 
 // Parse the JSON file and keep it open in j.
 using nlohmann::json;
