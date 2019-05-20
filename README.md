@@ -55,6 +55,8 @@ Sean Baxter
         Sort of like macros, but type safe and overloadable.  
     1. [Parsing command specifiers](#parsing-command-specifiers)  
         Roll your own printf.  
+    1. [Macros](#macros)  
+        Data-driven, recursive, templated and overloaded macros.
 1. [Configuration-oriented programming](#configuration-oriented-programming)  
     A paradigm for separating _code_ from _logic_.  
     1. [Code injection](#code-injection)  
@@ -84,8 +86,9 @@ Sean Baxter
     1. [Generic dispatch](#generic-dispatch)  
         A generic function dispatcher driven by introspection and reflection.  
 1. [GPU programming](#gpu-programming)  
-    1. [Kernel compilation](#kernel-compilation)  
-    1. [`@codegen` control flow](#codegen-control-flow)  
+    Circle's special take on CUDA
+    1. [Structure to array](#structure-to-array)  
+        Automatically convert between structure-of-array and array-of-struct. And do it in a GPU kernel.
 
 ## Abstract
 
@@ -120,7 +123,7 @@ Compiler details:
 * [Itanium C++ ABI](http://itanium-cxx-abi.github.io/cxx-abi/) support for wide compatibility. 
 * [CUDA](#gpu-programming) backend support.
 * gdb/DWARF debug metadata.
-* Only 105,000 lines for fast feature development. 
+* Only 115,000 lines for fast feature development. 
 
 ### Hello world
 
@@ -1412,6 +1415,84 @@ template<typename... args_t>
   return oss.str();
 }
 ```
+
+### Macros
+
+The freshest bits in the Circle compiler implement function-style macros. Like preprocessor macros, Circle macros expand at the point that they're called. But they're different in every other way.
+
+Circle macros are functions that participate in argument deduction and overload resolution. However, they must be defined in global scope, and cannot be member functions (either static or non-static). This is because when the macro is expanded, it is evaluated in the scope from which it's called: if a macro were defined in a class or in a namespace, it would need simultaneous access to both that class/namespace scope _and_ the scope from which it's expanded.
+
+Declare a macro using the @macro keyword. Expand a macro by calling it after the @macro keyword. The parameters for a macro are implicitly meta--their values of the corresponding arguments must be known at compile time. Additionally, the macro must return type `void`.
+
+```cpp
+// Define a macro.
+@macro void my_macro(int count) { 
+  @meta for(int i = 0; i < count; ++i)
+    int @(i);
+}
+
+template<int Count>
+struct foo_t {
+  // Expand a macro. Since this is a dependent context, it's expanded at
+  // instantiation, when the value of Count is available.
+  @macro my_macro(Count);
+};
+
+int main() {
+  foo_t<3> obj;
+  obj._0 = 0;
+  obj._1 = 1;
+  obj._2 = 2;
+  obj._3 = 3;   // Error! '_3' is not a member of class foo_t<3>
+  return 0;
+}
+```
+
+Here, we define `my_macro` to loop over `count` items and declare an object or data member for each. Whether the declaration is for an object with static storage duration, a non-static data member, or an object with automatic storage duration depends on the context from which it's expanded.
+
+The macro is expanded from inside a class template definition. The expansion will be deferred until instantiation, even if none of the macro's arguments are value dependent. When the macro is expanded, it establishes a new meta compound statement, which holds meta declarations made in the macro. That is, meta object declarations do not leak into the scope from which the macro is called. Real declarations, however, follow the standard Circle scoping rules: they are inserted into the innermost-enclosing non-meta scope, which in this case, is the definition for `foo_t`.
+
+Circle macros are extremely powerful, because they allow defining arbitrarily-complex functions in a way that isn't possible with the ordinary reflection mechanisms (that is, non-meta statements in meta control flow). Consider, for example, algorithmically generating nested if/else constructs from a tree. A practical example is evaluating the search tree that dictates the translation between nodes in a [DFA](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) in regular expression processing. The transition between closures in DFAs requires checks that scale in complexity with the complexity of the pattern and the size of the alphabet--UNICODE systems have very complex character classes, and there are too many symbols to use bit-fields. Consider performing a test on each edge of a tree, where the value at the leaf node includes the index of the closure to transition to. Circle macros let us generate this tree traversal as a single construct of nested if/else statements from a tree we compute at compile time.
+
+```cpp
+struct node_t {
+  // Child nodes for an if-else statement.
+  node_t* a, *b;
+
+  // The condition to evaluate to determine if we take the a or b branch.
+  condition_t condition;
+
+  // When we hit a leaf node, return the index of the closure to transition to.
+  int closure_index;
+};
+
+@macro void visit_nodes(node_t* node) {
+  @meta if(node->a) {
+    // We're not at a leaf node. Evaluate the condition and take the
+    // a or b nodes. data must be declared at the scope from which we
+    // expand this macro. condition is a function that chooses which 
+    // of the branches to take at runtime. This may check if data is in 
+    // a particular character class, or in a range of characters, and so on.
+    if(condition(node->condition, data)) {
+      @macro visit_nodes(node->a);
+
+    } else {
+      @macro visit_nodes(node->b);
+
+    }
+
+  } else {
+    // We're at a leaf node. Perform an action on the data. This may cause
+    // a DFA node transition.
+    return node->closure_index;
+  }
+}
+```
+
+By expanding the `visit_nodes` macro on the root of the tree, we'll construct an if/else tree at the site of the expansion. Each time the macro is expanded, it generates a single if/else statement (and a conditional expression for it), or it generates a return statement. The return statement is not from the `visit_nodes` macro, but from the function that hosts the initial expansion, which may be many calls back.
+
+Macros are Circle's novel way of transforming _data_ into _behavior_. And where do you get that data? Because we have an integrated interpreter, it can come from pretty much anywhere--a file, an internal calculation, a foreign function call to a compiled library, any oracle you want.
+
 ## Configuration-oriented programming
 
 ### Code injection
@@ -2586,268 +2667,559 @@ The story gets better. Recall same-language reflection as the mechanism for [dyn
 
 ## GPU programming
 
-Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html)/[NVPTX](https://llvm.org/docs/NVPTXUsage.html) backend. Circle's frontend design makes two major enhacements compared to the `nvvc` and `clang++` compilers:
+Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html)/[NVPTX](https://llvm.org/docs/NVPTXUsage.html) backend. Circle's frontend design makes three major enhacements compared to the `nvvc` and `clang++` compilers:
 
-1. **Make a _single frontend pass_ over the source.**
-    The existing CUDA compilers use the `__CUDA_ARCH__` macro to note the device architecture targeted by the current run of the code generator. Changing `__CUDA_ARCH__` to indicate a different device architecture invalidates the translation unit, requiring a completely new frontend pass for each target. The frontend is executed 1 + N times, where N is the number of targeted devices.
+How does Circle differ from NVIDIA's `nvcc` compiler? 
 
-    Circle defines a variable `__nvvm_arch`, which is available during code generation. The user performs codegen-context control flow over this variable to emit different behaviors for each architecture, and when the code generator is run, the predicates for the codegen control flow is evaluated and only the necessary branches are emitted to the module. 
+1. Circle is single pass.
+    The `__CUDA_ARCH__` macro is defined once, and reflects the most recent device architecture targeted. It cannot be used to gate between host and runtime code, and cannot be used to target specific architectures. Its only use in Circle is to enable function definitions in the CUDA Toolkit headers that require it.
+    Instead of relying on `__CUDA_ARCH__`, Circle programmers have access to an `nvvm_arch_t` named enumeration, with an enumeration `sm_XX` for each GPU architecture targeted at the command line. The implicitly-defined variable `__cuda_arch` reflects the device module currently being targeted. Use `@codegen if` to execute a branch during code generation time (that is, still during compile-time, but after parsing and semantic analysis has run).
+    There are two major benefits to the single-pass design: compile times and code simplicity.
+1. Circle doesn't require tags.
+    `__host__` and `__device__` tags have similar meanings in Circle as they do in `nvcc`, but you aren't obligated to tag functions just to use them from kernels. The `saxpy` helper function below is untagged, allowing it to be called from host or device code. This is especially useful for using big existing libraries, as no porting should be required. Thrust provides tagged versions of complicated STL classes like `tuple` and `array`. Circle lets you use those types directly.
+1. Circle lets you metaprogram in C++.
+    Delivering tuning parameters to kernels has been a tricky with CUDA. It requires an unholy union of templates and macros. With Circle, you can use the data structure of your choosing to hold kernel parameters, and query it the exact same way from the host and device code. For the host code, we make a normal query. For the device code, we query from a @meta context, which invokes the interpreter to make a compile-time copy of the underlying data structure, and pulls the values in as constexpr objects. We do this in the device for each targeted device architecture, then execute on the tunings corresponding to the architecture being built by the code generator. No macros or template metaprogramming is required.
 
-    The single frontend pass addresses one of my biggest grievances with the CUDA platform: excessively long build times. Circle makes compilation times for GPU programs **significantly faster**.
+Circle's metaprogramming facilities give us the flexibility to parameterize operations based on GPU architecture, data type, problem size and input distribution, and so on. We can use the same constructs to access the kernel parameters from device and host code, _even though the data is constexpr on the device side!_ 
 
-1. **Call any untagged locally-defined function.**
-    The `nvcc` compiler requires functions be marked `__device__` (or, experimentally, `constexpr`) to be used from a kernel. This was necessitated by `nvvc`'s split host/device compiler architecture, but has since fossilized into ritual. It has necessitated rewriting broad swaths of the STL, copying classes and functions out of namespace `std` and into a new namespace, merely to add `__device__` tags. For example, classes like [`std::reverse_iterator`](https://thrust.github.io/doc/classthrust_1_1reverse__iterator.html) and [`std::tuple`](https://thrust.github.io/doc/classthrust_1_1tuple.html) have been ported into CUDA libraries, even though STL's version of the classes ought to work fine on the GPU.
-
-    Circle only requires `__device__` tags when the function performs an operation unsupported on the host target (such as calling a CUDA intrinsic), or when it wants to emit a function definition in a GPU device module when it's not ODR-used from a kernel.
-
-### Kernel compilation
-
-[**gpu1.cu**](examples/gpu/gpu1.cu) [(output)](examples/gpu/output1.txt)
 ```cpp
 #include <cuda.h>
-#include <cuda_runtime.h>
-#include <algorithm>
-#include <functional>
-#include <cstdio>
-#include <vector>
+#include <map>
 
-// Perform an inclusive prefix scan with one input per thread.
-template<int nt, typename type_t, typename op_t = std::plus<type_t> >
-__device__ type_t cta_scan(int tid, type_t x, op_t op = op_t()) {
+struct details_t {
+  int nt;     // number of threads per CTA.
+  int vt;     // number of values per thread.
 
-  // Provision 2 * nt shared memory slots for double-buffering. This cuts in
-  // half the number of __syncthreads required.
-  __shared__ type_t shared[2 * nt];
-
-  int first = 0;
-  shared[first + tid] = x;
-  __syncthreads();
-
-  @meta for(int offset = 1; offset < nt; offset *= 2) {
-    // Increment using the element on the left.
-    if(tid >= offset)
-      x = op(shared[first + tid - offset], x);
-
-    // Write back to tid's slot in the double buffer.
-    first = nt - first;
-    shared[first + tid] = x;
-    __syncthreads();
-  }
-
-  // Return the accumulated value.
-  return x;
-}
-
-// Kernels are still marked __global__.
-template<int nt>
-__global__ void my_kernel(int* p) {
-  int tid = __nvvm_tid_x();
-  int x = cta_scan<nt>(tid, 1, std::plus<int>());
-  p[tid] = x;
-}
-
-int main() {
-  const int nt = 64;
-  int* data;
-  cudaMalloc(&data, nt * sizeof(int));
-
-  my_kernel<nt><<<1, nt>>>(data);
-
-  std::vector<int> results(nt);
-  cudaMemcpy(results.data(), data, nt * sizeof(int), cudaMemcpyDeviceToHost);
-
-  for(int i = 0; i < nt; ++i)
-    printf("%d -> %d\n", i, results[i]);
-
-  cudaFree(data);
-
-  return 0;
-}
-```
-
-CUDA in Circle looks a lot like the CUDA you're used to. This simple program computes a scan of its inputs. The arithmetic operation is abstracted behind the template parameter `op_t`. We choose to use `std::plus` rather than a tagged version like `thrust::plus` or `mgpu::plus_t`, demonstrating the preference to use standard types.
-
-What happens when we compile?
-```
-$ circle gpu1.cu -isystem /usr/local/cuda-9.2/include/ -L /usr/local/cuda-9.2/lib64 -l cudart --verbose -sm_
-35 -sm_52 -sm_70 -O0 --save-temps
-ptxas -m64 -O0 -v --gpu-name sm_35 --output-file ./gpu1-sm-35.cubin ./gpu1-compute-35.ptx
-ptxas info    : 0 bytes gmem
-ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_35'
-ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
-    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Used 14 registers, 512 bytes smem, 328 bytes cmem[0]
-ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas -m64 -O0 -v --gpu-name sm_52 --output-file ./gpu1-sm-52.cubin ./gpu1-compute-52.ptx
-ptxas info    : 0 bytes gmem
-ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_52'
-ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
-    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Used 13 registers, 512 bytes smem, 328 bytes cmem[0]
-ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas -m64 -O0 -v --gpu-name sm_70 --output-file ./gpu1-sm-70.cubin ./gpu1-compute-70.ptx
-ptxas info    : 0 bytes gmem
-ptxas info    : Compiling entry function '_Z9my_kernelILi64EEvPi' for 'sm_70'
-ptxas info    : Function properties for _Z9my_kernelILi64EEvPi
-    112 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Used 17 registers, 512 bytes smem, 360 bytes cmem[0]
-ptxas info    : Function properties for _Z8cta_scanILi64EiSt4plusIiEET0_iS2_T1_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Function properties for _ZNKSt4plusIiEclERKiS2_
-    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-fatbinary --cuda -64 --create ./gpu1.fatbin --image=profile=sm_35,file=./gpu1-sm-35.cubin --image=profile=compute_35,file=./gpu1-compute-35.ptx --image=profile=sm_52,file=./gpu1-sm-52.cubin --image=profile=compute_52,file=./gpu1-compute-52.ptx --image=profile=sm_70,file=./gpu1-sm-70.cubin --image=profile=compute_70,file=./gpu1-compute-70.ptx
-```
-
-The `--verbose` argument echoes the programs run internally by the compiler. The way device code is bound with host symbols is pretty conventional, but let's break it down anyways:
-
-1. Run a single frontend pass over the translation unit.
-1. For each NVVM device module:
-    1. Generate ptx into a temporary file.
-    1. Invoke `ptxas` to compile the ptx into a cubin temporary file. 
-1. Gather the .ptx and .cubin files for all targets and use `fatbinary` (included with the CUDA Toolkit) to bind them together into a single archive.
-1. The compiler's code generator loads the .fatbin file into memory and stores it as a static resource in the host's module.
-1. A function `__cuda_module_ctor` is added to the translation unit's dynamic initializers. Inside this initializer we:
-    1. Call `__cudaRegisterFatBinary` to load the .fatbin resource with the CUDA driver.
-    1. Call `__cudaRegisterFunction` on each kernel function. This creates a mapping between the kernel function in the host module (the one you invoke with chevron launch arguments) and the corresponding device kernels in the fatbin resource.
-    1. Call `__cudaRegisterVariable` on each `__device__`- or `__constant__`-tagged object. This provides a mapping between host and device objects, to support CUDA runtime functions like `cudaGetSymbolAddress`.
-1. A proxy in the host's module is generated for each `__global__`-tagged kernel. When a kernel is launched using the chevron syntax, `__cudaPushCallConfiguration` is used internally to push the launch arguments onto a special stack. The proxy kernel is called. This proxy retrieves the chevron arguments with `__cudaPopCallConfiguration` and forwards them, along with the kernel's proper arguments, to the runtime API `cudaLaunchKernel`.
-
-### `@codegen` control flow
-
-How do we target code to specific device architectures without the `__CUDA_ARCH__` macro? Circle collects all the `sm-XX` build arguments and implicitly defines an enumeration and codegen object to feed us the arch versions during code generation:
-
-```cpp
-// If -sm_35 -sm_52 -sm_70 are command-line arguments, this is implicitly
-// declared:
-enum class nvvm_arch_t {
-  sm_35 = 35,
-  sm_52 = 52,
-  sm_70 = 70
+  // Go nuts and put all sorts of other options here. Any data type will
+  // work.
 };
 
-@codegen extern const nvvm_arch_t __nvvm_arch;
-```
+// For each SM version we care about, provide specific tunings for our 
+// kernel. The options need to be accessible to both the host at runtime
+// (so that we can size the launches and understand how to call the kernel)
+// and the device at compile time (so we get efficient code generation).
 
-`@codegen` establishes a context where expressions are evaluated and objects are linked during code generation. The `__nvvm_arch` declaration is marked `extern` to indicate that it receives this special linking, and that the translation unit is prohibited from providing an initializer.
+// We'll use the same std::map for these uses. The @meta context and integrated
+// interpreter will allow us to manipulate a compile-time copy of the map.
+// This is much easier than C++ template metaprogramming, which doesn't allow
+// for random-access into standard containers.
 
-[**gpu2.cu**](examples/gpu/gpu2.cu)
-```cpp
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <optional>
-#include <cstdio>
+// You can load from CSV or JSON in your build directory. Or you can load from
+// a database or scrape tweets or anything you like. The Circle interpreter
+// makes importing data very easy.
+const std::map<int, details_t> kernel_config {
+  { 35, { 256, 3  } },
+  { 52, { 128, 7  } },
+  { 61, { 128, 11 } },
+  { 70, { 256, 8  } }
+};
 
-// Print any enum.
-template<typename type_t>
-const char* name_from_enum(type_t e) {
-  static_assert(std::is_enum<type_t>::value);
+// For convenience, make a templated version of our function. We don't have
+// to give it a __device__ tag, because Circle allows you to call untagged
+// functions from kernels and other device code. This is especially convenient
+// in that we can use std::array, std::tuple and the like directly from the
+// STL, and not rely on their equivalents in thrust.
+template<int nt, int vt, typename type_t>
+void saxpy(type_t a, const type_t* x, type_t* y, size_t index, size_t count) {
+  // First load the values in x and y. Perform a bunch of loads before
+  // doing any arithmetic. This lets us saturate the memory bandwidth of the
+  // device, since we aren't getting blocked by arithmetic data dependencies.
+  // @meta for makes this a true unrolled loop--the contained statements are
+  // actually injected through the frontend once for each iteration.
+  type_t x2[vt], y2[vt];
+  @meta for(int i = 0; i < vt; ++i) {
+    if(index + i * nt < count) {
+      x2[i] = x[index + i * nt];
+      y2[i] = y[index + i * nt];
+    }
+  }
 
-  switch(e) {
-    @meta for enum(type_t e2 : type_t)
-      case e2:
-        return @enum_name(e2);
+  // Perform arithmetic in-place.
+  @meta for(int i = 0; i < vt; ++i)
+    y2[i] += a * x2[i];
 
-    default:
-      return nullptr;
+  // Write all y values back out.
+  @meta for(int i = 0; i < vt; ++i) {
+    if(index + i * nt < count)
+      y[index + i * nt] = y2[i];
   }
 }
 
-// Find the most compatible compiled architecture for this device.
-// This maps a runtime value (the compute capability from the driver) to 
-// a compile-time enumerator from nvvm_arch_t, which is 
-std::optional<nvvm_arch_t> find_best_arch(int device = 0) {
+template<typename type_t>
+__global__ void kernel(type_t a, const type_t* x, type_t* y, size_t count) {
+
+  // Loop over each enumerator for the -sm_XX architectures specified at 
+  // the command line. These are not necessarily the ones specified in the
+  // kernel_config map!
+  @meta for enum(auto sm : nvvm_arch_t) {
+
+    // __nvvm_arch is set by Circle's code generator to reflect the currently-
+    // targeted NVVM/NVPTX module. If sm is the currently-targeted 
+    // architecture in the backend, this branch will get emitted as LLVM IR
+    // and compiled down to PTX. The other iterations in the loop will be 
+    // skipped over, leaving us with one call to saxpy per target architecture.
+    @codegen if(__nvvm_arch == sm) {
+      
+      // Read the details from the std::map at compile time. This is not the
+      // same instance of the kernel_config map that is read from main.
+      // This kernel_config object is lazily created by the interpreter when
+      // we try to access it in an expression in a @meta statement. It's 
+      // initialized with the same std::initializer_list ctor, so it has the
+      // same value as the ordinary runtime object accessed by main.
+
+      // Use lower_bound search to find the best fit.
+      @meta auto it = kernel_config.lower_bound((int)sm);
+      static_assert(it != kernel_config.end(), 
+        "requested SM version has no kernel details!");
+
+      // Call the saxpy helper function with the parameters from details.
+      // Since we loaded details in a @meta statement, its members are
+      // effectively constexpr, and we can use them to specialized templates, 
+      // size arrays, and so on.
+
+      // We don't have to specialize the helper function over the kernel
+      // tuning parameter's. If we preferred, we could specialize over 
+      // the nvvm_arch_t sm constant and access the kernel_config data
+      // structure directly from saxpy.
+      @meta details_t details = it->second;
+
+      size_t index = blockIdx.x * details.nt * details.vt + threadIdx.x;
+      saxpy<details.nt, details.vt>(a, x, y, index, count);
+    }
+  }
+}
+
+int main(int argc, char** argv) {
+
+  size_t count = 1000000;
+
+  // Assemble the SM version at runtime based on the GPU plugged into your
+  // machine.
   int major, minor;
-  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device);
-  cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device);
+  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
+  cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0);
   int sm = 10 * major + minor;
 
-  // nvvm_arch_t is an implicitly-defined scoped enum holding all NVPTX targets
-  // for the translation unit.
-  std::optional<nvvm_arch_t> best;
-  @meta for(int i = 0; i < @enum_count(nvvm_arch_t); ++i) {
-    if(sm >= (int)@enum_value(nvvm_arch_t, i))
-      best = @enum_value(nvvm_arch_t, i);
+  // Retrieve the kernel config.
+  auto it = kernel_config.lower_bound(sm);
+  if(it == kernel_config.end()) {
+    fprintf(stderr, "requested SM version has no kernel details!");
+    return 1;
+  }
+  details_t details = it->second;
+
+  // Compute the number of blocks. This is a runtime operation.
+  int nv = details.nt * details.vt;
+  int num_blocks = (count + nv - 1) / nv;
+
+  float* x, *y;
+  cudaMalloc((void**)&x, sizeof(float) * count);
+  cudaMalloc((void**)&y, sizeof(float) * count);
+
+  // Launch the kernel. Note we aren't passing the kernel any architecture-
+  // specific template arguments. It gets the architecture from the __cuda_arch
+  // @codegen variable.
+  kernel<<<num_blocks, details.nt>>>(3.14f, x, y, count);
+
+  cudaFree(x);
+  cudaFree(y);
+        
+  return 0;
+}
+```
+
+To compile the code, use `-cuda-path` to point to the Toolkit installation, specify each architecture you're targeting, and link to `libcudart.so`. Circle makes a _single frontend pass_, binds all the ptx and cubin data into a single fatbin, and links your code. The chevron launch works just like nvcc's. 
+
+```
+$ circle -cuda-path /usr/local/cuda-10.0 -sm_35 -sm_52 -sm_61 -sm_70 kernel.cu -lcudart
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z6kernelIfEvT_PKS0_PS0_m' for 'sm_35'
+ptxas info    : Function properties for _Z6kernelIfEvT_PKS0_PS0_m
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, 352 bytes cmem[0]
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z6kernelIfEvT_PKS0_PS0_m' for 'sm_52'
+ptxas info    : Function properties for _Z6kernelIfEvT_PKS0_PS0_m
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 23 registers, 352 bytes cmem[0]
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z6kernelIfEvT_PKS0_PS0_m' for 'sm_61'
+ptxas info    : Function properties for _Z6kernelIfEvT_PKS0_PS0_m
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 37 registers, 352 bytes cmem[0]
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z6kernelIfEvT_PKS0_PS0_m' for 'sm_70'
+ptxas info    : Function properties for _Z6kernelIfEvT_PKS0_PS0_m
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, 384 bytes cmem[0]
+```
+
+We can use `cuobjdump` to print out the SASS linked into the executable. We see that our register blocking has produced code where most of the loads are issued, then the compute is performed, then the stores are made. This is the optimal design for GPU kernels, where we want to exploit fine-grained multithreading to hide IO latency.
+
+```
+$ cuobjdump -sass kernel
+...
+  code for sm_70
+    Function : _Z6kernelIfEvT_PKS0_PS0_m
+  .headerflags    @"EF_CUDA_SM70 EF_CUDA_PTX_SM(EF_CUDA_SM70)"
+        /*0000*/              @!PT SHFL.IDX PT, RZ, RZ, RZ, RZ ;                             /* 0x000000fffffff389 */
+                                                                                             /* 0x000fe200000e00ff */
+        /*0010*/                   IMAD.MOV.U32 R1, RZ, RZ, c[0x0][0x28] ;                   /* 0x00000a00ff017624 */
+                                                                                             /* 0x000fd000078e00ff */
+        /*0020*/                   S2R R22, SR_CTAID.X ;                                     /* 0x0000000000167919 */
+                                                                                             /* 0x000e220000002500 */
+        /*0030*/                   S2R R3, SR_TID.X ;                                        /* 0x0000000000037919 */
+                                                                                             /* 0x000e240000002100 */
+        /*0040*/                   IMAD R22, R22, 0x800, R3 ;                                /* 0x0000080016167824 */
+                                                                                             /* 0x001fe400078e0203 */
+        /*0050*/                   IMAD.MOV.U32 R3, RZ, RZ, 0x4 ;                            /* 0x00000004ff037424 */
+                                                                                             /* 0x000fc600078e00ff */
+        /*0060*/                   ISETP.GE.U32.AND P6, PT, R22.reuse, c[0x0][0x178], PT ;   /* 0x00005e0016007a0c */
+                                                                                             /* 0x040fe40003fc6070 */
+        /*0070*/                   SHF.R.S32.HI R21, RZ, 0x1f, R22 ;                         /* 0x0000001fff157819 */
+                                                                                             /* 0x000fe20000011416 */
+        /*0080*/                   IMAD.WIDE R4, R22, R3, c[0x0][0x168] ;                    /* 0x00005a0016047625 */
+                                                                                             /* 0x000fc600078e0203 */
+        /*0090*/                   ISETP.GE.U32.AND.EX P6, PT, R21, c[0x0][0x17c], PT, P6 ;  /* 0x00005f0015007a0c */
+                                                                                             /* 0x000fe20003fc6160 */
+        /*00a0*/                   IMAD.WIDE R2, R22, R3, c[0x0][0x170] ;                    /* 0x00005c0016027625 */
+                                                                                             /* 0x000fd600078e0203 */
+        /*00b0*/              @!P6 LDG.E.SYS R19, [R4] ;                                     /* 0x000000000413e381 */
+                                                                                             /* 0x000ea800001ee900 */
+        /*00c0*/              @!P6 LDG.E.SYS R20, [R2] ;                                     /* 0x000000000214e381 */
+                                                                                             /* 0x000ea200001ee900 */
+        /*00d0*/                   IADD3 R24, P3, R22.reuse, 0x100, RZ ;                     /* 0x0000010016187810 */
+                                                                                             /* 0x040fe40007f7e0ff */
+        /*00e0*/                   IADD3 R23, P2, R22, 0x200, RZ ;                           /* 0x0000020016177810 */
+                                                                                             /* 0x000fe40007f5e0ff */
+        /*00f0*/                   ISETP.GE.U32.AND P5, PT, R24, c[0x0][0x178], PT ;         /* 0x00005e0018007a0c */
+                                                                                             /* 0x000fe20003fa6070 */
+        /*0100*/                   IMAD.X R26, RZ, RZ, R21, P3 ;                             /* 0x000000ffff1a7224 */
+                                                                                             /* 0x000fe200018e0615 */
+        /*0110*/                   IADD3 R24, P0, R22, 0x300, RZ ;                           /* 0x0000030016187810 */
+                                                                                             /* 0x000fc40007f1e0ff */
+        /*0120*/                   ISETP.GE.U32.AND P4, PT, R23, c[0x0][0x178], PT ;         /* 0x00005e0017007a0c */
+                                                                                             /* 0x000fe40003f86070 */
+        /*0130*/                   ISETP.GE.U32.AND P3, PT, R24, c[0x0][0x178], PT ;         /* 0x00005e0018007a0c */
+                                                                                             /* 0x000fe20003f66070 */
+        /*0140*/                   IMAD.X R24, RZ, RZ, R21.reuse, P2 ;                       /* 0x000000ffff187224 */
+                                                                                             /* 0x100fe200010e0615 */
+        /*0150*/                   IADD3 R23, P1, R22, 0x400, RZ ;                           /* 0x0000040016177810 */
+                                                                                             /* 0x000fe20007f3e0ff */
+        /*0160*/                   IMAD.X R27, RZ, RZ, R21.reuse, P0 ;                       /* 0x000000ffff1b7224 */
+                                                                                             /* 0x100fe200000e0615 */
+        /*0170*/                   ISETP.GE.U32.AND.EX P5, PT, R26, c[0x0][0x17c], PT, P5 ;  /* 0x00005f001a007a0c */
+                                                                                             /* 0x000fe40003fa6150 */
+        /*0180*/                   IADD3 R26, P0, R22, 0x500, RZ ;                           /* 0x00000500161a7810 */
+                                                                                             /* 0x000fe40007f1e0ff */
+        /*0190*/                   ISETP.GE.U32.AND P2, PT, R23, c[0x0][0x178], PT ;         /* 0x00005e0017007a0c */
+                                                                                             /* 0x000fe20003f46070 */
+        /*01a0*/                   IMAD.X R23, RZ, RZ, R21.reuse, P1 ;                       /* 0x000000ffff177224 */
+                                                                                             /* 0x100fe200008e0615 */
+        /*01b0*/                   ISETP.GE.U32.AND.EX P4, PT, R24, c[0x0][0x17c], PT, P4 ;  /* 0x00005f0018007a0c */
+                                                                                             /* 0x000fe20003f86140 */
+        /*01c0*/                   IMAD.X R24, RZ, RZ, R21, P0 ;                             /* 0x000000ffff187224 */
+                                                                                             /* 0x000fe200000e0615 */
+        /*01d0*/                   ISETP.GE.U32.AND P1, PT, R26, c[0x0][0x178], PT ;         /* 0x00005e001a007a0c */
+                                                                                             /* 0x000fc40003f26070 */
+        /*01e0*/                   IADD3 R26, P0, R22, 0x600, RZ ;                           /* 0x00000600161a7810 */
+                                                                                             /* 0x000fe40007f1e0ff */
+        /*01f0*/                   ISETP.GE.U32.AND.EX P3, PT, R27, c[0x0][0x17c], PT, P3 ;  /* 0x00005f001b007a0c */
+                                                                                             /* 0x000fc60003f66130 */
+        /*0200*/                   IMAD.X R27, RZ, RZ, R21.reuse, P0 ;                       /* 0x000000ffff1b7224 */
+                                                                                             /* 0x100fe200000e0615 */
+        /*0210*/                   IADD3 R22, P0, R22, 0x700, RZ ;                           /* 0x0000070016167810 */
+                                                                                             /* 0x000fe40007f1e0ff */
+        /*0220*/                   P2R R25, PR, RZ, 0x40 ;                                   /* 0x00000040ff197803 */
+                                                                                             /* 0x000fe40000000000 */
+        /*0230*/                   ISETP.GE.U32.AND P6, PT, R22, c[0x0][0x178], PT ;         /* 0x00005e0016007a0c */
+                                                                                             /* 0x000fe20003fc6070 */
+        /*0240*/                   IMAD.X R21, RZ, RZ, R21, P0 ;                             /* 0x000000ffff157224 */
+                                                                                             /* 0x000fca00000e0615 */
+        /*0250*/                   ISETP.GE.U32.AND.EX P6, PT, R21, c[0x0][0x17c], PT, P6 ;  /* 0x00005f0015007a0c */
+                                                                                             /* 0x000fc80003fc6160 */
+        /*0260*/                   P2R R21, PR, RZ, 0x40 ;                                   /* 0x00000040ff157803 */
+                                                                                             /* 0x000fe40000000000 */
+        /*0270*/                   ISETP.NE.AND P6, PT, R25, RZ, PT ;                        /* 0x000000ff1900720c */
+                                                                                             /* 0x000fe40003fc5270 */
+        /*0280*/                   ISETP.GE.U32.AND P0, PT, R26, c[0x0][0x178], PT ;         /* 0x00005e001a007a0c */
+                                                                                             /* 0x000fe40003f06070 */
+        /*0290*/                   ISETP.GE.U32.AND.EX P2, PT, R23, c[0x0][0x17c], PT, P2 ;  /* 0x00005f0017007a0c */
+                                                                                             /* 0x000fe40003f46120 */
+        /*02a0*/                   ISETP.GE.U32.AND.EX P1, PT, R24, c[0x0][0x17c], PT, P1 ;  /* 0x00005f0018007a0c */
+                                                                                             /* 0x000fe40003f26110 */
+        /*02b0*/                   ISETP.GE.U32.AND.EX P0, PT, R27, c[0x0][0x17c], PT, P0 ;  /* 0x00005f001b007a0c */
+                                                                                             /* 0x000fe20003f06100 */
+        /*02c0*/              @!P5 LDG.E.SYS R17, [R4+0x400] ;                               /* 0x000400000411d381 */
+                                                                                             /* 0x000ee800001ee900 */
+        /*02d0*/              @!P4 LDG.E.SYS R16, [R4+0x800] ;                               /* 0x000800000410c381 */
+                                                                                             /* 0x000f2800001ee900 */
+        /*02e0*/              @!P3 LDG.E.SYS R14, [R4+0xc00] ;                               /* 0x000c0000040eb381 */
+                                                                                             /* 0x000f6800001ee900 */
+        /*02f0*/              @!P2 LDG.E.SYS R12, [R4+0x1000] ;                              /* 0x00100000040ca381 */
+                                                                                             /* 0x000ee800001ee900 */
+        /*0300*/              @!P1 LDG.E.SYS R10, [R4+0x1400] ;                              /* 0x00140000040a9381 */
+                                                                                             /* 0x000ee800001ee900 */
+        /*0310*/              @!P0 LDG.E.SYS R8, [R4+0x1800] ;                               /* 0x0018000004088381 */
+                                                                                             /* 0x000ee800001ee900 */
+        /*0320*/              @!P5 LDG.E.SYS R18, [R2+0x400] ;                               /* 0x000400000212d381 */
+                                                                                             /* 0x000ee800001ee900 */
+        /*0330*/              @!P4 LDG.E.SYS R15, [R2+0x800] ;                               /* 0x00080000020fc381 */
+                                                                                             /* 0x000f2800001ee900 */
+        /*0340*/              @!P3 LDG.E.SYS R13, [R2+0xc00] ;                               /* 0x000c0000020db381 */
+                                                                                             /* 0x000f6800001ee900 */
+        /*0350*/              @!P2 LDG.E.SYS R11, [R2+0x1000] ;                              /* 0x00100000020ba381 */
+                                                                                             /* 0x000f2800001ee900 */
+        /*0360*/              @!P1 LDG.E.SYS R9, [R2+0x1400] ;                               /* 0x0014000002099381 */
+                                                                                             /* 0x000f2800001ee900 */
+        /*0370*/              @!P0 LDG.E.SYS R7, [R2+0x1800] ;                               /* 0x0018000002078381 */
+                                                                                             /* 0x000f2200001ee900 */
+        /*0380*/              @!P6 FFMA R19, R19, c[0x0][0x160], R20 ;                       /* 0x000058001313ea23 */
+                                                                                             /* 0x004fe20000000014 */
+        /*0390*/                   P2R R20, PR, RZ, 0x40 ;                                   /* 0x00000040ff147803 */
+                                                                                             /* 0x000fc40000000000 */
+        /*03a0*/                   ISETP.NE.AND P6, PT, R21, RZ, PT ;                        /* 0x000000ff1500720c */
+                                                                                             /* 0x000fd80003fc5270 */
+        /*03b0*/              @!P6 LDG.E.SYS R0, [R4+0x1c00] ;                               /* 0x001c00000400e381 */
+                                                                                             /* 0x00002200001ee900 */
+        /*03c0*/                   ISETP.NE.AND P6, PT, R20, RZ, PT ;                        /* 0x000000ff1400720c */
+                                                                                             /* 0x000fd80003fc5270 */
+        /*03d0*/              @!P6 STG.E.SYS [R2], R19 ;                                     /* 0x000000130200e386 */
+                                                                                             /* 0x0001e2000010e900 */
+        /*03e0*/                   ISETP.NE.AND P6, PT, R21, RZ, PT ;                        /* 0x000000ff1500720c */
+                                                                                             /* 0x000fd80003fc5270 */
+        /*03f0*/              @!P6 LDG.E.SYS R6, [R2+0x1c00] ;                               /* 0x001c00000206e381 */
+                                                                                             /* 0x00002200001ee900 */
+        /*0400*/              @!P5 FFMA R17, R17, c[0x0][0x160], R18 ;                       /* 0x000058001111da23 */
+                                                                                             /* 0x008fd00000000012 */
+        /*0410*/              @!P5 STG.E.SYS [R2+0x400], R17 ;                               /* 0x000400110200d386 */
+                                                                                             /* 0x0001e2000010e900 */
+        /*0420*/              @!P4 FFMA R15, R16, c[0x0][0x160], R15 ;                       /* 0x00005800100fca23 */
+                                                                                             /* 0x010fe4000000000f */
+        /*0430*/              @!P3 FFMA R13, R14, c[0x0][0x160], R13 ;                       /* 0x000058000e0dba23 */
+                                                                                             /* 0x020fe4000000000d */
+        /*0440*/              @!P2 FFMA R11, R12, c[0x0][0x160], R11 ;                       /* 0x000058000c0baa23 */
+                                                                                             /* 0x000fe4000000000b */
+        /*0450*/              @!P1 FFMA R9, R10, c[0x0][0x160], R9 ;                         /* 0x000058000a099a23 */
+                                                                                             /* 0x000fe40000000009 */
+        /*0460*/              @!P0 FFMA R7, R8, c[0x0][0x160], R7 ;                          /* 0x0000580008078a23 */
+                                                                                             /* 0x000fe20000000007 */
+        /*0470*/              @!P4 STG.E.SYS [R2+0x800], R15 ;                               /* 0x0008000f0200c386 */
+                                                                                             /* 0x0001e8000010e900 */
+        /*0480*/              @!P3 STG.E.SYS [R2+0xc00], R13 ;                               /* 0x000c000d0200b386 */
+                                                                                             /* 0x0001e8000010e900 */
+        /*0490*/              @!P2 STG.E.SYS [R2+0x1000], R11 ;                              /* 0x0010000b0200a386 */
+                                                                                             /* 0x0001e8000010e900 */
+        /*04a0*/              @!P1 STG.E.SYS [R2+0x1400], R9 ;                               /* 0x0014000902009386 */
+                                                                                             /* 0x0001e8000010e900 */
+        /*04b0*/              @!P0 STG.E.SYS [R2+0x1800], R7 ;                               /* 0x0018000702008386 */
+                                                                                             /* 0x0001e2000010e900 */
+        /*04c0*/               @P6 EXIT ;                                                    /* 0x000000000000694d */
+                                                                                             /* 0x000fea0003800000 */
+        /*04d0*/                   FFMA R0, R0, c[0x0][0x160], R6 ;                          /* 0x0000580000007a23 */
+                                                                                             /* 0x001fd00000000006 */
+        /*04e0*/                   STG.E.SYS [R2+0x1c00], R0 ;                               /* 0x001c000002007386 */
+                                                                                             /* 0x000fe2000010e900 */
+        /*04f0*/                   EXIT ;                                                    /* 0x000000000000794d */
+                                                                                             /* 0x000fea0003800000 */
+        /*0500*/                   BRA 0x500;                                                /* 0xfffffff000007947 */
+                                                                                             /* 0x000fc0000383ffff */
+        /*0510*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0520*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0530*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0540*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0550*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0560*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+        /*0570*/                   NOP;                                                      /* 0x0000000000007918 */
+                                                                                             /* 0x000fc00000000000 */
+    ....................................
+```
+### Structure to array
+
+Breaking up a structure or vector into its constituent parts, doing some work, and stitching them back together later is a common activity in high-performance programming. Hardware vector support is built for "vertical" operations, where all the .x, .y and .z components of a vector are de-interleaved into their own arrays. Transforming the data between interleaved (normal struct/vector) and deinterleaved (all members separated out) is a frequent task, but one that can't be automated using C++.
+
+Circle provides introspection keywords and same-language reflection. We can write S2A code once, make it generic, and use it for everything.
+
+Here's Circle/CUDA code for deinterleaving a float4 array into its constituent components, then interleaving them back again. 
+
+**[s2a.cu](https://www.circle-lang.org/s2a.cu)**
+```cpp
+#include <cuda.h>
+#include <type_traits>
+
+// Define a structure with a pointer to each member in type_t.
+template<typename type_t>
+struct s2a_pointers_t {
+  static_assert(std::is_class<type_t>::value, 
+    "s2a argument must be a class type");
+
+  enum { count = @member_count(type_t) };
+
+  // Make a non-static data member that's a pointer to the struct's member
+  // type and has the same name.
+  @meta for(int i = 0; i < count; ++i)
+    @member_type(type_t, i)* @(@member_name(type_t, i));
+
+  // Convert from array to struct.
+  type_t to_struct(size_t index) const {
+    type_t obj { };
+
+    // Loop over each member of s, and set that member from data loaded from
+    // the corresponding array.
+    @meta for(int i = 0; i < count; ++i)
+      @member_ref(obj, i) = this->@(@member_name(type_t, i))[index];
+
+    return obj;
   }
 
-  return best;
-}
-
-// Generic kernel that instantiates its function object with the 
-// nvvm_arch_t (__nvvm_arch) currently being targeted by the LLVM backend.
-template<int nt, typename kernel_t>
-__global__ void sm_launch(kernel_t kernel) {
-  // Specialize the kernel's function template over each possible 
-  // nvvm arch. The @codegen if is evaluated during code generation and only
-  // emits code for the architecture being targeted by that module.
-  @meta for enum(nvvm_arch_t sm : nvvm_arch_t) {
-    @codegen if(sm == __nvvm_arch)
-      kernel.template go<sm, nt>();
-  }
-}
-
-// You define this bit.
-struct my_kernel_t {
-  template<nvvm_arch_t sm, int nt>
-  __device__ void go() {
-    // Look up kernel parameters by sm, parameter type, etc. Drive the kernel
-    // definition using a combination of meta and codegen control flow.
+  // Convert from struct to array.
+  void to_array(const type_t& obj, size_t index) {
+    // Loop over each member of type_t, and store its value into the 
+    // corresponding array.
+    @meta for(int i = 0; i < count; ++i)
+      this->@(@member_name(type_t, i))[index] = @member_ref(obj, i);
   }
 };
 
 
-int main() {
-  // Circle enums are iterable collections. Print all the architectures 
-  // targeted in this build. That's one for each -sm_XX command-line argument.
-  @meta printf("Device architectures targeted in this build:\n");
-  @meta for enum(nvvm_arch_t sm : nvvm_arch_t)
-    @meta printf("  %s\n", @enum_name(sm));
+// Each thread in s2a_k loads one element from s (the aggregate) and 
+// stores out each component to the corresponding pointer in a.
+template<typename type_t>
+__global__ void s2a_k(const type_t* s, s2a_pointers_t<type_t> a, size_t count) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if(index < count) {
+    // Load the type as a structure.
+    type_t obj = s[index];
 
-  // Print the best targeted architecture for this device.
-  nvvm_arch_t arch;
-  if(auto best = find_best_arch()) {
-    arch = *best;
-    printf("Selected device architecture %s\n", name_from_enum(arch));
-
-  } else {
-    printf("Invalid device version for these build parameters\n");
-    exit(1);
+    // Write the data members to the arrays in a.
+    a.to_array(obj, index);
   }
+}
 
-  // Prepare a kernel. The go function template will be instantiated with 
-  // the value of __nvvm_arch for each backend and the block size.
-  my_kernel_t my_kernel { };
+// Each thread in a2s_k loads a full set of members from the deinterleaved
+// pointers and stores them out as an aggregate to s.
+template<typename type_t>
+__global__ void a2s_k(s2a_pointers_t<type_t> a, type_t* s, size_t count) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if(index < count) {
+    // Load the members from the s2a pointers and return as a struct.
+    type_t obj = a.to_struct(index);
 
-  const int nt = 128;
-  sm_launch<nt><<<1, nt>>>(my_kernel);
+    // Store the struct back to global memory.
+    s[index] = obj;
+  }
+}
+
+int main(int argc, char** argv) {
+  size_t count = 1000000;
+
+  // Allocate float4 array.
+  float4* v;
+  cudaMalloc((void**)&v, sizeof(float4) * count);
+
+  // Allocate an array for each float4 member.
+  float* x, *y, *z, *w;
+  cudaMalloc((void**)&x, sizeof(float) * count);
+  cudaMalloc((void**)&y, sizeof(float) * count);
+  cudaMalloc((void**)&z, sizeof(float) * count);
+  cudaMalloc((void**)&w, sizeof(float) * count);
+
+  // Has members .x, .y, .z, .w. It's nice to put S2A pointers inside a struct,
+  // so that we can pass them to generic functions like s2a_k.
+  s2a_pointers_t<float4> pointers { x, y, z, w };
+
+  size_t nt = 512;
+  int num_blocks = (count + nt - 1) / nt;
+
+  // Convert from struct to array.
+  s2a_k<<<num_blocks, nt>>>(v, pointers, count);
+
+  // Convert back from array to struct.
+  a2s_k<<<num_blocks, nt>>>(pointers, v, count);
+
+  cudaFree(v);
+  cudaFree(x);
+  cudaFree(y);
+  cudaFree(z);
+  cudaFree(w);
 
   return 0;
 }
 ```
-```
-$ circle gpu2.cu -isystem /usr/local/cuda-9.2/include/ -L /usr/local/cuda-9.2/lib64 -l cudart -sm_35 -sm_52 -sm_70 -O0 --save-temps
-Device architectures targeted in this build:
-  sm_35
-  sm_52
-  sm_70
-```
 
-A big advantage of Circle's treatment of CUDA is that we know all targets for the translation unit at compile time, and enum introspection lets us iterate over these. `find_best_arch` assembles the device's SM version from its device properties and performs a [_for-enum_](#for-enum-statements) loop over the target architectures to find the best match.
+The resulting code is well optimized. Because we're storing a 16-byte aligned float4, we expect to see an STG.E.128 instruction to store out the data in one transaction, which we do, at [0178]. All of the control flow in `to_struct` and `to_array` is evaluated at compile time... It's not optimized out--it's never even part of the AST.
 
-Since we're only making a single frontend pass, we need a way to emit only the code intended for the target architecture each time a different backend pass is executed. `sm_launch` is a simple example of this:
-```cpp
-template<int nt, typename kernel_t>
-__global__ void sm_launch(kernel_t kernel) {
-  @meta for enum(nvvm_arch_t sm : nvvm_arch_t) {
-    @codegen if(sm == __nvvm_arch)
-      kernel.template go<sm, nt>();
-  }
-}
 ```
-It instantiates and calls the kernel function over each target architecture, but guards the call using a codegen _if-statement_. The predicate of the codegen _if-statement_ is unresolvable during the frontend pass, so the frontend compiles the specialization for each target architecture. When the backend pass runs for each architecture, it links the `__nvvm_arch` symbol with its initialized object, evaluates the _if-statement_, and emits only the desired function call. Although a specialization of `my_kernel_t::go` exists in the AST for each device architecture, only one specialization is turned into ptx by the code generator, because only that one instance is ODR-used from the kernel.
+$ cuobjdump -sass s2a
 
+  code for sm_52
+    Function : _Z5a2s_kI6float4Ev14s2a_pointers_tIT_EPS2_m
+  .headerflags    @"EF_CUDA_SM52 EF_CUDA_PTX_SM(EF_CUDA_SM52)"
+                                                                                       /* 0x001c7c00e22007f6 */
+        /*0008*/                   MOV R1, c[0x0][0x20] ;                              /* 0x4c98078000870001 */
+        /*0010*/                   S2R R0, SR_CTAID.X ;                                /* 0xf0c8000002570000 */
+        /*0018*/                   S2R R2, SR_TID.X ;                                  /* 0xf0c8000002170002 */
+                                                                                       /* 0x001fd840fec20ff1 */
+        /*0028*/                   XMAD R2, R0.reuse, c[0x0] [0x8], R2 ;               /* 0x4e00010000270002 */
+        /*0030*/                   XMAD.MRG R3, R0.reuse, c[0x0] [0x8].H1, RZ ;        /* 0x4f107f8000270003 */
+        /*0038*/                   XMAD.PSL.CBCC R0, R0.H1, R3.H1, R2 ;                /* 0x5b30011800370000 */
+                                                                                       /* 0x001ff400fda007f6 */
+        /*0048*/                   IADD RZ.CC, R0, -c[0x0][0x168] ;                    /* 0x4c11800005a700ff */
+        /*0050*/                   ISETP.GE.U32.X.AND P0, PT, RZ, c[0x0][0x16c], PT ;  /* 0x4b6c0b8005b7ff07 */
+        /*0058*/               @P0 EXIT ;                                              /* 0xe30000000000000f */
+                                                                                       /* 0x001fd800fea207f1 */
+        /*0068*/                   SHL R2, R0.reuse, 0x2 ;                             /* 0x3848000000270002 */
+        /*0070*/                   SHR.U32 R3, R0, 0x1e ;                              /* 0x3828000001e70003 */
+        /*0078*/                   IADD R5.CC, R2, c[0x0][0x140] ;                     /* 0x4c10800005070205 */
+                                                                                       /* 0x001f8440fec007f1 */
+        /*0088*/                   IADD.X R6, R3, c[0x0][0x144] ;                      /* 0x4c10080005170306 */
+        /*0090*/                   LEA R4.CC, R5.reuse, RZ ;                           /* 0x5bd780000ff70504 */
+        /*0098*/                   LEA.HI.X P0, R5, R5, RZ, R6 ;                       /* 0x5bd803400ff70505 */
+                                                                                       /* 0x081fd800fe2207f6 */
+        /*00a8*/                   IADD R9.CC, R2.reuse, c[0x0][0x148] ;               /* 0x4c10800005270209 */
+        /*00b0*/                   IADD.X R6, R3, c[0x0][0x14c] ;                      /* 0x4c10080005370306 */
+        /*00b8*/                   LEA R8.CC, R9.reuse, RZ ;                           /* 0x5bd780000ff70908 */
+                                                                                       /* 0x001f8400fec007f1 */
+        /*00c8*/                   LEA.HI.X P1, R9, R9, RZ, R6 ;                       /* 0x5bd903400ff70909 */
+        /*00d0*/                   IADD R11.CC, R2, c[0x0][0x150] ;                    /* 0x4c1080000547020b */
+        /*00d8*/                   IADD.X R6, R3, c[0x0][0x154] ;                      /* 0x4c10080005570306 */
+                                                                                       /* 0x001fb000fe2207f6 */
+        /*00e8*/                   LEA R10.CC, R11.reuse, RZ ;                         /* 0x5bd780000ff70b0a */
+        /*00f0*/                   LEA.HI.X P2, R11, R11, RZ, R6 ;                     /* 0x5bda03400ff70b0b */
+        /*00f8*/                   IADD R2.CC, R2, c[0x0][0x158] ;                     /* 0x4c10800005670202 */
+                                                                                       /* 0x081fd800f62007f0 */
+        /*0108*/         {         IADD.X R3, R3, c[0x0][0x15c] ;                      /* 0x4c10080005770303 */
+        /*0110*/                   LD.E R6, [R10], P2         }
+                                                                                       /* 0x8890000000070a06 */
+        /*0118*/                   LEA R12.CC, R2.reuse, RZ ;                          /* 0x5bd780000ff7020c */
+                                                                                       /* 0x001fc000fe2007e1 */
+        /*0128*/                   LEA.HI.X P3, R13, R2, RZ, R3 ;                      /* 0x5bdb01c00ff7020d */
+        /*0130*/                   MOV R2, R4 ;                                        /* 0x5c98078000470002 */
+        /*0138*/         {         MOV R3, R5 ;                                        /* 0x5c98078000570003 */
+                                                                                       /* 0x001edc40fe0007b4 */
+        /*0148*/                   LD.E R5, [R8], P1         }
+                                                                                       /* 0x8490000000070805 */
+        /*0150*/         {         LEA R14.CC, R0.reuse, c[0x0][0x160], 0x4 ;          /* 0x4bd782000587000e */
+        /*0158*/                   LD.E R4, [R2], P0         }
+                                                                                       /* 0x8090000000070204 */
+                                                                                       /* 0x041fc400f6c007f0 */
+        /*0168*/         {         LEA.HI.X R15, R0, c[0x0][0x164], RZ, 0x4 ;          /* 0x1a277f800597000f */
+        /*0170*/                   LD.E R7, [R12], P3         }
+                                                                                       /* 0x8c90000000070c07 */
+        /*0178*/                   STG.E.128 [R14], R4 ;                               /* 0xeede200000070e04 */
+                                                                                       /* 0x001f8000ffe007ff */
+        /*0188*/                   EXIT ;                                              /* 0xe30000000007000f */
+        /*0190*/                   BRA 0x190 ;                                         /* 0xe2400fffff87000f */
+        /*0198*/                   NOP;                                                /* 0x50b0000000070f00 */
+                                                                                       /* 0x001f8000fc0007e0 */
+        /*01a8*/                   NOP;                                                /* 0x50b0000000070f00 */
+        /*01b0*/                   NOP;                                                /* 0x50b0000000070f00 */
+        /*01b8*/                   NOP;                                                /* 0x50b0000000070f00 */
+    ......................................................
+```
