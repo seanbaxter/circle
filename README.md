@@ -79,10 +79,6 @@ Sean Baxter
         Enumerations with associated types are the perfect type list.  
     1. [case-typename](#case-typename)  
         Use a `case typename` statement to switch over types.  
-    1. [The C++ variant](#the-c-variant)  
-        One of the STL's most difficult type...  
-    1. [The Circle variant](#the-circle-variant)  
-        ...receives the Circle treatment.  
     1. [Generic dispatch](#generic-dispatch)  
         A generic function dispatcher driven by introspection and reflection.  
 1. [GPU programming](#gpu-programming)  
@@ -2185,12 +2181,17 @@ enum typename [class | struct] my_typed_enum [: underlying-type] {
 };
 ```
 
-You can make scoped or unscoped typed enums. You can make a typed enum with or without a fixed underlying type. Each enumerator has an _optional_ identifier and a _mandatory_ _type-id_. If you cannot afford an identifier, one will be provided for you. (Circle follows the dynamic-name convention and provides identifiers `_0`, `_1` and so on.)
+Typed enums have many advantages over type parameter packs:
+1. Each type has an associated enumerator, which you can switch over, pass around in memory, store on disk, etc.
+1. The _typed-enum-specifier_ supports embedded meta control flow statements, allowing for procedural definition of the enumeration that's imperative an flexible.
+1. Each enumerator has an optional identifier name, allowing you more lookup options than specifying the pack member by ordinal.
+
+You can make scoped or unscoped typed enums. You can make a typed enum with or without a fixed underlying type. Each enumerator has an _optional_ identifier and a _mandatory_ _type-id_. If you cannot afford an identifier, one will be provided for you. Circle follows the dynamic-name convention and provides identifiers `_0`, `_1` and so on. Note that the automatically-generated identifiers `_0`, `_1` etc will not be declared in the enclosing scope in the case of an unscoped enum.
 
 Why is the name of the enumerator optional? Often you simply want to use a the typed enum as a list of types, and if those types come from a template parameter pack, there's no name to begin with.
 
 ```cpp  
-enum typename class my_typed_enum : short {
+enum typename class my_typed_enum {
     Float = float,
     Double = double,
     void*,               // assigned name "_2"
@@ -2198,9 +2199,55 @@ enum typename class my_typed_enum : short {
   };
 ```
 
-In most contexts, a typed enum functions exactly like an ordinary enum. Each enumerator is assigned an implicit integral value, starting at 0 and incrementing with each new declaration. This value maps to the implicit name of the enumerator. The associated type is just that, _associated_. So how do we access this associated type?
+In most contexts, a typed enum functions exactly like an ordinary enum. Each enumerator is assigned an _implicit integral value_, starting at 0 and incrementing with each new declaration. This value maps to the implicit name of the enumerator. The associated type is just that, _associated_. So how do we access this associated type?
 
+* `__is_typed_enum(type)` - Returns true if the specified type is a typed enum.
+* `@enum_count(type)` - Number of enumerators declared in the enumeration.
+* `@enum_type(enumerator)` - Type associated with the specified enumerator.
 * `@enum_type(type, index)` - Type associated with i'th enumerator.
+
+#### Parameter packs
+
+Interoperability with parameter packs a driving factor in the design of typed enums. For this reason, we allow simple conversions between parameter packs and typed enums.
+
+* `@enum_types(type)` - Yields an unexpanded parameter pack of all associated types in the typed enum.
+
+`@enum_types` returns an unexpanded parameter pack that can be expanded with `...`, even in a non-dependent context. In effect, this is porcelain for a more generic operation:
+
+`@enum_type(type, __integer_pack(@enum_count(type)))`
+
+We use `@enum_types` to convert typed enums into parameter packs that can be expanded into template instantiations:
+
+```cpp
+template<typename... types_t>
+struct foo_t;
+
+enum typename my_types_t {
+  int, 
+  char*,
+  void
+};
+
+// Expand all the types in my_types_t, then expand pointers to all those
+// types. This creates a typedef:
+// typedef foo_t<int, char*, void, int*, char**, void*> my_foo_t;
+typedef foo_t<
+  @enum_types(my_types_t)..., 
+  @enum_types(my_types_t)*...
+> my_foo_t;
+```
+
+To convert parameter packs to typed-enum definitions, the `typed-enum-specifier` supports pack expansion:
+
+```cpp
+enum typename my_types2_t {
+  // Specify single-types
+  int, double,
+
+  // Or expanded parameter packs
+  @enum_types(my_types_t)..., @enum_types(my_types_t)*...
+};
+```
 
 ### case-typename
 
@@ -2240,243 +2287,6 @@ switch(e) {
 ```
 This construct makes writing execution alternatives for each member of a variant class very natural. The underlying switch mechanism remains exactly the same, because the translation from _type-id_ to typed enumerator is performed at compile-time. 
 
-### The C++ variant
-
-As said above, a variant type is a discriminated union. The concrete type has a flat layout with two members: an enumeration tag and a union with variant members for each variant type.
-
-A variant type was finally added to the STL with C++17. How is it implemented? With recursion and partial templates, naturally. 
-
-```cpp
-std::variant<int, double, vec3_t, std::vector<short> >
-
-{
-  <std::__detail::__variant::_Variant_base<int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-    <std::__detail::__variant::_Move_assign_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-      <std::__detail::__variant::_Copy_assign_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-        <std::__detail::__variant::_Move_ctor_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-          <std::__detail::__variant::_Copy_ctor_base<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-            <std::__detail::__variant::_Variant_storage<false, int, double, vec3_t, std::vector<short, std::allocator<short> > >> = {
-              _M_u = {
-                _M_first = {
-                  _M_storage = 1374389535
-                },
-                _M_rest = {
-                  _M_first = {
-                    _M_storage = 3.1400000000000001
-                  },
-                  _M_rest = {
-                    _M_first = {
-                      _M_storage = {
-                        x = 1.26443839e+11,
-                        y = 2.14249992,
-                        z = 5.88422041e-39
-                      }
-                    },
-                    _M_rest = {
-                      _M_first = {
-                        _M_storage = {
-                          _M_storage = "\037\205\353Q\270\036\t@\320\022@\000\000\000\000\000\020\006@\000\000\000\000"
-                        }
-                      },
-                      _M_rest = {<No data fields>}
-                    }
-                  }
-                }
-              },
-              _M_index = 1 '\001',
-              static _S_vtable = <optimized out>
-            }, <No data fields>}, <No data fields>}, <No data fields>}, <No data fields>}, <No data fields>},
-  <std::_Enable_default_constructor<true, std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > > >> = {<No data fields>},
-  <std::_Enable_copy_move<true, true, true, true, std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > > >> = {<No data fields>},
-  members of std::variant<int, double, vec3_t, std::vector<short, std::allocator<short> > >:
-  static __accepted_index = 1,
-  static __exactly_once = true
-}
-```
-This debugger dump shows the structure of `std::variant` with four variant members. Six different support class templates are introduced to implement the type. As with the `tuple` case, structural recursion is again employed. But this time we can't use inheritance, because unions don't support it. We have to recursively compose a type inside a variant member: the `_M_storage` members in the class layout all have the same address. This is achieved by making `_Variant_storage` a union, and making `_M_first` and `_M_rest` variant members.
-
-With a tuple, the auto-generated special member functions (constructors and assignment operators) do everything we need. But with the variant, we have to implement all of these functions ourselves, and the limits of C++ metaprogramming makes this very difficult. How can Circle make it better?
-
-### The Circle variant
-
-```cpp
-struct my_concrete_variant_t {
-  enum class tag_t {
-    _0,   // int
-    _1,   // double
-    _2,   // vec3_t
-    _3,   // std::vector<short>
-    none, // void 
-  };
-
-  tag_t tag = tag_t::none;
-
-  union {
-    int _0;
-    double _1;
-    vec3_t _2;
-    std::vector<short> _3;
-  };
-
-  //  Member functions here...
-};
-
-{
-  _tag = variant_t::tag_t::_1,
-  {
-    _0 = 1374389535,
-    _1 = 3.1400000000000001,
-    _2 = {
-      x = 1.26443839e+11,
-      y = 2.14249992,
-      z = 5.90744833e-39
-    },
-    _3 = {
-      <std::_Vector_base<short, std::allocator<short> >> = {
-        _M_impl = {
-          <std::allocator<short>> = {
-            <__gnu_cxx::new_allocator<short>> = {<No data fields>}, <No data fields>},
-          members of std::_Vector_base<short, std::allocator<short> >::_Vector_impl:
-          _M_start = 0x40091eb851eb851f,
-          _M_finish = 0x405390 <__libc_csu_init>,
-          _M_end_of_storage = 0x401040 <_start>
-        }
-      }, <No data fields>}
-  }
-}
-```
-
-The concrete variant example has a simple flat layout. There enumeration tag is the first data member. The variant members are stored in an anonymous union.
-
-[**variant.cxx**](examples/variant/variant.cxx)  
-```cpp
-template<typename... types_t>
-struct variant_t {
-  enum { count = sizeof...(types_t) };
-
-  enum typename class tag_t {
-    @meta for(int i = 0; i < count; ++i) 
-      types_t...[i];     // Enumerators are assigned names starting from _0.
-
-    none = void;
-  };
-
-  tag_t tag = tag_t::none;
-
-  union {
-    // Declare a variant member for each enumerator.
-    @meta for(int i = 0; i < count; ++i)
-      @enum_type(tag_t, i) @(i);
-  };
-  
-  // ... Declare constructors and member functions here.
-};
-```
-The foundation for the Circle variant is the typed enum. It holds an enumerator named "none" that has the associated void type. This is what the variant holds by default. We then expand the type parameter pack into the typed enum as unnamed declarations. This is the same pattern as used in the [tuple implementation](#hello-world), but now in an enum context.
-
-The variant holds an instance of the typed enum called `tag`. If the value of tag is `tag_t::none`, the variant is empty. Otherwise the active variant member is the type associated with the enum.
-
-To define the union, we loop over all enumerators in the enum, and for each one, instantiate a variant member of type `enum_type(type_t, i)` with the name `@(i)`.
-
-Because the types are associated with enumerators, and enumerators are already iterable, it becomes trivial to programmatically generate the member functions required to support the variant: pseudo-destructors are called on each variant member to handle destruction; assignment is called on each variant member to handle assignment; move construction is used on each variant member to handle move construction; and so on.
-
-The Circle variant has a 1:1 correlation with the hand-written version. The memory layout is the same. The data members and enumerators have the same names. Once we understood the requirements of the concrete version, we were able to construct a generic version with little additional effort. This is _not_ the story of template metaprogramming in standard C++.
-
-The question now is how to implement the functional requirements of a discriminated union:
-* The default constructor sets the active type to none.
-* The destructor resets (destructs) the active variant member.
-* The copy constructor copies the active variant member from the rhs.
-* The move constructor moves the active variant member from the rhs. It then destructs the active member of the rhs.
-* The copy assignment operator resets the active variant member. It then copy-constructs the new active member from the rhs.
-* The move assignment operator resets the active variant member. It then move-constructs the nwe active member from the rhs. It then destructs the active member of the rhs.
-* Generic constructors set the active member from the constructors' parameter.
-* The accessor function template `get` returns the variant member for the index I.
-* The accessor function template `get` returns the variant member if it is active and is convertible to the argument type.
-* The visitor function calls a function object (such as a generic lambda or class object with overloaded `operator()`) and passes it the active variant member. 
-
-The full variant listing is [here](examples/variant/variant.cxx). Let's look at a couple of these requirements.
-
-**variant.cxx**  
-```cpp
-template<typename... types_t>
-void variant_t<types_t...>::reset() {
-  // Destruct the variant member corresponding to the tag's value.
-  switch(_tag) {
-    @meta for(int i = 0; i < count; ++i) {
-      case @enum_value(tag_t, i):
-        // The pseudo-destructor name call becomes a no-op at substitution 
-        // for non-class types. 
-        @(i).~@enum_type(tag_t, i)();
-        break;
-    }
-
-    case tag_t::none:
-      break;
-  }
-
-  // Reset the tag.
-  _tag = tag_t::none;
-}
-```
-Because we have member types with non-trivial destructors in a union, we can't rely on the implicitly-generated destructor. We must provide our own. The `reset` member function switches to the active member and invokes the pseudo-destructor name on. When the dependent member is instantiated, the pseudo-destructor name is substituted. If it yields a non-class type, the operation is discarded. If it yields a class type, the destructor is called. This mimics exactly what we'd write by hand: write a case for each variant member with a non-trivial destructor and call its destructor.
-
-```cpp
-template<typename... types_t> template<typename func_t>
-auto variant_t<types_t...>::visit(func_t func) {
-  switch(_tag) {
-    case tag_t::none:
-      assert(false);
-
-    @meta for(int i = 0; i < count; ++i)
-      case @enum_value(tag_t, i):
-        return func(get<i>());
-  }
-}
-```
-Another function of interest is the visitor. We want to call a function object `func` with the active variant member. If the active member is `none`, we assert. Otherwise, we emit a case-statement and use the indexed-based accessor to pass it the i'th variant member.
-
-How do we use this variant? 
-```cpp
-void switch_visitor(my_variant_t& v) {
-  switch(v.tag()) {
-    case typename int:
-      cirprint("int: %\n", v.get<int>());
-      break;
-
-    case typename double:
-      cirprint("double: %\n", v.get<double>());
-      break;
-
-    case typename vec3_t:
-      cirprint("vec3_t: %\n", v.get<vec3_t>());
-      break;
-
-    case typename std::vector<short>:
-      cirprint("std::vector<short>: %\n", v.get<std::vector<short> >());
-      break;
-
-    case typename void:
-      printf("<none>\n");
-      break;
-  }
-}
-```
-The [case-typename](#case-typename) extension is very helpful here. It automatically translates types to the corresponding enumerator that's passed to the _switch-statement_.
-
-We can also provide a callback for the `visit` member function:
-```cpp
-// Demonstrate the visitor pattern.
-var = vec3_t { 5, 6, 7 };
-var.visit([](auto& member) {
-  // The variant member is passed by reference. Remove the reference type
-  // to pretty print it.
-  typedef typename std::remove_reference<decltype(member)>::type type_t;
-  cirprint("%: %\n", @type_name(type_t, true), member);
-});
-```
-This callback prints the name of the type (after stripping the reference) and its value. This compiles for all four of our variant members, because we employ [`cirprint`](#parsing-command-specifiers), the printf-like pretty printer which uses Circle's introspection to break apart and print aggregate types like `vec3_t`.
-
-With Circle, making a concrete type like a discriminated union generic involves no particular challenge, because the language's triangle of compile-time features allows you to treat the concrete and generic versions with exactly the same logic.
 
 ### Generic dispatch
 
