@@ -22,12 +22,12 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
       os<< (typename std::underlying_type<type_t>::type)obj;
     os<< '\"';
 
-  } else if constexpr(is_spec_t<std::basic_string, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::basic_string)) {
     // Carve out an exception for strings. Put the text of the string
     // in quotes. We could go further and add character escapes back in.
     os<< '\"'<< obj<< '\"';
 
-  } else if constexpr(is_spec_t<std::vector, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::vector)) {
     // Special treatment for std::vector. Output each element in a comma-
     // separated list in brackets.
     os<< "[";
@@ -46,7 +46,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
     }
     os<< "\n"<< std::string(2 * indent, ' ')<< "]";
 
-  } else if constexpr(is_spec_t<std::map, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::map)) {
     // Special treatment for std::map.
     os<< "{";
     bool insert_comma = false;
@@ -65,7 +65,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
     }  
     os<< "\n"<< std::string(2 * indent, ' ')<< "}";
 
-  } else if constexpr(is_spec_t<std::optional, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::optional)) {
     // For an optional member, either stream the value or stream "null".
     if(obj)
       stream(os, *obj, indent);

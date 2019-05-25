@@ -903,6 +903,8 @@ enum class my_enum {
 
   f, g;                       // Declare f, g
 };
+
+// Declares enumerators a, b, c, d, e, f, g.
 ```
 In this example, enumerators `a` and `b` are declared in the usual way. We terminate their enumerator list with a semicolon so we can introduce a meta for loop. This translates the contained _compound-statement_ from 'c' to 'f'. During each iteration, a string is composed in the automatic array variable `name`. Because `name` is a meta object, it lives in the meta for's scope, and is freed each time the closing brace is met. 
 
@@ -1112,12 +1114,12 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
       os<< (typename std::underlying_type<type_t>::type)obj;
     os<< '\"';
 
-  } else if constexpr(is_spec_t<std::basic_string, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::basic_string)) {
     // Carve out an exception for strings. Put the text of the string
     // in quotes. We could go further and add character escapes back in.
     os<< '\"'<< obj<< '\"';
 
-  } else if constexpr(is_spec_t<std::vector, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::vector)) {
     // Special treatment for std::vector. Output each element in a comma-
     // separated list in brackets.
     os<< "[";
@@ -1136,7 +1138,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
     }
     os<< "\n"<< std::string(2 * indent, ' ')<< "]";
 
-  } else if constexpr(is_spec_t<std::map, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::map)) {
     // Special treatment for std::map.
     os<< "{";
     bool insert_comma = false;
@@ -1145,12 +1147,9 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
         os<< ",";
       os<< "\n"<< std::string(2 * (indent + 1), ' ');
 
-      // stream the key.
+      // Stream key : value, where the key and value are done recursively.
       stream(os, x.first, indent + 1);
-
       os<< " : ";
-
-      // stream the value.
       stream(os, x.second, indent + 1);
 
       // On the next go-around, insert a comma before the newline.
@@ -1158,7 +1157,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
     }  
     os<< "\n"<< std::string(2 * indent, ' ')<< "}";
 
-  } else if constexpr(is_spec_t<std::optional, type_t>::value) {
+  } else if constexpr(@is_class_template(type_t, std::optional)) {
     // For an optional member, either stream the value or stream "null".
     if(obj)
       stream(os, *obj, indent);
@@ -2018,7 +2017,7 @@ void lua_engine_t::push(const arg_t& arg) {
   } else if constexpr(std::is_array<arg_t>::value) {
     push_array(arg, std::extent<arg_t>::value);
 
-  } else if constexpr(is_spec_t<std::vector, arg_t>::value) {
+  } else if constexpr(@is_class_template(arg_t, std::vector)) {
     push_array(arg.data(), arg.size());
 
   } else {
@@ -2064,20 +2063,13 @@ The Circle-powered Lua interface is a convenience for the kernel that relies on 
 ## Template metaprogramming
 
 * `...[index]` - Subscript a type, non-type, template or function parameter pack.
+* `@is_class_template(type, template)` - Returns true if _type_ is an instance of class template _template_.
 * `@sfinae(expr)` - Evaluates true if expression substitutes, false if there's a failure.
 * `@mtype(type)` - An eight-byte builtin type that holds a type.
 * `@dynamic_type(type)` - Box a type into an @mtype.
 * `@static_type(expr)` - Unbox a type from an @mtype.
 * `@pack_type(mtype_array, count)` - Type parameter pack from @mtype array.
 * `@pack_nontype(object)` - Value parameter pack from class object.
-
-```cpp
-template<typename... types_t>
-struct tuple_t {
-  @meta for(int i = 0; i < sizeof...(types_t); ++i)
-    types_t...[i] @(i); 
-};
-```
 
 ### SFINAE
 

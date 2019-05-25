@@ -74,7 +74,7 @@ void lua_engine_t::push(const arg_t& arg) {
   } else if constexpr(std::is_array<arg_t>::value) {
     push_array(arg, std::extent<arg_t>::value);
 
-  } else if constexpr(is_spec_t<std::vector, arg_t>::value) {
+  } else if constexpr(@is_class_template(arg_t, std::vector)) {
     push_array(arg.data(), arg.size());
 
   } else {
@@ -150,7 +150,7 @@ std::optional<value_t> lua_engine_t::get_value(const char* name) {
     
     lua_pop(state, 1);
 
-  } else if constexpr(is_spec_t<std::vector, value_t>::value) {
+  } else if constexpr(@is_class_template(value_t, std::vector)) {
     typedef typename value_t::value_type inner_t;
 
     if(lua_istable(state, 1)) {
