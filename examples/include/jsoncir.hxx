@@ -59,7 +59,7 @@ std::optional<type_t> read_json_value(json& item, const key_t& key,
     else
       cirprint("  **Unrecognized enum '%' at '%' in %\n", s, name, key);
     
-  } else if constexpr(@is_class_template(type_t, std::vector>)) {
+  } else if constexpr(@is_class_template(type_t, std::vector)) {
     if(item.is_array()) {
       // Read each member of the JSON array.
       typedef typename type_t::value_type inner_t;
