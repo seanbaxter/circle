@@ -103,7 +103,7 @@ Circle provides many tools for compile-time execution and code generation. These
 
 In program 1, we'll use the `taco` command-line compiler to generate our tensor code. The tensor formula is provided as a string, and the resulting C code is printed to the terminal.
 
-**util.hxx**
+[**util.hxx**](include.hxx)  
 ```cpp
 // Use popen to make a system call and capture the output in a file handle.
 // Make it inline to prevent it from being emitted by the backend, unless
@@ -128,7 +128,7 @@ inline std::string capture_call(const char* cmd) {
 ```
 We don't want to execute `taco` manually, but programmatically and at compile time, as part of our program's source code. The POSIX API `popen` will execute a shell command and capture the terminal output into a file handle. `capture_call` is our utility function for reading the file handle out into a std::string and closing the process's file handle. This is a general function, and you can use it both from runtime and compile-time code. We mark it `inline` so we can define it in the `util.hxx` header file.
 
-[**taco1.cxx**](taco1.cxx)
+[**taco1.cxx**](taco1.cxx)  
 ```cpp
 #include "util.hxx"
 #include <taco.h>
@@ -191,7 +191,7 @@ Listing the symbols in `taco1` reveals the `taco`-generated functions, reposing 
 
 We've been making system calls to the `taco` compiler, capturing its terminal output, and injecting that into a Circle program. But TACO also comes as a library with more options for configuration. Our Circle program will now assume the responsibilities of the `taco` compiler, calling the parser, lowering- and code-generation functions directly from the TACO API. I modelled this utility function on the simplest possible path through the [`taco` compiler](https://github.com/tensor-compiler/taco/blob/master/tools/taco.cpp).
 
-[**taco2.cxx**](taco2.cxx)
+[**taco2.cxx**](taco2.cxx)  
 ```cpp
 #include "util.hxx"
 #include <taco.h>
@@ -237,7 +237,7 @@ inline std::string gen_taco_kernel(const char* pattern, const char* func_name) {
 
 Like `capture_call` above, `gen_taco_kernel` is a normal C++ function. It can be used at runtime or compile time to generate C code from a tensor formula. Although we're only using the defaults, the `formats`, `datatypes`, `dimensions` and `tensors` maps can be used to specify different lowering properties.
 
-[**taco2.cxx**](taco1.cxx)
+[**taco2.cxx**](taco1.cxx)  
 ```cpp
 @meta int kernel_counter = 0;
 
@@ -303,7 +303,7 @@ This program demonstrates code generation directly from IR. It eliminates the ne
 
 TACO's [IR](https://github.com/tensor-compiler/taco/blob/master/include/taco/ir/ir.h) is similar to C++ AST. Most of the nodes correspond to subexpressions; the rest code for statements. The Stmt node returned from `lower_taco_kernel` is always an instance of `Function`:
 
-[**ir.h**](https://github.com/tensor-compiler/taco/blob/master/include/taco/ir/ir.h#L628)
+[**ir.h**](https://github.com/tensor-compiler/taco/blob/master/include/taco/ir/ir.h#L628)  
 ```cpp
 struct Function : public StmtNode<Function> {
 public:
@@ -323,7 +323,7 @@ public:
 ```
 The trickiest part of generating code from TACO IR is generating the function declaration. The `Function` node holds a vector of input and output parameters, which are stored as `Expr` objects but hold `Var` nodes. We can't use meta control flow inside a function declaration to deposit function parameters. But hope is not lost: consider the `@expand_params` extension. This expands a class or typed-enum to a set of function parameters: each non-static data member (or enumerator) expands to a function parameter with the corresponding type and name.
 
-[**taco3.cxx**](taco3.cxx)
+[**taco3.cxx**](taco3.cxx)  
 ```cpp
 @macro void gen_kernel(const ir::Function* function) {
   @meta const char* name = function->name.c_str();
@@ -358,7 +358,7 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
 
 ### Expression generation
 
-[**taco3.cxx**](taco3.cxx)
+[**taco3.cxx**](taco3.cxx)  
 ```cpp
 @macro auto expr_inject(const ir::Expr& expr) {
   @meta+ if(const ir::Literal* literal = expr.as<ir::Literal>()) {
@@ -447,7 +447,7 @@ If the authors of TACO had been using Circle to write their library, they could 
 
 ### Statement generation
 
-[**taco3.cxx**](taco3.cxx)
+[**taco3.cxx**](taco3.cxx)  
 ```cpp
 @macro void stmt_inject(const ir::Stmt& stmt) {
   @meta+ if(const ir::Scope* scope = stmt.as<ir::Scope>()) {
