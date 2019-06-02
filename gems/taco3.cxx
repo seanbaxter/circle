@@ -99,7 +99,9 @@ struct type_from_var_t<kind, false, true> {
   typedef taco_tensor_t type_t;
 };
 
-// 
+// A convenience macro that takes a TACO Var and returns the @mtype holding
+// that type. The caller uses @static_type to unpack the @mtype and treat it as
+// a type-id.
 @macro auto mtype_from_var(const ir::Var* var) {
   return @dynamic_type(
     typename type_from_var_t<
@@ -135,7 +137,7 @@ struct type_from_var_t<kind, false, true> {
     @emit return expr_inject(mul->a) * expr_inject(mul->b);
 
   } else if(const ir::Div* div = expr.as<ir::Div>()) {
-    @emit return expr_inject(mul->a) / expr_inject(mul->b);
+    @emit return expr_inject(div->a) / expr_inject(div->b);
 
   } else if(const ir::Rem* rem = expr.as<ir::Rem>()) {
     @emit return expr_inject(rem->a) % expr_inject(rem->b);

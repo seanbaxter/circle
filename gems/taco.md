@@ -383,7 +383,7 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
     @emit return expr_inject(mul->a) * expr_inject(mul->b);
 
   } else if(const ir::Div* div = expr.as<ir::Div>()) {
-    @emit return expr_inject(mul->a) / expr_inject(mul->b);
+    @emit return expr_inject(div->a) / expr_inject(div->b);
 
   } else if(const ir::Rem* rem = expr.as<ir::Rem>()) {
     @emit return expr_inject(rem->a) % expr_inject(rem->b);
