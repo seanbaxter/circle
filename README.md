@@ -5,6 +5,10 @@ Sean Baxter
 
 > _"it's like c++ that went away to train with the league of shadows and came back 15 years later and became batman"_
 
+Download [here](https://www.circle-lang.org/)
+
+** NEW ** [Generating tensor contractions with Circle and TACO](gems/taco.md)
+
 ## Contents
 
 1. [Abstract](#abstract)  
