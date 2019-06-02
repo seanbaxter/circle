@@ -103,7 +103,7 @@ Circle provides many tools for compile-time execution and code generation. These
 
 In program 1, we'll use the `taco` command-line compiler to generate our tensor code. The tensor formula is provided as a string, and the resulting C code is printed to the terminal.
 
-[**util.hxx**](include.hxx)  
+[**util.hxx**](util.hxx)  
 ```cpp
 // Use popen to make a system call and capture the output in a file handle.
 // Make it inline to prevent it from being emitted by the backend, unless
