@@ -235,6 +235,7 @@ inline std::string gen_taco_kernel(const char* pattern,
 
         case 'u':
           modePacks.push_back({ ModeFormat::Sparse(ModeFormat::NOT_UNIQUE) });
+          break;
 
         case 'c': 
           modePacks.push_back({ ModeFormat::Singleton(ModeFormat::NOT_UNIQUE) });
