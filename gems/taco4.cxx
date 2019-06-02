@@ -388,25 +388,37 @@ struct type_from_var_t<kind, false, true> {
 // function names.
 @meta int kernel_counter = 0;
 
-template<typename... args_t>
-@meta void call_taco(@meta const char* pattern, @meta const options_t& options,
-  args_t&&... args) {
-
+// An expression macro that takes only a compile-time pattern string and 
+// compile-time options. Read out the tensor names from the IR's parsed 
+// Function object and evaluate each of those names as an expression.
+// Pass these to the kernel function.
+@macro auto call_taco(const char* __pattern, const options_t& __options) {
   // Generate a unique function name for each call_taco. The taco IR
   // will include this name in its data structures.
-  @meta std::string name = format("compute_%d", ++kernel_counter);
+  @meta std::string __name = format("compute_%d", ++kernel_counter);
 
   // Parse the pattern and lower to IR.
-  @meta ir::Stmt stmt = lower_taco_kernel(pattern, options, name.c_str());
+  @meta ir::Stmt __stmt = lower_taco_kernel(__pattern, __options, 
+    __name.c_str());
 
   // Generate the function in the taco_kernel namespace.
-  @meta const ir::Function* function = stmt.as<ir::Function>();
+  @meta const ir::Function* __function = __stmt.as<ir::Function>();
 
   // Expand the gen_kernel in namespace taco_kernel. 
-  @macro namespace(taco_kernel) gen_kernel(function);
+  @macro namespace(taco_kernel) gen_kernel(__function);
 
-  // Call the function. Pass each argument tensor by address.
-  taco_kernel::@(name)(&args...);
+  // Collect the names of all function arguments.
+  @meta std::vector<std::string> __expr_names;
+  @meta for(const ir::Expr& expr : __function->outputs)
+    @meta __expr_names.push_back(expr.as<ir::Var>()->name);
+  @meta for(const ir::Expr& expr : __function->inputs)
+    @meta __expr_names.push_back(expr.as<ir::Var>()->name);
+
+  // Call the function. Evaluate each of the parameter names as an @expression
+  // and expand into the generated function.
+  return taco_kernel::@(__name)(
+    &@expression(__expr_names[__integer_pack(__expr_names.size())])...
+  );
 }
 
 int main() {
@@ -418,7 +430,6 @@ int main() {
   @meta options.formats.push_back({ "b", "s" });
   @meta options.formats.push_back({ "c", "s" });
 
-  call_taco("a(i) = b(i) + c(i)", options, a, b, c);
-  
+  call_taco("a(i) = b(i) + c(i)", options);
   return 0;
 }
