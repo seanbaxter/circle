@@ -339,13 +339,19 @@ struct type_from_var_t<kind, false, true> {
 } 
 
 @macro void stmt_case(const ir::Case* case_, size_t index) {
-  if(expr_inject(case_->clauses[index].first)) {
-    @macro stmt_inject(case_->clauses[index].second);
+  // If this is anything but the last case, create an if-statement.
+  @meta if(index + 1 < case_->clauses.size()) {
+    if(expr_inject(case_->clauses[index].first)) {
+      @macro stmt_inject(case_->clauses[index].second);
+
+    } else {
+      // Recursively build the else case.
+      @macro stmt_case(case_, index + 1);
+    }
 
   } else {
-    // Recursively build the else case.
-    @meta if(index + 1 < case_->clauses.size())
-      @macro stmt_case(case_, index + 1);
+    // We're in the last case, which is just an else. Emit only the body.
+    @macro stmt_inject(case_->clauses[index].second);
   }
 }
 
