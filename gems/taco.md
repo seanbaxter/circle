@@ -189,7 +189,7 @@ Listing the symbols in `taco1` reveals the `taco`-generated functions, reposing 
 
 ## Program 2: TACO as a compile-time library
 
-We've been making system calls to the `taco` compiler, capturing its terminal output, and injecting that into a Circle program. But TACO also comes as a library with more options for configuration. Our Circle program will now assume the responsibilities of the `taco` compiler, calling the parser, lowering- and code-generation functions directly from the TACO API. I modelled this utility function on the simplest possible path through the [`taco` compiler](https://github.com/tensor-compiler/taco/blob/master/tools/taco.cpp).
+We've been making system calls to the `taco` compiler, capturing its terminal output, and injecting that into a Circle program. But TACO also comes as a library with more options for configuration. Our Circle program will now assume the responsibilities of the `taco` compiler, calling the parser, lowering- and code-generation functions directly from the TACO API. I modelled this utility function on the simplest possible sparsity-supporting path through the [`taco` compiler](https://github.com/tensor-compiler/taco/blob/master/tools/taco.cpp).
 
 [**taco2.cxx**](taco2.cxx)  
 ```cpp
@@ -200,7 +200,17 @@ We've been making system calls to the `taco` compiler, capturing its terminal ou
 #include <taco/lower/lower.h>
 #include <../../taco/src/codegen/codegen.h>  // This should be in include/taco
 
-inline std::string gen_taco_kernel(const char* pattern, const char* func_name) {
+struct format_t {
+  const char* tensor_name;
+  const char* format;
+};
+
+struct options_t {
+  std::vector<format_t> formats;
+};
+
+inline std::string gen_taco_kernel(const char* pattern, 
+  const options_t& options, const char* func_name) {
   using namespace taco;
 
   // Options for compilation that we aren't using.
@@ -208,6 +218,38 @@ inline std::string gen_taco_kernel(const char* pattern, const char* func_name) {
   std::map<std::string, Datatype> datatypes;
   std::map<std::string, std::vector<int> > dimensions;
   std::map<std::string, TensorBase> tensors;
+
+  for(format_t format : options.formats) {
+    std::vector<ModeFormatPack> modePacks;
+    int len = strlen(format.format);
+    for(int i = 0; i < len; ++i) {
+      switch(format.format[i]) {
+        case 'd': 
+          modePacks.push_back({ ModeFormat::Dense });
+          break;
+
+        case 's': 
+          modePacks.push_back({ ModeFormat::Sparse });
+          break;
+
+        case 'u':
+          modePacks.push_back({ ModeFormat::Sparse(ModeFormat::NOT_UNIQUE) });
+
+        case 'c': 
+          modePacks.push_back({ ModeFormat::Singleton(ModeFormat::NOT_UNIQUE) });
+          break;
+
+        case 'q':
+          modePacks.push_back({ ModeFormat::Singleton+ });
+          break;
+      }
+    }
+
+    formats.insert({
+      format.tensor_name,
+      Format(std::move(modePacks))
+    });
+  }  
 
   // Make a simple parser. Need to add a larger default dimension or else the
   // code generator defaults to the small dimension of 5.
@@ -242,12 +284,14 @@ Like `capture_call` above, `gen_taco_kernel` is a normal C++ function. It can be
 @meta int kernel_counter = 0;
 
 template<typename... args_t>
-@meta void call_taco(@meta const char* pattern, args_t&&... args) {
+@meta void call_taco(@meta const char* pattern, @meta const options_t& options, 
+  args_t&&... args) {
+
   // Generate a unique function name for each call_taco.
   @meta std::string name = format("compute_%d", ++kernel_counter);
 
   // Execute the gen_taco_kernel at compile time.
-  @meta std::string code = gen_taco_kernel(pattern, name.c_str());
+  @meta std::string code = gen_taco_kernel(pattern, options, name.c_str());
 
   // Print the emitted kernel.
   @meta printf("%s\n", code.c_str());
@@ -259,10 +303,21 @@ template<typename... args_t>
   taco_kernel::@(name)(&args...);
 }
 
-int main() {
-  taco_tensor_t v { }, M { }, x { }, N { };
+// TACO relies on macros TACO_MIN and TACO_MAX. Define them as alias to
+// std::min and std::max
+#define TACO_MIN std::min
+#define TACO_MAX std::max
 
-  call_taco("y(i) = M(i, j) * x(i)", v, M, x);
+int main() {
+  taco_tensor_t a { }, b { }, c { };
+
+  // Declare each tensor as 1D and sparse.
+  @meta options_t options { };
+  @meta options.formats.push_back({ "a", "s" });
+  @meta options.formats.push_back({ "b", "s" });
+  @meta options.formats.push_back({ "c", "s" });
+
+  call_taco("a(i) = b(i) + c(i)", options, a, b, c);
 
   return 0;
 }
@@ -276,21 +331,48 @@ We're not using the `taco` command-line compiler anymore. We're using the TACO l
 $ circle taco2.cxx -I /home/sean/projects/opensource/taco/include \
 > -M /home/sean/projects/opensource/taco/Debug/lib/libtaco.so
 
-int compute_1(taco_tensor_t *y, taco_tensor_t *M, taco_tensor_t *x) {
-  double* restrict y_vals = (double*)(y->vals);
-  int M1_dimension = (int)(M->dimensions[0]);
-  int M2_dimension = (int)(M->dimensions[1]);
-  double* restrict M_vals = (double*)(M->vals);
-  double* restrict x_vals = (double*)(x->vals);
+int compute_1(taco_tensor_t *a, taco_tensor_t *b, taco_tensor_t *c) {
+  double* restrict a_vals = (double*)(a->vals);
+  int* restrict b1_pos = (int*)(b->indices[0][0]);
+  int* restrict b1_crd = (int*)(b->indices[0][1]);
+  double* restrict b_vals = (double*)(b->vals);
+  int* restrict c1_pos = (int*)(c->indices[0][0]);
+  int* restrict c1_crd = (int*)(c->indices[0][1]);
+  double* restrict c_vals = (double*)(c->vals);
 
-  #pragma omp parallel for schedule(static)
-  for (int32_t iM = 0; iM < M1_dimension; iM++) {
-    double tj = 0.0;
-    for (int32_t jM = 0; jM < M2_dimension; jM++) {
-      int32_t pM2 = iM * M2_dimension + jM;
-      tj += M_vals[pM2];
+  int32_t pa1 = 0;
+  int32_t pb1 = b1_pos[0];
+  int32_t b1_end = b1_pos[1];
+  int32_t pc1 = c1_pos[0];
+  int32_t c1_end = c1_pos[1];
+  while (pb1 < b1_end && pc1 < c1_end) {
+    int32_t ib = b1_crd[pb1];
+    int32_t ic = c1_crd[pc1];
+    int32_t i = TACO_MIN(ib,ic);
+    if (ib == i && ic == i) {
+      a_vals[pa1] = b_vals[pb1] + c_vals[pc1];
+      pa1++;
     }
-    y_vals[iM] = tj * x_vals[iM];
+    else if (ib == i) {
+      a_vals[pa1] = b_vals[pb1];
+      pa1++;
+    }
+    else {
+      a_vals[pa1] = c_vals[pc1];
+      pa1++;
+    }
+    pb1 += (int32_t)(ib == i);
+    pc1 += (int32_t)(ic == i);
+  }
+  while (pb1 < b1_end) {
+    a_vals[pa1] = b_vals[pb1];
+    pa1++;
+    pb1++;
+  }
+  while (pc1 < c1_end) {
+    a_vals[pa1] = c_vals[pc1];
+    pa1++;
+    pc1++;
   }
   return 0;
 }
@@ -360,6 +442,7 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
 
 [**taco3.cxx**](taco3.cxx)  
 ```cpp
+
 @macro auto expr_inject(const ir::Expr& expr) {
   @meta+ if(const ir::Literal* literal = expr.as<ir::Literal>()) {
     @emit return @expression(util::toString(expr));
@@ -389,7 +472,11 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
     @emit return expr_inject(rem->a) % expr_inject(rem->b);
 
   } else if(const ir::Min* min = expr.as<ir::Min>()) {
-    @emit return std::min(expr_inject(min->a), expr_inject(min->b));
+    static_assert(2 == min->operands.size(), "only 2-operand min supported");
+    @emit return std::min(
+      expr_inject(min->operands[0]), 
+      expr_inject(min->operands[1])
+    );
 
   } else if(const ir::Max* max = expr.as<ir::Max>()) {
     @emit return std::max(expr_inject(max->a), expr_inject(max->b));
@@ -425,11 +512,10 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
     @emit return expr_inject(or_->a) || expr_inject(or_->b);
 
   } else if(const ir::Cast* cast = expr.as<ir::Cast>()) {
-    static_assert(false, "ir::Cast handler not implemented");
+    @emit return 
+      (typename type_from_datatype_t<@meta cast->type.getKind()>::type_t)
+      expr_inject(cast->a);
   
-  } else if(const ir::Call* call = expr.as<ir::Call>()) {
-    static_assert(false, "ir::Call handler not implemented");
-
   } else if(const ir::Load* load = expr.as<ir::Load>()) {
     @emit return expr_inject(load->arr)[expr_inject(load->loc)];
 
@@ -437,7 +523,9 @@ Once the function is declared, we expand the `stmt_inject` macro on the function
     @emit return expr_prop(prop);
 
   } else {
-    static_assert(false, "unsupported expr kind");
+    @meta std::string error = format("unsupported expr kind '%s'", 
+      @enum_name(expr.ptr->type_info()));
+    static_assert(false, error);
   }
 }
 ```
@@ -445,18 +533,24 @@ IR types inheriting `ExprNode` carry information for subexpressions. Each node i
 
 If the authors of TACO had been using Circle to write their library, they could have defined a single IR operator type and stored an enum or string indicating the operator encoded. The Circle `@op` extension then be used in `expr_inject` to execute an operator given the operator's string name.
 
+An impossible-to-underrate benefit of Circle is introspection into enums. If we don't support a specific Expr node in our code, we can stringify the enumerator's identifier with `@enum_name`, format that into a nice error string, and print it with `static_assert`. This takes the guess work out of debugging when using someone else's code.
+
 ### Statement generation
 
 [**taco3.cxx**](taco3.cxx)  
 ```cpp
-@macro void stmt_inject(const ir::Stmt& stmt) {
-  @meta+ if(const ir::Scope* scope = stmt.as<ir::Scope>()) {
-    @macro stmt_inject(scope->scopedStmt);    
 
-  } else if(const ir::Block* block = stmt.as<ir::Block>()) {
-    // Inject each individual statement.
-    for(const ir::Stmt& stmt : block->contents)
-      @macro stmt_inject(stmt);
+@macro void stmt_inject(const ir::Stmt& stmt) {
+
+  @meta+ if(const ir::Case* case_ = stmt.as<ir::Case>()) {
+    // TACO's Case statement isn't a C++ case statement at all. It's a sequence
+    // of if/else statements all chained together.
+    @macro stmt_case(case_, 0);
+
+  } else if(const ir::Store* store = stmt.as<ir::Store>()) {
+    // store->arr[store->loc] = store->data
+    @emit expr_inject(store->arr)[expr_inject(store->loc)] = 
+      expr_inject(store->data);
   
   } else if(const ir::For* for_ = stmt.as<ir::For>()) {
     const ir::Var* var = for_->var.as<ir::Var>();
@@ -469,6 +563,19 @@ If the authors of TACO had been using Circle to write their library, they could 
       @macro stmt_inject(for_->contents);
     }
 
+  } else if(const ir::While* while_ = stmt.as<ir::While>()) {
+    @emit while(expr_inject(while_->cond)) {
+      @macro stmt_inject(while_->contents);
+    }
+
+  } else if(const ir::Block* block = stmt.as<ir::Block>()) {
+    // Inject each individual statement.
+    for(const ir::Stmt& stmt : block->contents)
+      @macro stmt_inject(stmt);
+
+  } else if(const ir::Scope* scope = stmt.as<ir::Scope>()) {
+    @macro stmt_inject(scope->scopedStmt);    
+
   } else if(const ir::VarDecl* var_decl = stmt.as<ir::VarDecl>()) {
     const ir::Var* var = var_decl->var.as<ir::Var>();
     @emit @static_type(mtype_from_var(var)) @(var->name) = 
@@ -478,15 +585,24 @@ If the authors of TACO had been using Circle to write their library, they could 
     // assign->lhs = assign->rhs.
     @emit expr_inject(assign->lhs) = expr_inject(assign->rhs);
 
-  } else if(const ir::Store* store = stmt.as<ir::Store>()) {
-    // store->arr[store->loc] = store->data
-    @emit expr_inject(store->arr)[expr_inject(store->loc)] = 
-      expr_inject(store->data);
-  
   } else {
-    static_assert(false, "unsupported stmt kind");
+    @meta std::string error = format("unsupported stmt kind '%s'", 
+      @enum_name(stmt.ptr->type_info()));
+    static_assert(false, error);
   }
 } 
+
+@macro void stmt_case(const ir::Case* case_, size_t index) {
+  if(expr_inject(case_->clauses[index].first)) {
+    @macro stmt_inject(case_->clauses[index].second);
+
+  } else {
+    // Recursively build the else case.
+    @meta if(index + 1 < case_->clauses.size())
+      @macro stmt_case(case_, index + 1);
+  }
+}
+
 ```
 Statements are generated by expanding Circle statement macros. We switch over each statement IR node and write ordinary C++ code for that statement: a for-statement, an object declaration, an assignment, and so on. An object declaration in C++, for example, has three parts: the type, the object name and the object initializer. In this code generator, each of those three parts is defined from the data in the IR node: the variable member holds the type information and object name, and the `rhs` member holds an expression tree that is macro-expanded into the object's initializer.
 

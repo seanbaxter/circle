@@ -6,17 +6,61 @@
 
 using namespace taco;
 
-inline ir::Stmt lower_taco_kernel(const char* pattern, const char* func_name) {
+struct format_t {
+  const char* tensor_name;
+  const char* format;
+};
 
-  // Options for compilation that we aren't using.
+struct options_t {
+  std::vector<format_t> formats;
+};
+
+inline ir::Stmt lower_taco_kernel(const char* pattern, 
+  const options_t& options, const char* func_name) {
+
+  using namespace taco;
+
+  // Options for compilation.
   std::map<std::string, Format> formats;
   std::map<std::string, Datatype> datatypes;
   std::map<std::string, std::vector<int> > dimensions;
   std::map<std::string, TensorBase> tensors;
 
+  for(format_t format : options.formats) {
+    std::vector<ModeFormatPack> modePacks;
+    int len = strlen(format.format);
+    for(int i = 0; i < len; ++i) {
+      switch(format.format[i]) {
+        case 'd': 
+          modePacks.push_back({ ModeFormat::Dense });
+          break;
+
+        case 's': 
+          modePacks.push_back({ ModeFormat::Sparse });
+          break;
+
+        case 'u':
+          modePacks.push_back({ ModeFormat::Sparse(ModeFormat::NOT_UNIQUE) });
+
+        case 'c': 
+          modePacks.push_back({ ModeFormat::Singleton(ModeFormat::NOT_UNIQUE) });
+          break;
+
+        case 'q':
+          modePacks.push_back({ ModeFormat::Singleton+ });
+          break;
+      }
+    }
+
+    formats.insert({
+      format.tensor_name,
+      Format(std::move(modePacks))
+    });
+  }  
+
   // Make a simple parser. Need to add a larger default dimension or else the
   // code generator defaults to the small dimension of 5.
-  parser::Parser parser(pattern, formats, datatypes, dimensions, tensors, 42);
+  parser::Parser parser(pattern, formats, datatypes, dimensions, tensors, 1000);
   parser.parse();
 
   // Parse the pattern.
@@ -143,7 +187,11 @@ struct type_from_var_t<kind, false, true> {
     @emit return expr_inject(rem->a) % expr_inject(rem->b);
 
   } else if(const ir::Min* min = expr.as<ir::Min>()) {
-    @emit return std::min(expr_inject(min->a), expr_inject(min->b));
+    static_assert(2 == min->operands.size(), "only 2-operand min supported");
+    @emit return std::min(
+      expr_inject(min->operands[0]), 
+      expr_inject(min->operands[1])
+    );
 
   } else if(const ir::Max* max = expr.as<ir::Max>()) {
     @emit return std::max(expr_inject(max->a), expr_inject(max->b));
@@ -179,11 +227,10 @@ struct type_from_var_t<kind, false, true> {
     @emit return expr_inject(or_->a) || expr_inject(or_->b);
 
   } else if(const ir::Cast* cast = expr.as<ir::Cast>()) {
-    static_assert(false, "ir::Cast handler not implemented");
+    @emit return 
+      (typename type_from_datatype_t<@meta cast->type.getKind()>::type_t)
+      expr_inject(cast->a);
   
-  } else if(const ir::Call* call = expr.as<ir::Call>()) {
-    static_assert(false, "ir::Call handler not implemented");
-
   } else if(const ir::Load* load = expr.as<ir::Load>()) {
     @emit return expr_inject(load->arr)[expr_inject(load->loc)];
 
@@ -191,7 +238,9 @@ struct type_from_var_t<kind, false, true> {
     @emit return expr_prop(prop);
 
   } else {
-    static_assert(false, "unsupported expr kind");
+    @meta std::string error = format("unsupported expr kind '%s'", 
+      @enum_name(expr.ptr->type_info()));
+    static_assert(false, error);
   }
 }
 
@@ -221,9 +270,14 @@ struct type_from_var_t<kind, false, true> {
     // taco_tensor_t::vals_size
     @emit return expr_inject(prop->tensor)->vals_size;
 
+  } else if(ir::TensorProperty::Indices == prop->property) {
+    // taco_tensor_t::indices[prop->mode][prop->index]
+    @emit return expr_inject(prop->tensor)->indices[prop->mode][prop->index];
+
   } else {
-    static_assert(false, format("unknown tensor property: %s", 
-      @enum_name(prop->property)));
+    @meta std::string error = format("unknown tensor property: '%s'", 
+      @enum_name(prop->property));
+    static_assert(false, error);
   }
 }
 
@@ -233,13 +287,16 @@ struct type_from_var_t<kind, false, true> {
 // Statement macros are expanded in 
 
 @macro void stmt_inject(const ir::Stmt& stmt) {
-  @meta+ if(const ir::Scope* scope = stmt.as<ir::Scope>()) {
-    @macro stmt_inject(scope->scopedStmt);    
 
-  } else if(const ir::Block* block = stmt.as<ir::Block>()) {
-    // Inject each individual statement.
-    for(const ir::Stmt& stmt : block->contents)
-      @macro stmt_inject(stmt);
+  @meta+ if(const ir::Case* case_ = stmt.as<ir::Case>()) {
+    // TACO's Case statement isn't a C++ case statement at all. It's a sequence
+    // of if/else statements all chained together.
+    @macro stmt_case(case_, 0);
+
+  } else if(const ir::Store* store = stmt.as<ir::Store>()) {
+    // store->arr[store->loc] = store->data
+    @emit expr_inject(store->arr)[expr_inject(store->loc)] = 
+      expr_inject(store->data);
   
   } else if(const ir::For* for_ = stmt.as<ir::For>()) {
     const ir::Var* var = for_->var.as<ir::Var>();
@@ -252,6 +309,19 @@ struct type_from_var_t<kind, false, true> {
       @macro stmt_inject(for_->contents);
     }
 
+  } else if(const ir::While* while_ = stmt.as<ir::While>()) {
+    @emit while(expr_inject(while_->cond)) {
+      @macro stmt_inject(while_->contents);
+    }
+
+  } else if(const ir::Block* block = stmt.as<ir::Block>()) {
+    // Inject each individual statement.
+    for(const ir::Stmt& stmt : block->contents)
+      @macro stmt_inject(stmt);
+
+  } else if(const ir::Scope* scope = stmt.as<ir::Scope>()) {
+    @macro stmt_inject(scope->scopedStmt);    
+
   } else if(const ir::VarDecl* var_decl = stmt.as<ir::VarDecl>()) {
     const ir::Var* var = var_decl->var.as<ir::Var>();
     @emit @static_type(mtype_from_var(var)) @(var->name) = 
@@ -261,15 +331,23 @@ struct type_from_var_t<kind, false, true> {
     // assign->lhs = assign->rhs.
     @emit expr_inject(assign->lhs) = expr_inject(assign->rhs);
 
-  } else if(const ir::Store* store = stmt.as<ir::Store>()) {
-    // store->arr[store->loc] = store->data
-    @emit expr_inject(store->arr)[expr_inject(store->loc)] = 
-      expr_inject(store->data);
-  
   } else {
-    static_assert(false, "unsupported stmt kind");
+    @meta std::string error = format("unsupported stmt kind '%s'", 
+      @enum_name(stmt.ptr->type_info()));
+    static_assert(false, error);
   }
 } 
+
+@macro void stmt_case(const ir::Case* case_, size_t index) {
+  if(expr_inject(case_->clauses[index].first)) {
+    @macro stmt_inject(case_->clauses[index].second);
+
+  } else {
+    // Recursively build the else case.
+    @meta if(index + 1 < case_->clauses.size())
+      @macro stmt_case(case_, index + 1);
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -304,13 +382,15 @@ struct type_from_var_t<kind, false, true> {
 @meta int kernel_counter = 0;
 
 template<typename... args_t>
-@meta void call_taco(@meta const char* pattern, args_t&&... args) {
+@meta void call_taco(@meta const char* pattern, @meta const options_t& options,
+  args_t&&... args) {
+
   // Generate a unique function name for each call_taco. The taco IR
   // will include this name in its data structures.
   @meta std::string name = format("compute_%d", ++kernel_counter);
 
   // Parse the pattern and lower to IR.
-  @meta ir::Stmt stmt = lower_taco_kernel(pattern, name.c_str());
+  @meta ir::Stmt stmt = lower_taco_kernel(pattern, options, name.c_str());
 
   // Generate the function in the taco_kernel namespace.
   @meta const ir::Function* function = stmt.as<ir::Function>();
@@ -323,8 +403,21 @@ template<typename... args_t>
 }
 
 int main() {
-  taco_tensor_t y { }, M { }, x { };
-  call_taco("y(i) = M(i, j) * x(i)", y, M, x);
+  taco_tensor_t a { }, b { }, c { };
 
+  // Declare each tensor as 1D and sparse.
+  @meta options_t options { };
+  @meta options.formats.push_back({ "a", "s" });
+  @meta options.formats.push_back({ "b", "s" });
+  @meta options.formats.push_back({ "c", "s" });
+
+  call_taco("a(i) = b(i) + c(i)", options, a, b, c);
+
+/*
+  call_taco("a(i) = b(i) + c(i)", options, a, b, c);
+  taco_tensor_t y { }, M { }, x { };
+  @meta options_t options { };
+  call_taco("y(i) = M(i, j) * x(i)", options, y, M, x);
+*/
   return 0;
 }
