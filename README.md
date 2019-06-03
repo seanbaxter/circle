@@ -1464,7 +1464,7 @@ Circle macros are extremely powerful, because they allow defining arbitrarily-co
 
 We used metafunctions to roll our own printf-style function [here](#parsing-command-specifiers). Now we're going to employ expression macros to improve the interface.
 
-Printf-style functions typically have two kinds of arguments: the format specifier, which escapes expressions, and an array of expressions, which are passed as ordinary function arguments. Our macro-driven function `eprintf` will fold the expressions right into the format specifier. 
+Printf-style functions typically have two kinds of arguments: the format specifier, which escapes expressions, and an array of values, which are passed as ordinary function arguments. Our macro-driven function `eprintf` will fold the expressions that evaluate to the values right into the format specifier. 
 
 We can use ordinary tooling to parse the format specifier at command line and extract the expression strings. We can then evaluate these expressions with the `@expression` extension. Because macros are expanded into the scope of the call site, name lookup has access to all symbols in that declarative region, meaning objects and functions named in the expression strings will be found.
 
