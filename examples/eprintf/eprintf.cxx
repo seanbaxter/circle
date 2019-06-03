@@ -37,6 +37,12 @@ inline void transform_format(const char* fmt, std::string& fmt2,
       fmt += 2;
       text.push_back('{');
 
+    } else if('%' == c) {
+      // Turn % into %%, which is the escape for % in cirprint.
+      ++fmt;
+      text.push_back('%');
+      text.push_back('%');
+
     } else {
       ++fmt;
       text.push_back(c);

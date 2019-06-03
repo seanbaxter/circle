@@ -60,7 +60,8 @@ Download [here](https://www.circle-lang.org/)
     1. [Parsing command specifiers](#parsing-command-specifiers)  
         Roll your own printf.  
     1. [Macros](#macros)  
-        Data-driven, recursive, templated and overloaded macros.
+        Data-driven, recursive, templated and overloaded macros.  
+    1. [eprintf](#eprintf)  
 1. [Configuration-oriented programming](#configuration-oriented-programming)  
     A paradigm for separating _code_ from _logic_.  
     1. [Code injection](#code-injection)  
@@ -1419,12 +1420,18 @@ template<typename... args_t>
 
 The freshest bits in the Circle compiler implement function-style macros. Like preprocessor macros, Circle macros expand at the point that they're called. But they're different in every other way.
 
-Circle macros are functions that participate in argument deduction and overload resolution. However, they must be defined in global scope, and cannot be member functions (either static or non-static). This is because when the macro is expanded, it is evaluated in the scope from which it's called: if a macro were defined in a class or in a namespace, it would need simultaneous access to both that class/namespace scope _and_ the scope from which it's expanded.
+Circle macros are functions that participate in argument deduction and overload resolution. Macros may be defined in any scope, even in function block scope, but may not be non-static member funcitons. When called, macros expand in the scope of the call site.
 
-Declare a macro using the @macro keyword. Expand a macro by calling it after the @macro keyword. The parameters for a macro are implicitly meta--their values of the corresponding arguments must be known at compile time. Additionally, the macro must return type `void`.
+Macros are declared by prefixing the `@macro` token. They may be declared as function templates, and may be declared with any kind of paremeter. The parameters are all implicit _meta-parameters_, meaning their values are accessible during source translation. This implies that the the arguments passed to macros must also be known at compile time.
+
+Circle has two kinds of macros:
+1. Statement macros are declared with a `void` return type. They are intended to generate _statements_ into the calling scope. Statement macros may include any kind of real statement.
+1. Expression macros are declared with an `auto` return type. They are intended to generate a subexpression. The only real statement permitted in expression macros is a single return statement. When macro expansion is complete, the macro expansion is replaced by the argument of the return statement.
+
+Expand a statement macro by calling it after the `@macro` keyword. Expand an expression macro by calling it any expression context.
 
 ```cpp
-// Define a macro.
+// Define a statement macro.
 @macro void my_macro(int count) { 
   @meta for(int i = 0; i < count; ++i)
     int @(i);
@@ -1451,48 +1458,122 @@ Here, we define `my_macro` to loop over `count` items and declare an object or d
 
 The macro is expanded from inside a class template definition. The expansion will be deferred until instantiation, even if none of the macro's arguments are value dependent. When the macro is expanded, it establishes a new meta compound statement, which holds meta declarations made in the macro. That is, meta object declarations do not leak into the scope from which the macro is called. Real declarations, however, follow the standard Circle scoping rules: they are inserted into the innermost-enclosing non-meta scope, which in this case, is the definition for `foo_t`.
 
-Circle macros are extremely powerful, because they allow defining arbitrarily-complex functions in a way that isn't possible with the ordinary reflection mechanisms (that is, non-meta statements in meta control flow). Consider, for example, algorithmically generating nested if/else constructs from a tree. A practical example is evaluating the search tree that dictates the translation between nodes in a [DFA](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) in regular expression processing. The transition between closures in DFAs requires checks that scale in complexity with the complexity of the pattern and the size of the alphabet--UNICODE systems have very complex character classes, and there are too many symbols to use bit-fields. Consider performing a test on each edge of a tree, where the value at the leaf node includes the index of the closure to transition to. Circle macros let us generate this tree traversal as a single construct of nested if/else statements from a tree we compute at compile time.
+Circle macros are extremely powerful, because they allow defining arbitrarily-complex functions in a way that isn't possible with the ordinary reflection mechanisms (that is, non-meta statements in meta control flow). Macros can visit tree-like IRs, generating statements and expressions at each node to generate code while staying within a C++ environment.
 
+### eprintf
+
+We used metafunctions to roll our own printf-style function [here](#parsing-command-specifiers). Now we're going to employ expression macros to improve the interface.
+
+Printf-style functions typically have two kinds of arguments: the format specifier, which escapes expressions, and an array of expressions, which are passed as ordinary function arguments. Our macro-driven function `eprintf` will fold the expressions right into the format specifier. 
+
+We can use ordinary tooling to parse the format specifier at command line and extract the expression strings. We can then evaluate these expressions with the `@expression` extension. Because macros are expanded into the scope of the call site, name lookup has access to all symbols in that declarative region, meaning objects and functions named in the expression strings will be found.
+
+Let's define a simple format specifier grammar:
+* Substrings inside braces { } are to be evaluated as expressions and streamed out.
+* %{ is the escape for a left brace.
+
+[**eprintf.cxx**](examples/eprintf/eprintf.cxx)
 ```cpp
-struct node_t {
-  // Child nodes for an if-else statement.
-  node_t* a, *b;
+int main() {
+  int x = 101;
+  double y = 3.14;
 
-  // The condition to evaluate to determine if we take the a or b branch.
-  condition_t condition;
+  eprintf("x = {x}, y = {y}, z = {sqrt(1000.0)}\n");
 
-  // When we hit a leaf node, return the index of the closure to transition to.
-  int closure_index;
-};
+  return 0;
+}
+```
+```
+$ circle eprintf.cxx 
+$ ./eprintf 
+x = 101, y = 3.14, z = 31.6228
+```
 
-@macro void visit_nodes(node_t* node) {
-  @meta if(node->a) {
-    // We're not at a leaf node. Evaluate the condition and take the
-    // a or b nodes. data must be declared at the scope from which we
-    // expand this macro. condition is a function that chooses which 
-    // of the branches to take at runtime. This may check if data is in 
-    // a particular character class, or in a range of characters, and so on.
-    if(condition(node->condition, data)) {
-      @macro visit_nodes(node->a);
+This capability breathes new life into the pursuit of embedded domain-specific languages in C++. Coin your own grammar, perform any operation on the format string (including sending it to a shared-object library), lower it to some operation, and programmatically access the declarative region of the call site to generate code.
+
+The only challenge in implementing `eprintf` is parsing the braces from the format specifier. Fortunately, we can write Standard C++ for this; there's no need for metaprogramming.
+
+[**eprintf.cxx**](examples/eprintf/eprintf.cxx)
+```cpp
+inline const char* parse_braces(const char* text) {
+  const char* begin = text;
+
+  while(char c = *text) {
+    if('{' == c)
+      return parse_braces(text + 1);
+    else if('}' == c)
+      return text + 1;
+    else
+      ++text;    
+  }
+
+  printf("mismatched { } in \"%s\"", text);
+  abort();
+}
+
+inline void transform_format(const char* fmt, std::string& fmt2, 
+  std::vector<std::string>& names) {
+
+  std::vector<char> text;
+  while(char c = *fmt) {
+    if('{' == c) {
+      // Parse the contents of the braces.
+      const char* end = parse_braces(fmt + 1);
+      names.push_back(std::string(fmt + 1, end - 1));
+      fmt = end;
+      text.push_back('%');
+
+    } else if('%' == c && '{' == fmt[1]) {
+      // %{ is the way to include a { character in the format string.
+      fmt += 2;
+      text.push_back('{');
+
+    } else if('%' == c) {
+      // Turn % into %%, which is the escape for % in cirprint.
+      ++fmt;
+      text.push_back('%');
+      text.push_back('%');
 
     } else {
-      @macro visit_nodes(node->b);
-
+      ++fmt;
+      text.push_back(c);
     }
-
-  } else {
-    // We're at a leaf node. Perform an action on the data. This may cause
-    // a DFA node transition.
-    return node->closure_index;
   }
+
+  fmt2 = std::string(text.begin(), text.end());
 }
 ```
 
-By expanding the `visit_nodes` macro on the root of the tree, we'll construct an if/else tree at the site of the expansion. Each time the macro is expanded, it generates a single if/else statement (and a conditional expression for it), or it generates a return statement. The return statement is not from the `visit_nodes` macro, but from the function that hosts the initial expansion, which may be many calls back.
+As usual, the utility functions are marked `inline`. They will only be emitted as LLVM IR if ODR-used from non-meta code. Since we only use them in the processing of the format specifier, they won't be included in the output binary.
 
-Macros are Circle's novel way of transforming _data_ into _behavior_. And where do you get that data? Because we have an integrated interpreter, it can come from pretty much anywhere--a file, an internal calculation, a foreign function call to a compiled library, any oracle you want.
+`transform_format` collects all the braced-strings from the format specifier and pushes them into the `names` array. These are usually object names, but may be any expression. Each braced-string is replaced by a single % token, which indicates an escape in the `cirprint` function that we already built. We additionally allow the user to escape { by using the code %{.
+
+The example string "x = {x}, y = {y}, z = {sqrt(1000.0)}\n" will be transformed to "x = %, y = %, z = %\n" and the strings "x", "y" and "sqrt(1000.0)" will be pushed to the `names` array.
+
+[**eprintf.cxx**](examples/eprintf/eprintf.cxx)
+```cpp
+@macro auto eprintf(const char* __fmt) {
+  // Use __ before all names in this macro. We don't want to accidentally
+  // shadow names in the calling scope.
+  @meta std::string __fmt2;
+  @meta std::vector<std::string> __names;
+  @meta transform_format(__fmt, __fmt2, __names);
+
+  return cirprint(
+    __fmt2.c_str(), 
+    @expression(__names[__integer_pack(__names.size())])...
+  );
+}
+```
+This is the entire definition of `eprintf`. It's an _expression macro_, meaning it expands into the call site as a subexpression. We introduce two meta objects to hold the transformed format specifier and the expression strings, and double-underscore so they don't shadow symbols `fmt`, `fmt2` and `names` in the expression string. 
+
+We want to call `cirprint` and pass it the transformed format specifier, as well as the result objects from each of the expressions encoded in the original format specifier. We'll use the `__integer_pack` mechanism for this: it yields in unexpanded non-type parameter pack, which when expanded, returns integers with values from 0 through `__names.size() - 1`. These numbers serve as indices into the `__names` array, and those strings as arguments to the `@expression` extension. Finally, we expand the paramemeter pack out to pass each evaluated expression as an argument to `cirprint`.
+
+This is a capability with a lot of flexibility. The format specifier argument need not be a string literal, simply a string known at compile time, which may be assembled programmatically at compile time using any means. Likewise, the function that transforms the format specifier and parses out the expressions may be of any complexity, and even stored in a compile-time shared object library. This is the case with the [TACO example](gems/taco.md#program-4-a-stringy-frontend). There, TACO's own parser transforms the formula string and lowers it to a tree-like IR. The `ir::Function` root of the IR has names for each parameter in the tensor contraction. We evaluate these names with a parameter-pack driven `@expression` to return lvalue expressions, which get passed to the generated tensor operation.
 
 ## Configuration-oriented programming
+
+*under construction*
 
 ### Code injection
 
