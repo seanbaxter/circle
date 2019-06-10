@@ -7,7 +7,10 @@ Sean Baxter
 
 Download [here](https://www.circle-lang.org/)
 
-** NEW ** [Generating tensor contractions with Circle and TACO](gems/taco.md)
+[Quick reference](https://www.circle-lang.org/quickref.html)  
+[Kernel launches with Circle](https://www.circle-lang.org/saxpy.html)  
+[Automatic struct-of-array](https://www.circle-lang.org/s2a.html)  
+** NEW ** [Generating tensor contractions with Circle and TACO](gems/taco.md)  
 
 ## Contents
 
