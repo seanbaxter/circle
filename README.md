@@ -10,7 +10,8 @@ Download [here](https://www.circle-lang.org/)
 [Quick reference](https://www.circle-lang.org/quickref.html)  
 [Kernel launches with Circle](https://www.circle-lang.org/saxpy.html)  
 [Automatic struct-of-array](https://www.circle-lang.org/s2a.html)  
-** NEW ** [Generating tensor contractions with Circle and TACO](gems/taco.md)  
+[Generating tensor contractions with Circle and TACO](gems/taco.md)  
+  **NEW**  [Reverse-mode automatic differentiation with Circle and Apex](https://github.com/seanbaxter/apex/blob/master/examples/autodiff.md)  
 
 ## Contents
 
