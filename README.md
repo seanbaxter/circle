@@ -7,6 +7,8 @@ Sean Baxter
 
 Download [here](https://www.circle-lang.org/)
 
+Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler updates.
+
 [Quick reference](https://www.circle-lang.org/quickref.html)  
 [Kernel launches with Circle](https://www.circle-lang.org/saxpy.html)  
 [Automatic struct-of-array](https://www.circle-lang.org/s2a.html)  
