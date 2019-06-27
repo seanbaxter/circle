@@ -1822,16 +1822,15 @@ Involving external resources like JSON adds a real twist into the compilation pr
 We'll take the [**special.cxx**](examples/special/special.cxx) file and break it subtly. C++ allows floating-point literals in the form -.0083333, but JSON does not: it requires an integer 0 between the _-_ and the _._, like so: -0.0083333. We can't expect an error from the C++ tokenizer, because C++ doesn't tokenize this text--that's done by the JSON parser.
 
 The Circle compiler has no specific response to this kind of error, so what happens when we try to compile **special** using this configuration file?
+
+![special.cxx backtrace image](special_errors.png)
+
+When the JSON library JSON library encounters a syntax error, it throws a parse error exception object. Since we're running the parser at compile time, this becomes a compile-time exception. The translation unit's source code does not catch this exception, although it could with `@meta try/catch`. Instead, the exception unwinds all the way through the translation unit until it is caught by a generic _handler_ in the `main` function of the compiler itself. At strategic points throughout the compiler, exceptions are caught, backtrace information is emitted, then the exceptions are re-thrown. When the exception is finally printed, it is enclosed in a complete backtrace, allowing the developer to understand how it originated. This even works for exceptions thrown from inside foreign function calls; in those cases, the name of the offending shared object is also printed as the point of origin.
+
+The JSON exception object is part of a class hierarchy that inherits [`std::exception`](https://en.cppreference.com/w/cpp/error/exception). Circle's uncaught exception handler is able to make a successful type cast to `exception`, so it's able to call [`what`](https://en.cppreference.com/w/cpp/error/exception/what) to retrieve the error string:
 ```
-$ circle special.cxx
-[ERROR]: Uncaught exception:
 [json.exception.parse_error.101] parse error at line 5, column 47: syntax error while parsing value - invalid number; expected digit after '-'; last read: '-.'
 ```
-We get a nicely-formatted error that provides the exact line and column of the problem along with a nice description.
-
-When the JSON library JSON library encounters a syntax error, it throws a parse error exception object. Since we're running the parser at compile time, this becomes a compile-time exception. The translation unit's source code does not catch this exception, although it could with `@meta try/catch`. Instead, the exception unwinds all the way through the translation unit until it is caught by a generic _handler_ in the `main` function of the compiler itself.
-
-The JSON exception object is part of a class hierarchy that inherits [`std::exception`](https://en.cppreference.com/w/cpp/error/exception). Circle's uncaught exception handler is able to make a successful type cast to `exception`, so it's able to call [`what`](https://en.cppreference.com/w/cpp/error/exception/what) to retrieve the error string.
 
 Here's the rub: `what` is a virtual function. Its implementation was defined by the JSON library, _inside the interpreter_. The concrete type that implements this function adds the function pointer to a vtable that exists _inside the interpreter_. The Circle uncaught exception handler is running compiled code, and wants to make a virtual function call into a function implemented in the interpreter. Is Circle able to simplify call `what` and have the function execute by the interpreter?
 
