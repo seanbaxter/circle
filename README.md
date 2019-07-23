@@ -13,10 +13,10 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Kernel launches with Circle](https://www.circle-lang.org/saxpy.html)  
 [Automatic struct-of-array](https://www.circle-lang.org/s2a.html)  
 [Generating tensor contractions with Circle and TACO](gems/taco.md)  
-  **NEW**  [Reverse-mode automatic differentiation with Circle and Apex](https://github.com/seanbaxter/apex/blob/master/examples/autodiff.md)  
-  **NEW**  [Circle video tutorial #1 - Serialization](https://www.youtube.com/watch?v=rxvqEY3VqHo)  
-  **NEW**  [Circle video tutorial #2 - Typed enums](https://www.youtube.com/watch?v=XSQOwWFxsMY)  
-
+[Reverse-mode automatic differentiation with Circle and Apex](https://github.com/seanbaxter/apex/blob/master/examples/autodiff.md)  
+[Circle video tutorial #1 - Serialization](https://www.youtube.com/watch?v=rxvqEY3VqHo)  
+[Circle video tutorial #2 - Typed enums](https://www.youtube.com/watch?v=XSQOwWFxsMY)  
+  **NEW**  [RPN as an embedded Circle compiler](gems/rpn.md)  
 ## Contents
 
 1. [Abstract](#abstract)  
