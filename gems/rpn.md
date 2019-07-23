@@ -4,7 +4,7 @@
 
 [Reverse Polish Notation](https://en.wikipedia.org/wiki/Reverse_Polish_notation), or RPN, is a postfix expression syntax. Unlike the usual infix notation, it doesn't require parentheses to specify operator precedences. Instead, it introduces the notion of a virtual stack. Numbers are pushed to the stack, and operators pop its operatands from the stack, combine them, and push the result back onto the stack.
 
-It was the convention for data entry on [HP scientific calculators](https://en.wikipedia.org/wiki/HP_calculators#Characteristics) and in the programming language [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language).
+It was the convention for data entry on [HP scientific calculators](https://en.wikipedia.org/wiki/HP_calculators#Characteristics) and in the programming language [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language)).
 
 RPN was popular in the early days of computing, when hardware was limited. It makes things easy for the computer while making things difficult for the user. Modern language design, by contrast, makes things difficult for both the computer and the user.
 
