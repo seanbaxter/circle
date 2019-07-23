@@ -14,7 +14,7 @@ Like the Apex autodiff compiler, the RPN compiler breaks the problem into two st
 1. **Parse the input RPN code and transform it to an AST.**  
     This is generic code that could be called at compile time or runtime. It's basically the same code you'd write to implement either an interpreter or compiler: traversing the AST and evaluating results in an interpreter; traversing the AST and generating code results in a compiler.  
     Because Circle allows unrestricted execution at compile time, we'll run it on compile-time strings to transform input RPN to AST that can be lowered to code.
-1. **Use Circle macros to lower the RPN AST to an expression.**
+1. **Use Circle macros to lower the RPN AST to an expression.**  
     Circle expression macros help integrate the embedded language (RPN) with the host language (Circle/C++). Expanding a Circle expression macro executes a macro and expands the returned subexpression into the point of the call.  
     These macros are both recursive and data-driven. The parameter of the macro is an AST node, with a value known at compile time. The macro considers the type of node, and emits code for implementing the operation. For operators and function calls, this involves recursive macro expansion on the children of the AST node. The final result of the macro expansion is a single expression, one that transforms the input RPN to infix C++.
 
