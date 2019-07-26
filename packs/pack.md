@@ -4,9 +4,9 @@ Parameter packs are the least developed feature in C++ 11, and one that presente
 
 ## Parameter packs are no longer bound to templates.
 
-In Standard C++, parameter packs content is carried around in template arguments. You must name to a type, non-type or template parameter in a class template context. In a function template context, you may also name a function parameter pack, which is in turn backed by a type parameter pack.
+In Standard C++, parameter pack content is carried around in template arguments. You must name to a type, non-type or template parameter in a class template context. In a function template context, you may also name a function parameter pack, which is in turn backed by a type parameter pack.
 
-Circle makes parameter packs more generic, but introducing expressions that yield unexpanded packs. These may be used in dependent or non-dependent contexts. Pack-dependent expressions are still "dependent," even when programmed in otherwise non-dependent contexts. During source translation, these types and expressions are run through the normal template substitution machinery, and their packs are expanded.
+By introducing operators that yield unexpanded packs, Circle makes parameter packs more generic and more powerful. These operator-yielded packs may be used in dependent or non-dependent contexts. Pack-dependent expressions are still "dependent," even when programmed in otherwise non-dependent contexts. During source translation, these types and expressions are run through the normal template substitution machinery, and their packs are expanded.
 
 ## Expression locus
 
