@@ -17,6 +17,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Circle video tutorial #1 - Serialization](https://www.youtube.com/watch?v=rxvqEY3VqHo)  
 [Circle video tutorial #2 - Typed enums](https://www.youtube.com/watch?v=XSQOwWFxsMY)  
   **NEW**  [RPN as an embedded Circle compiler](gems/rpn.md)  
+  **NEW**  [Parameter packs in Circle](packs/pack.md)  
 ## Contents
 
 1. [Abstract](#abstract)  
