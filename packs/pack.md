@@ -35,7 +35,7 @@ Hello
 
 In Standard C++, parameter packs may only be expanded from inside function call argument lists, braced initializers or fold expressions. Circle adds expressions to the list of expansion loci. 
 
-Pack expansion in argument list, template argument list or braced initializer contexts generates a _list_ of typse or expressions; pack expansion in the expression context generates a single expression, where subexpressions are joined by the comma operator `,`. This is functionally equivalent to the unary right fold operator `(pack) , ...`, but with a more natural syntax. 
+Pack expansion in argument list, template argument list or braced initializer contexts generates a _list_ of typse or expressions; pack expansion in the expression context generates a single expression, where subexpressions are joined by the comma operator `,`. This is functionally equivalent to the unary right fold operator `((pack) , ...)`, but with a more natural syntax. 
 
 ## Pack subscript
 
