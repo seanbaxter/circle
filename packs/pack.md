@@ -483,4 +483,4 @@ a is tuple_t<int, double*, char[3], float>
 b is tuple_t<float, char[3], double*, int>
 ```
 
-We'll instantiate a `tuple_t` with four arguments. We'll then instantiate the typedef inside the `reverse_args_t` class template. This involves using the pack subscript operator `...[]` with a pack on both sides! The left side is the type parameter pack `types_t`, which is bound to a template argument. The  
+We'll instantiate a `tuple_t` with four arguments. We'll then instantiate the typedef inside the `reverse_args_t` class template. This involves using the pack subscript operator `...[]` with a pack on both sides! The left side is the type parameter pack `types_t`, which is bound to a template argument. The right side specifies the index, and since this is an unexpanded parameter pack, it propagates through the pack subscript operator and into the template argument list, where it is expanded. This lets us evaluate all `count` subscripts, each in reverse order.
