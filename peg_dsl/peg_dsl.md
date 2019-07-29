@@ -9,7 +9,7 @@ Building DSLs has been a is a particular focus for me. We've already covered the
 
 This example uses an opensource parser generator to convert the DSL text into AST, before lowering the AST to code using Circle macros.
 
-[cpp-peglib](https://github.com/yhirose/cpp-peglib) is a dynamic PEG (parse pxpression grammar) parser. [PEG](https://en.wikipedia.org/wiki/Parsing_expression_grammar) is essentially a way to interpret [EBNF grammars](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) such that the left rule in an alternative is always matched before the right rule to eliminate parse ambiguity. PEG grammars allow the mechanical generation of a recursive descent implementation from an EBNF specification.
+[cpp-peglib](https://github.com/yhirose/cpp-peglib) is a dynamic PEG (parse expression grammar) parser. [PEG](https://en.wikipedia.org/wiki/Parsing_expression_grammar) is essentially a way to interpret [EBNF grammars](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) such that the left rule in an alternative is always matched before the right rule to eliminate parse ambiguity. PEG grammars allow the mechanical generation of a recursive descent implementation from an EBNF specification.
 
 ## cpp-peglib
 
