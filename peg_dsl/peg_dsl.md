@@ -7,13 +7,13 @@ Building DSLs has been a is a particular focus for me. We've already covered the
 1. [Reverse-mode automatic differentiation with Circle and Apex](https://github.com/seanbaxter/apex/blob/master/examples/autodiff.md)
 1. [RPN as an embedded Circle compiler](https://github.com/seanbaxter/circle/blob/master/gems/rpn.md)
 
-This example uses an opensource parser generator to convert the DSL text into AST, before lowing the AST to code using Circle macros.
+This example uses an opensource parser generator to convert the DSL text into AST, before lowering the AST to code using Circle macros.
 
-(cpp-peglib)[https://github.com/yhirose/cpp-peglib] is a dynamic PEG (parse pxpression grammar) parser. [PEG](https://en.wikipedia.org/wiki/Parsing_expression_grammar) is essentially a way to interpret [EBNF grammars](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) such that the left rule in an alternative is always matched before the right rule to eliminate parse ambiguity. PEG grammars allow the mechanical generation of a recursive descent implemenatation from an EBNF specification.
+(cpp-peglib)[https://github.com/yhirose/cpp-peglib] is a dynamic PEG (parse pxpression grammar) parser. [PEG](https://en.wikipedia.org/wiki/Parsing_expression_grammar) is essentially a way to interpret [EBNF grammars](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) such that the left rule in an alternative is always matched before the right rule to eliminate parse ambiguity. PEG grammars allow the mechanical generation of a recursive descent implementation from an EBNF specification.
 
 ## cpp-peglib
 
-cpp-peglib accepts grammars specified as EBNF in a string. The library parses the EBNF grammar into a data structure which serves as a traversable hierarchical representation of the grammar. Semantic actions may be attached to eaoh production. These are invoked on each match, and allow the user of the library to perform some action, like evaluate and accumulate a subexpression or construct an AST node.
+cpp-peglib accepts grammars specified as EBNF in a string. The library parses the EBNF grammar into a data structure which serves as a traversable hierarchical representation of the grammar. Semantic actions may be attached to each production. These are invoked on each match, and allow the user of the library to perform some action, like evaluate and accumulate a subexpression or construct an AST node.
 
 cpp-peglib includes an AST feature which automatically attaches AST node-returning semantic actions on each rule. This is not a bespoke AST like the [expression AST in Apex](https://github.com/seanbaxter/apex/blob/master/include/apex/parse.hxx), but it's still quite easy to consume.
 
@@ -89,15 +89,15 @@ int main(int argc, const char** argv)
 }
 ```
 
-The library's author has provided this simple demonstration of AST generation and AST consumption in cpp-peglib. The heart of the program is the EBNF grammar, which is provided in a string literal. This resembles the kind of input YACC takes, but the interface and parsing technology are very different. cpp-peglib doesn't require a prebuild step to transform the grammar into C++ parsing code; rather, it consumes the grammar at runtime and constructs a data structure for assisting in the parse. The `enable_ast` call attaches AST semantic actions to each of the rules in the grammar. When the `parse` member function is invoked, the library attempts to match the input string (specified at the command line) against the grammar, and builds AST nodes for each successful match.
+The library's author has provided this simple demonstration of AST generation and AST consumption in cpp-peglib. The heart of the program is the EBNF grammar, which is provided in a string literal. This resembles the kind of input YACC takes, but the interface and parsing technology are very different. cpp-peglib doesn't require a prebuild step to transform the grammar into C++ parsing code; rather, it consumes the grammar at runtime and constructs a data structure for assisting in the parse. The `enable_ast` call attaches AST semantic actions to each of the rules in the grammar. When the `parse` member function is invoked, the example attempts to match the input string (specified at the command line) against the grammar, and builds AST nodes for each successful match.
 
-The second phase evaluates the AST (which is always a tree data structure) by visiting each node, returning values from the terminals (NUMBER) and folding values in the interior nodes (the TERM rule). Since the AST actions are generic, they don't do any transformations of the token text. The `eval` function convers NUMBER token spellings to integers using the `stol` standard library function. TERM nodes are organized as odd-length arrays of nodes. The even nodes are FACTORs (which may be NUMBERs or other TERM nodes) and the odd nodes match TERM_OPERATOR or FACTOR_OPERATOR. For example, 1 + 2 * 3 / 4 - 5 + 6 has seven nodes for the EXPRESSION rule: 1, +, 2 * 3 / 4, -, 5, + and 6. The multiplicative expression 2 * 3 / 4 has five nodes for the TERM rule: 2, \*, 3, / and 4.
+The second phase evaluates the AST (which is usually a tree-like data structure) by visiting each node, returning values from the terminals (NUMBER) and folding values in the interior nodes (EXPRESSION, TERM and FACTOR rules). Since the AST actions are generic, they don't do any transformations of the token text. The `eval` function converts NUMBER token spellings to integers using the `stol` standard library function. TERM nodes are organized as odd-length arrays of nodes. The even nodes are FACTORs (which may be NUMBERs or other TERM nodes) and the odd nodes match TERM_OPERATOR or FACTOR_OPERATOR. For example, 1 + 2 * 3 / 4 - 5 + 6 has seven nodes for the EXPRESSION rule: 1, +, 2 * 3 / 4, -, 5, + and 6. The multiplicative expression 2 * 3 / 4 has five nodes for the TERM rule: 2, \*, 3, / and 4.
 
 The eval function traverses the nodes array from left-to-right (because these arithmetic operations are left-associative), and accumulates the value into the result object. The odd nodes specify the operators. The even nodes the values.
 
 ## Using cpp-peglib for compile-time parsing and DSL implementation
 
-In this example, I'll take calc3.cc, extend it to match identifiers (such as objects and parameters in the C++ code), and the parser to implement an embedded DSL. Then, with that embedded DSL, we'll code up some new functions expressed in that language, which get translated into Circle and from that into LLVM IR. We'll use cpp-peglib _without modification_, executing the entire parser pipeline in Circle's integrated interpreter.
+In this example, I'll take calc3.cc, extend the grammer to match identifiers (such as objects and parameters in the C++ code), and call into the parser to implement an embedded DSL. Then, with that embedded DSL, we'll code up some new functions expressed in that language, which get translated into Circle and from that into LLVM IR. We'll use cpp-peglib _without modification_, executing the entire parser pipeline in Circle's integrated interpreter.
 
 [**peg_dsl.cxx**](peg_dsl.cxx)
 ```cpp
@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
 }
 ```
 
-We can write functions in this calc3 grammar, and evaluate them as normal expressions by calling `peg_dsl_eval`. The identifiers x and y in the DSL match the IDENTIFIER EBNF rule. `peg_dsl_eval` is an expression macro, which gets expanded in the scope of the calling expression. When it encounters these IDENTIFIER nodes, it can perform name lookup and match them with the corresponding function parameters. This demonstrates the integration of the hosting C++ and the hosted DSL--we can use the scripting language qualities of Circle to freely pass information between the two systems.
+We can write functions in this calc3 grammar, and evaluate them as normal expressions by calling `peg_dsl_eval`. The identifiers x and y in the DSL match the IDENTIFIER rule. `peg_dsl_eval` is an expression macro, which gets expanded in the scope of the calling expression. When it encounters these IDENTIFIER nodes, it can perform name lookup and match them with the corresponding function parameters. This demonstrates the integration of the hosting C++ and the hosted DSL--we can use the scripting language qualities of Circle to freely pass information between the two systems.
 
 ```cpp
 template<typename node_t>
@@ -193,7 +193,7 @@ The magic happens from inside `peg_dsl_eval`. The `const char* text` overload is
 The AST overload of `peg_dsl_eval` lowers the AST to real code. There are three basic cases here:
 
 1. We've hit a NUMBER node. This is a textually-coded integer. We want to convert this to an integral constant, so we use [stol](https://en.cppreference.com/w/cpp/string/basic_string/stol) at compile time. We put the @meta token at the start of the expression to force its evaluation at compile time.
-1. We've hit an IDENTIFIER node. This needs to map to an actual object or parameter in our C++ code. We'll simply return `@expression(ast.token)`, which causes the token spelling to be lexed, parsed and translated as a C++ expression. The returned expression is an lvalue of the variable identified in the DSL text.
+1. We've hit an IDENTIFIER node. This needs to map to an actual object or parameter in our C++ code. We'll simply return `@expression(ast.token)`, which causes the token spelling to be lexed, parsed and translated as a C++ expression. The result object is an lvalue of the variable identified in the DSL text.
 1. We've hit a non-terminal. These include rules like EXPRESSION, TERM and FACTOR. They consist of sequences of other AST nodes, interspersed by operators with the same level of precedence. We'll need to fold this array together like a binary tree with left-associativity, and without the use of temporary variables for accumulation. Remember that the expression macro is modelling an expression--the only real statement we can have is a _return-statement_, the argument of which is detached and inserted semantically into the calling environment. There's no place inside an expression to declare a new object (although materialization may in effect create objects with temporary lifetimes), so we'll need to be a bit clever in how we lower these non-terminal nodes.
 
 ```cpp
