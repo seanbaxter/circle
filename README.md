@@ -18,6 +18,8 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Circle video tutorial #2 - Typed enums](https://www.youtube.com/watch?v=XSQOwWFxsMY)  
   **NEW**  [RPN as an embedded Circle compiler](gems/rpn.md)  
   **NEW**  [Parameter packs in Circle](packs/pack.md)  
+  **NEW**  [Implementing a DSL using an open source dynamic PEG parser](peg_dsl/peg_dsl.md)  
+  
 ## Contents
 
 1. [Abstract](#abstract)  
