@@ -19,6 +19,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
   **NEW**  [RPN as an embedded Circle compiler](gems/rpn.md)  
   **NEW**  [Parameter packs in Circle](packs/pack.md)  
   **NEW**  [Implementing a DSL using an open source dynamic PEG parser](peg_dsl/peg_dsl.md)  
+  **NEW**  [Walkthrough 1: Injecting functions from text](walkthrough/functions.md)  
   
 ## Contents
 
