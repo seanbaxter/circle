@@ -214,7 +214,7 @@ Injecting function 'F1'
 Injecting function 'F2'
 ```
 
-`inject_from_dir` is the new entry point for code generation. It uses the POSIX API [opendir](https://pubs.opengroup.org/onlinepubs/009695399/functions/opendir.html) to create a cursor into the contents of a directory. Each call to [readdir](https://pubs.opengroup.org/onlinepubs/009695399/functions/readdir.html) returns a descriptor of the pointed-at item in the directory, and advances the cursor to the next item. The final call to [closedir](https://pubs.opengroup.org/onlinepubs/009695399/functions/closedir.html) is an unnecessary but appreciated act of civic responsibility.
+`inject_from_dir` is the new entry point for code generation. It uses the POSIX API [opendir](https://pubs.opengroup.org/onlinepubs/009695399/functions/opendir.html) to create a cursor into the contents of a directory. Each call to [readdir](https://pubs.opengroup.org/onlinepubs/009695399/functions/readdir.html) returns a descriptor of the pointed-at item in the directory, and advances the cursor to the next item. The final call to [closedir](https://pubs.opengroup.org/onlinepubs/009695399/functions/closedir.html) is an unnecessary but thoughtful act of civic responsibility.
 
 After matching the file's extension, we simply expand the `inject_from_json` macro on that filename. We're now inside an _if-statement_ inside a _while-statement_, but these are all meta constructs. The innermost real scope is still the global namespace, so those functions are injected there. (However there exist sneaky mechanisms for injecting a declaration into any namespace from any scope, if you find yourself in that situation.)
 
