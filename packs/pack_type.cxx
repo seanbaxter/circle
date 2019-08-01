@@ -30,7 +30,7 @@ int main() {
   @meta types.erase(std::unique(types.begin(), types.end()), types.end());
 
   // Instantiate foo_t on the unique types.
-  foo_t<@pack_type(types.data(), types.size())...> foo;
+  foo_t<@pack_type(types)...> foo;
 
   return 0;
 }
