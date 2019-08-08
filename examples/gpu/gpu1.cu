@@ -11,8 +11,8 @@ __device__ type_t cta_scan(int tid, type_t x, op_t op = op_t()) {
 
   // Provision 2 * nt shared memory slots for double-buffering. This cuts in
   // half the number of __syncthreads required.
-  __shared__ type_t shared[2 * nt];
 
+  __shared__ type_t shared[2 * nt];
   int first = 0;
   shared[first + tid] = x;
   __syncthreads();
@@ -35,7 +35,7 @@ __device__ type_t cta_scan(int tid, type_t x, op_t op = op_t()) {
 // Kernels are still marked __global__.
 template<int nt>
 __global__ void my_kernel(int* p) {
-  int tid = __nvvm_tid_x();
+  int tid = threadIdx.x;
   int x = cta_scan<nt>(tid, 1, std::plus<int>());
   p[tid] = x;
 }
@@ -45,7 +45,25 @@ int main() {
   int* data;
   cudaMalloc(&data, nt * sizeof(int));
 
+    if(cudaError_t error = cudaGetLastError()) {
+      printf("cudamalloc %s\n", cudaGetErrorString(error));
+      exit(1);
+    }
+
+
+
   my_kernel<nt><<<1, nt>>>(data);
+
+    if(cudaError_t error = cudaGetLastError()) {
+      printf("my_kernel %s\n", cudaGetErrorString(error));
+    }
+
+  cudaDeviceSynchronize();
+    if(cudaError_t error = cudaGetLastError()) {
+      printf("deviceSynchronize %s\n", cudaGetErrorString(error));
+    }
+
+
 
   std::vector<int> results(nt);
   cudaMemcpy(results.data(), data, nt * sizeof(int), cudaMemcpyDeviceToHost);
