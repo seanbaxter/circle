@@ -147,7 +147,7 @@ If there's no key corresponding to our data member, we'll check if it's an _opti
 It's important to provide the user with helpful errors, especially when the schema is elaborate or may change with time. To do this, we throw exceptions from scalar handlers, and catch the errors, append additional context in the error string, and rethrow in the aggregate handlers.
 
 ```cpp
-    else if constexpr(std::is_array<type_t>::value || 
+  else if constexpr(std::is_array<type_t>::value || 
     @is_class_template(type_t, std::array)) {
 
     if(!j.is_array())
@@ -172,6 +172,7 @@ It's important to provide the user with helpful errors, especially when the sche
         throw std::runtime_error(format("[%zu]: %s", i, e.what()));
       }
     }
+  }
 ```
 Read through the code for handling arrays and std::array. We throw errors if the JSON is not an array, or is an array of unexpected size. When both of those checks pass, we enter our loop and recursively use `load_from_json` to deserialize each array element. If any of these operations fail, the exception is caught in a handler defined for that one element, and new exception is thrown holding an error specifying both the value of the array subscript and the text of the caught exception.
 
