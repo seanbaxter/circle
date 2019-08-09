@@ -21,6 +21,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
   **NEW**  [Implementing a DSL using an open source dynamic PEG parser](peg_dsl/peg_dsl.md)  
   **NEW**  [Walkthrough 1: Injecting functions from text](walkthrough/functions.md)  
   **NEW**  [Walkthrough 2: Evaluating expressions from text](walkthrough/eprintf.md)  
+  **NEW**  [Walkthrough 3: Deserializing JSON to classes](walkthrough/json_loader.md)  
   
 ## Contents
 
