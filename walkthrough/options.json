@@ -5,5 +5,15 @@
     "h" : 6.62607015e-34,
     "e" : 1.60217662e-19
   },
-  "language" : "spanish"
+  "language" : "spanish",
+
+  "alt_options" : {
+    "constants" : {
+      "e0" : 8.8541878e-12,
+      "mp" : 1.672621e-27,
+      "u0" : 1.256637e-6
+    },
+    "language" : "japanese",
+    "unit" : "mile"
+  }
 }

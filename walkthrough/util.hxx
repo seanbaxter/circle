@@ -2,6 +2,7 @@
 #include <cstdarg>
 #include <type_traits>
 #include <vector>
+#include <memory>
 #include <map>
 #include <set>
 #include <string>
@@ -123,6 +124,12 @@ void stream_simple(std::ostream& os, const type_t& obj) {
       insert_comma = true;
     }  
     os<< " }";
+
+  } else if constexpr(@is_class_template(type_t, std::unique_ptr)) {
+    if(obj)
+      stream_simple(os, *obj);
+    else
+      os<< "null";
 
   } else if constexpr(@is_class_template(type_t, std::optional)) {
     // For an optional member, either stream the value or stream "null".

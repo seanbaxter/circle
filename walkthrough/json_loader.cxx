@@ -97,6 +97,10 @@ void load_from_json(nlohmann::json& j, type_t& obj) {
       }
     }
 
+  } else if constexpr(@is_class_template(type_t, std::unique_ptr)) {
+    obj.reset(new typename type_t::element_type());
+    load_from_json(j, *obj);
+
   } else if constexpr(@is_class_template(type_t, std::optional)) {
     // Load the inner type.
     if(!j.is_null())
@@ -206,6 +210,10 @@ struct options_t {
   language_t language;
   unit_t unit = unit_t::km;     // An optional setting.
   std::map<std::string, double> constants;
+
+  // Optional set of alternative options. A recursive definition that allows
+  // embedded alt-options.
+  std::unique_ptr<options_t> alt_options { };
 };
 
 int main() {

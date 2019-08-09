@@ -16,6 +16,7 @@ Let's list everything we'd like to support:
 * std::string
 * C arrays and std::array - Fixed-length arrays in C++. The JSON array must be the same lengeth.
 * std::vector, std::set, std::multiset - Variable-length arrays in C++. The JSON array may have any number of elements.
+* std::unique_ptr - A type allowing recursive definitions. Parsed like an ordinary object in the JSON.
 * std::map - in JSON, an object of key : value pairs. The key type of the std::map must be std::string, because JSON only permits string-type keys.
 * any other class type - in JSON, and object of key : value pairs. Each class member name must have a corresponding key in the JSON object.
 
@@ -47,10 +48,14 @@ struct options_t {
   language_t language;
   unit_t unit = unit_t::km;     // An optional setting.
   std::map<std::string, double> constants;
+
+  // Optional set of alternative options. A recursive definition that allows
+  // embedded alt-options.
+  std::unique_ptr<options_t> alt_options { };
 };
 ```
 
-The `language` field is a mandatory enum. The `unit` field is an optional enum. The `constants` field is a mandatory map of string/double pairs. A candidate JSON satisfying this schema:
+The `language` field is a mandatory enum. The `unit` field is an optional enum. The `constants` field is a mandatory map of string/double pairs. The unique_ptr `alt_options` field allows recursive definitions, and set a default member initializer to make it optional. A candidate JSON satisfying this schema:
 
 ```json
 {
@@ -60,7 +65,17 @@ The `language` field is a mandatory enum. The `unit` field is an optional enum. 
     "h" : 6.62607015e-34,
     "e" : 1.60217662e-19
   },
-  "language" : "spanish"
+  "language" : "spanish",
+
+  "alt_options" : {
+    "constants" : {
+      "e0" : 8.8541878e-12,
+      "mp" : 1.672621e-27,
+      "u0" : 1.256637e-6
+    },
+    "language" : "japanese",
+    "unit" : "mile"
+  }
 }
 ```
 
@@ -334,6 +349,10 @@ void load_from_json(nlohmann::json& j, type_t& obj) {
       }
     }
 
+  } else if constexpr(@is_class_template(type_t, std::unique_ptr)) {
+    obj.reset(new typename type_t::element_type());
+    load_from_json(j,  *obj);
+
   } else if constexpr(@is_class_template(type_t, std::optional)) {
     // Load the inner type.
     if(!j.is_null())
@@ -443,6 +462,10 @@ struct options_t {
   language_t language;
   unit_t unit = unit_t::km;     // An optional setting.
   std::map<std::string, double> constants;
+
+  // Optional set of alternative options. A recursive definition that allows
+  // embedded alt-options.
+  std::unique_ptr<options_t> alt_options { };
 };
 
 int main() {
