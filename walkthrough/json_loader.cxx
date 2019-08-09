@@ -5,7 +5,7 @@
 #include <map>
 #include <set>
 #include <optional>
-#include <json.hpp>
+#include "json.hpp"
 
 // Return an object by reference. We do this because we can't return an 
 // array type, and arrays are otherwise supported.
@@ -22,8 +22,19 @@ void load_from_json(nlohmann::json& j, type_t& obj) {
       obj = *e;
 
     } else {
+      /*
       throw std::runtime_error(format("'%s' is not an enumerator of '%s'\n", 
         j.get<std::string>().c_str(), @type_name(type_t)).c_str());
+      */
+
+      std::ostringstream oss;
+      oss<< '\''<< j.get<std::string>() << "\' is not an enumerator of '"<< 
+        @type_name(type_t)<< "\n";
+      oss<< "Did you mean\n";
+      oss<< "  "<< @enum_names(type_t)<< "\n" ...;
+      oss<< "?\n";
+
+      throw std::runtime_error(oss.str());
     }
 
   } else if constexpr(std::is_same<bool, type_t>::value) {
@@ -191,16 +202,10 @@ enum class unit_t {
   lightyear,
 };
 
-struct constant_t {
-  double value;
-  std::string unit;
-};
-
 struct options_t {
   language_t language;
-  unit_t unit = unit_t::km;     // An optional option.
+  unit_t unit = unit_t::km;     // An optional setting.
   std::map<std::string, double> constants;
-
 };
 
 int main() {
