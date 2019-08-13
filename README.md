@@ -16,12 +16,13 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Reverse-mode automatic differentiation with Circle and Apex](https://github.com/seanbaxter/apex/blob/master/examples/autodiff.md)  
 [Circle video tutorial #1 - Serialization](https://www.youtube.com/watch?v=rxvqEY3VqHo)  
 [Circle video tutorial #2 - Typed enums](https://www.youtube.com/watch?v=XSQOwWFxsMY)  
-  **NEW**  [RPN as an embedded Circle compiler](gems/rpn.md)  
-  **NEW**  [Parameter packs in Circle](packs/pack.md)  
-  **NEW**  [Implementing a DSL using an open source dynamic PEG parser](peg_dsl/peg_dsl.md)  
+[RPN as an embedded Circle compiler](gems/rpn.md)  
+[Parameter packs in Circle](packs/pack.md)  
+[Implementing a DSL using an open source dynamic PEG parser](peg_dsl/peg_dsl.md)  
   **NEW**  [Walkthrough 1: Injecting functions from text](walkthrough/functions.md)  
   **NEW**  [Walkthrough 2: Evaluating expressions from text](walkthrough/eprintf.md)  
   **NEW**  [Walkthrough 3: Deserializing JSON to classes](walkthrough/json_loader.md)  
+  **NEW**  [Type erasure in Circle](erasure/type_erasure.md)  
   
 ## Contents
 
