@@ -73,7 +73,7 @@ int main() {
 ```
 $ circle func_decl1.cxx
 $ ./func_decl1
-absdiff(5, 5) -> 2
+absdiff(5, 7) -> 2
 sq(3.14158) -> 9.869588
 ```
 
