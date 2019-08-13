@@ -79,6 +79,7 @@ sq(3.14158) -> 9.869588
 
 `@func_decl` is demonstrated by taking a function type, function name and function body by string and converting them into a proper C++ function. The third argument specifies the identifier name of the function parameter pack, which is why the string definitions access the parameters as `args...[0]` and `args...[1]`. In real practice, these would most likely be forwards to other functions.
 
+[**func_decl2.cxx**](func_decl2.cxx)
 ```cpp
 #include <cstdio>
 
