@@ -125,13 +125,6 @@ Defining pure virtual close
 Found print: void(my_base_t<my_interface_t>::*)(const char*)
 Found save: bool(my_base_t<my_interface_t>::*)(const char*, const char*)
 Found close: void(my_base_t<my_interface_t>::*)()
-sean@sean-red:~/projects/circle_show/erasure$ circle func_decl2.cxx
-Injecting print: void(my_interface_t::*)(const char*)
-Injecting save: bool(my_interface_t::*)(const char*, const char*)
-Injecting close: void(my_interface_t::*)()
-Found print: void(my_base_t<my_interface_t>::*)(const char*)
-Found save: bool(my_base_t<my_interface_t>::*)(const char*, const char*)
-Found close: void(my_base_t<my_interface_t>::*)()
 ```
 
 The `@func_decl` mechanism works hand-in-hand with method introspection. Here we define an interface type that declares three member functions. This type, `my_interface_t` might never be instantiated; it rather serves as a contract with my_base_t, which is a type with the same methods as virtual functions.
