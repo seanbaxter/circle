@@ -1,9 +1,8 @@
 // A Circle implementation of the type erasure tactic implemented here:
 // https://github.com/TartanLlama/typeclasses/blob/master/typeclass.hpp
 
+#include "../gems/util.hxx"
 #include <memory>
-#include <vector>
-#include <cstdlib>
 
 // model_t is the base class for impl_t. impl_t has the storage for the 
 // object of type_t. model_t has a virtual dtor to trigger impl_t's dtor.
@@ -19,8 +18,13 @@ struct model_t {
   // Loop over each member function on the interface.
   @meta for(int i = 0; i < @method_count(typeclass); ++i) {
 
+    @meta std::string func_name = @method_name(typeclass, i);
+
+    // Declare a "has_" function.
+    virtual bool @(format("has_%s", func_name.c_str()))() const = 0;
+
     // Declare a pure virtual function for each interface method.
-    virtual @func_decl(@method_type(typeclass, i), @method_name(typeclass, i), args) = 0;
+    virtual @func_decl(@method_type(typeclass, i), func_name, args) = 0;
   }
 };
 
@@ -39,12 +43,34 @@ struct impl_t : public model_t<typeclass> {
   // Loop over each member function on the interface.
   @meta for(int i = 0; i < @method_count(typeclass); ++i) {
 
+    @meta std::string func_name = @method_name(typeclass, i);
+
+    @meta bool is_valid = @sfinae(
+      std::declval<type_t>().@(func_name)(
+        std::declval<@method_params(typeclass, i)>()...
+      )
+    );
+
+    // Implement the has_XXX function.
+    bool @(format("has_%s", func_name.c_str()))() const override {
+      return is_valid;
+    }
+
     // Declare an override function with the same signature as the pure virtual
     // function in model_t.
-    @func_decl(@method_type(typeclass, i), @method_name(typeclass, i), args) override {
-      // Forward to the correspondingly-named member function in type_t.
-      // std::forward<@method_params(typeclass, i)>(args)... works too.
-      return concrete.@(__func__)(std::forward<decltype(args)>(args)...);
+    @func_decl(@method_type(typeclass, i), func_name, args) override {
+
+      @meta if(is_valid || @sfinae(typeclass::required::@(__func__))) {
+        // Forward to the correspondingly-named member function in type_t.
+        return concrete.@(__func__)(std::forward<decltype(args)>(args)...);
+
+      } else {
+
+        // We could also call __cxa_pure_virtual or std::terminate here.
+        throw std::runtime_error(@string(format("%s::%s not implemented", 
+          @type_name(type_t), __func__
+        )));
+      }
     }
   }
 
@@ -96,6 +122,15 @@ struct var_t {
 
   // Loop over each member function on the interface.
   @meta for(int i = 0; i < @method_count(typeclass); ++i) {
+
+    // Define a has_XXX member function.
+    bool @(format("has_%s", @method_name(typeclass, i)))() const {
+      @meta if(@sfinae(typeclass::required::@(__func__)))
+        return true;
+      else
+        return model->@(__func__)();
+    }
+
     // Declare a non-virtual forwarding function for each interface method.
     @func_decl(@method_type(typeclass, i), @method_name(typeclass, i), args) {
       // Forward to the model's virtual function.
@@ -119,15 +154,22 @@ struct var_t {
 // functions in model_t.
 
 struct my_interface {
-  // List interface methods here. They don't have to be virtual, because this
-  // class never actually gets inherited!
+  enum class required {
+    print         // Only the print method is required.
+  };
+
   void print(const char* text);
+  void save(const char* filename, const char* access);
 };
 
 // Print the text in forward order.
 struct forward_t {
   void print(const char* text) {
     puts(text);
+  }
+
+  void save(const char* filename, const char* access) {
+    puts("forward_t::save called");
   }
 };
 
@@ -164,6 +206,9 @@ int main() {
   obj_t b = a; 
   b.print("Hello b");
 
+  if(b.has_save())
+    b.save("my.save", "w");
+
   // Copy-assign a to get c.
   obj_t c;
   c = b;
@@ -172,10 +217,16 @@ int main() {
   // Create a forward object.
   obj_t d = obj_t::construct<forward_t>();
   d.print("Hello d");
+  d.save("foo.save", "w");
 
   // Create a reverse object.
   obj_t e = obj_t::construct<reverse_t>();
   e.print("Hello e");
+
+  // Throws:
+  // terminate called after throwing an instance of 'std::runtime_error'
+  //   what():  reverse_t::save not implemented
+  e.save("bar.save", "w");
 
   return 0;
 }

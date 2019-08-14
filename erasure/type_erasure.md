@@ -272,12 +272,9 @@ struct impl_t : public model_t<typeclass> {
     // Declare an override function with the same signature as the pure virtual
     // function in model_t.
     @func_decl(@method_type(typeclass, i), @method_name(typeclass, i), args) override {
-
       // Forward to the correspondingly-named member function in type_t.
-      return concrete.@(@method_name(typeclass, i))(
-        // std::forward<@method_params(typeclass, i)>(args)... works too.
-        std::forward<decltype(args)>(args)...
-      );
+      // std::forward<@method_params(typeclass, i)>(args)... works too.
+      return concrete.@(__func__)(std::forward<decltype(args)>(args)...);
     }
   }
 
@@ -332,9 +329,7 @@ struct var_t {
     // Declare a non-virtual forwarding function for each interface method.
     @func_decl(@method_type(typeclass, i), @method_name(typeclass, i), args) {
       // Forward to the model's virtual function.
-      return model->@(@method_name(typeclass, i))(
-        std::forward<decltype(args)>(args)...
-      );
+      return model->@(__func__)(std::forward<decltype(args)>(args)...);
     }
   }
 
@@ -346,6 +341,7 @@ struct var_t {
   // the base type and rely on model_t's virtual dtor to free the object.
   std::unique_ptr<model_t<typeclass> > model;
 }; 
+
 ```
 
 The type erasure implementation is barely more complicated than the two `@func_decl` examples. There are three classes at work:
@@ -353,6 +349,8 @@ The type erasure implementation is barely more complicated than the two `@func_d
 1. `var_t` is the user-facing wrapper. This holds a `unique_ptr` to `model_t`, which manages the actual data and binding. Move construction/assignment is handled by move-semantics on the `unique_ptr`. Copy constructiont/assignment is handled by a `clone` function on the `model_t` object.
 1. `model_t` is specialized on the interface type, called `typeclass` for consistency with Sy Brand's code. This type reflects the interface's methods as pure virtual functions. It also declares a `clone` virtual function to invoke the copy constructor on the concrete type. It serves as a base class for the `impl_t` class template, so we also add a virtual dtor to allow the derived type to destruct itself.
 1. `impl_t` derives `model_t`, and is additionally specialized on a concrete type like `forward_t` or `allcaps_t`. It reflects on the interface methods, creating virtual function overrides which forward the function arguments to the corresponding member function on the concrete type.
+
+Note that inside a function we can use `__func__` to access the function name. This is a compile-time constant string literal defined for all functions in C++. Placing it in the dynamic-name operator `@()` like `@(__func__)` converts the string name to an identifier.
 
 Circle's support for type erasure was coded up in a hurry. `@func_decl` was something I came up with after perhaps an hour of consideration, and I'm sure I'll expand it moving forward. But I feel this mechanism, when combined with Circle's existing meta statements, already has a big leg up over the metaclasses implementation:
 
@@ -374,4 +372,239 @@ Circle doesn't have such an inscrutable way of programmatically declaring functi
 
 It's tricky to programmatically declare fuctions, which is why Circle declares the entire function from a pointer-to-member function type. We already have techniques for manipulating types (and Circle adds a bunch of imperative `@mtype`-related methods on top of the C++11 features). Use these mechanisms to prepare your function type, then punch the function out with a `@func_decl`. There's no need to introduce so much new syntax for fine-grained declarations.
 
-Type erasure is an thought-provoking design pattern, but I haven't consciously used it at scale. But even as a paradigm skeptic, I strongly believe that a competent programmer should be able to implement the pattern as I've done here. If the programmer can't do it (as with C++20 and before), that's a failure of the language. I'm always ready to rectify Circle to make these kinds of metaprogramming tasks possible, and hopefully trivial.
+## Specifying core and optional methods
+
+It doesn't take much work to write a smarter type erasure system. The most obvious improvement is to support both core/required and extended/optional methods in the interface. In a real world situation, you'd want to make the interface as rich as possible, but still allow binding to implementations that don't implement all the methods. 
+
+```cpp
+struct my_interface {
+  enum class required {
+    print         // Only the print method is required.
+  };
+
+  // Required methods:
+  void print(const char* text);
+
+  // Optional methods:
+  void save(const char* filename, const char* access);
+};
+```
+
+Write your methods like normal, but annotate the required ones by naming them in the `required` enum. If you omit this enum, all methods are interpreted as optional. Concrete types must implement all required methods for the program to compile. How does the caller know which methods are actually implemented, since it only has access to the generic `var_t` wrapper? We'll generate a `has_{func-name}` function for each method, which returns true if implemented and false if not.
+
+That is, we'll expect `var_t<my_interface>` to look like this:
+```cpp
+struct var_t {
+  bool has_print() const;
+  void print(const char* text);
+
+  bool has_save() const;
+  void save(const char* filename, const char* access);
+
+  // Data members here...
+};
+```
+
+The user should check `has_save` before calling `save`, since that is an optional method. If the user goes ahead and calls an unimplemented optional method, an exception with a useful error message will be thrown.
+
+[**type_erasure2.cxx**](type_erasure2.cxx)
+```cpp
+// model_t is the base class for impl_t. impl_t has the storage for the 
+// object of type_t. model_t has a virtual dtor to trigger impl_t's dtor.
+// model_t has a virtual clone function to copy-construct an instance of 
+// impl_t into heap memory, which is returned via unique_ptr. model_t has
+// a pure virtual function for each method in the interface class typeclass.
+template<typename typeclass>
+struct model_t {
+  virtual ~model_t() { }
+
+  virtual std::unique_ptr<model_t> clone() = 0;
+
+  // Loop over each member function on the interface.
+  @meta for(int i = 0; i < @method_count(typeclass); ++i) {
+
+    @meta std::string func_name = @method_name(typeclass, i);
+
+    // Declare a "has_" function.
+    virtual bool @(format("has_%s", func_name.c_str()))() const = 0;
+
+    // Declare a pure virtual function for each interface method.
+    virtual @func_decl(@method_type(typeclass, i), func_name, args) = 0;
+  }
+};
+
+template<typename typeclass, typename type_t>
+struct impl_t : public model_t<typeclass> {
+
+  // Construct the embedded concrete type.
+  template<typename... args_t>
+  impl_t(args_t&&... args) : concrete(std::forward<args_t>(args)...) { }
+
+  std::unique_ptr<model_t<typeclass> > clone() override {
+    // Copy-construct a new instance of impl_t on the heap.
+    return std::make_unique<impl_t>(concrete);
+  }
+ 
+  // Loop over each member function on the interface.
+  @meta for(int i = 0; i < @method_count(typeclass); ++i) {
+
+    @meta std::string func_name = @method_name(typeclass, i);
+
+    @meta bool is_valid = @sfinae(
+      std::declval<type_t>().@(func_name)(
+        std::declval<@method_params(typeclass, i)>()...
+      )
+    );
+
+    // Implement the has_XXX function.
+    bool @(format("has_%s", func_name.c_str()))() const override {
+      return is_valid;
+    }
+
+    // Declare an override function with the same signature as the pure virtual
+    // function in model_t.
+    @func_decl(@method_type(typeclass, i), func_name, args) override {
+
+      @meta if(is_valid || @sfinae(typeclass::required::@(__func__))) {
+        // Forward to the correspondingly-named member function in type_t.
+        return concrete.@(__func__)(std::forward<decltype(args)>(args)...);
+
+      } else {
+
+        // We could also call __cxa_pure_virtual or std::terminate here.
+        throw std::runtime_error(@string(format("%s::%s not implemented", 
+          @type_name(type_t), __func__
+        )));
+      }
+    }
+  }
+
+  // Our actual data.
+  type_t concrete;
+};
+
+```
+
+We've added a `has_{func-name}` prue virtual to `model_t` and an override function to `impl_t`. To test if the method is actually implemented on the concrete type, the Circle `@sfinae` extension is used to simulate a function call in an unevaluated context. `std::declval` is used to synthesize an instance of the concrete type and each of the function arguments. If the member function name lookup succeeds and overload resolution chooses a candidate, then the whole expression will substitute correctly and yield true. If there's any error during substitution, the `@sfinae` extension will suppress the diagnostic and yield false.
+
+The method implementation in `impl_t` will attempt to call the corresponding function on the concrete object if such a call will succeed (`is_valid` is true) or if it's a required function. To check the required flag, evaluate the `typeclass::required::@(__func__)` expression in a `@sfinae` context. If this name lookup succeeds, the extension returns true.
+
+If the function call is both optional and invalid, we'll throw a C++ exception that combines the name of the concrete type and the function name into the error message.
+
+**Note on meta objects:**
+> To save typing we stored the function name into a meta std::string called `func_name`. Notice that I'm using `func_name`s value only in the initializer for `is_valid` and for the two function declarations. I'm not using it from _inside_ a function definition.
+>
+> Why? Well, the definitions of functions in a templated context (such as function templates or member functions of class templates) aren't instantiated when the surrounding class is instantiated. Rather, they are instantiated when used. But when they're used, the meta loops in the class definition have already been executed, and their objects have been created and destroyed. `i`, `func_name` and `is_valid` aren't alive when the definitions that reference them are instantiated into code, so we can't access their values. How come we can refer to `is_valid` and `i` from inside these function definitions then? When a function in a templated context is declared, the Circle compiler _memoizes_ all the surrounding meta objects. For arithmetic and enum types, it records the type and value of the object. For pointer and non-scalar types, it only records the type. That string object cannot be used from inside a function definition, since the compiler didn't memoize its value. (In general, we can't memoize types with non-trivial ctors and dtors, although I will be adding support for literal types and probably common STL types like vectors of memoizable types and for strings.) 
+>
+> We have the same consideration when parsing member function definitions for non-templated classes. The definitions are parsed only after the rest of the body of the class has been processed, making the class complete. At that point, the meta for loops have run, their objects created and destroyed, and all that remains for the function definition to access are memoized versions of the objects.
+>
+> Using `__func__` from inside the function definitions yields a perfectly suitable string literal that doesn't have these memoization concerns.
+
+```cpp
+struct my_interface {
+  enum class required {
+    print         // Only the print method is required.
+  };
+
+  void print(const char* text);
+  void save(const char* filename, const char* access);
+};
+
+// Print the text in forward order.
+struct forward_t {
+  void print(const char* text) {
+    puts(text);
+  }
+
+  void save(const char* filename, const char* access) {
+    puts("forward_t::save called");
+  }
+};
+
+// Print the text in reverse order.
+struct reverse_t {
+  void print(const char* text) {
+    int len = strlen(text);
+    for(int i = 0; i < len; ++i)
+      putchar(text[len - 1 - i]);
+    putchar('\n');
+  }
+};
+
+// Print the text with caps.
+struct allcaps_t {
+  void print(const char* text) {
+    while(char c = *text++)
+      putchar(toupper(c));
+    putchar('\n');
+  }
+};
+
+// The typedef helps emphasize that we have a single type that encompasses
+// multiple impl types that aren't related by inheritance.
+typedef var_t<my_interface> obj_t;
+
+int main() {
+
+  // Construct an object a.
+  obj_t a = obj_t::construct<allcaps_t>();
+  a.print("Hello a");
+
+  // Copy-construct a to get b.
+  obj_t b = a; 
+  b.print("Hello b");
+
+  if(b.has_save())
+    b.save("my.save", "w");
+
+  // Copy-assign a to get c.
+  obj_t c;
+  c = b;
+  c.print("Hello c");
+
+  // Create a forward object.
+  obj_t d = obj_t::construct<forward_t>();
+  d.print("Hello d");
+
+  // save works, because forward_t implements it.
+  d.save("foo.save", "w");
+
+  // Create a reverse object.
+  obj_t e = obj_t::construct<reverse_t>();
+  e.print("Hello e");
+
+  // Throws:
+  // terminate called after throwing an instance of 'std::runtime_error'
+  //   what():  reverse_t::save not implemented
+  e.save("bar.save", "w");
+
+  return 0;
+}
+```
+```
+$ circle type_erasure2.cxx
+$ ./type_erasure2
+HELLO A
+HELLO B
+HELLO C
+Hello d
+forward_t::save called
+e olleH
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  reverse_t::save not implemented
+Aborted (core dumped)
+```
+
+Only `forward_t` implements the optional `save` method. We guard against calling `save` on object `b` with the `has_save` member function. Later on, we call `save` on a `reverse_t` object, and that throws the exception.
+
+```cpp
+    // Define a has_XXX member function.
+    bool @(format("has_%s", @method_name(typeclass, i)))() const {
+      @meta if(@sfinae(typeclass::required::@(__func__)))
+        return true;
+      else
+        return model->@(__func__)();
+    }
+```
+It's worth noting that the `var_t::has_{func-name}` implementation returns the true constant if the function is required (which implies valid). This allows the compiler backend to inline through this guard, making it performance penalty-free to use before any required interface call.
+

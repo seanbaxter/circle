@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cstdarg>
+#include <stdexcept>
 
 // Use popen to make a system call and capture the output in a file handle.
 // Make it inline to prevent it from being emitted by the backend, unless
