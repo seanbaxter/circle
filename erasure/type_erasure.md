@@ -487,7 +487,7 @@ struct impl_t : public model_t<typeclass> {
 
 We've added a `has_{func-name}` prue virtual to `model_t` and an override function to `impl_t`. To test if the method is actually implemented on the concrete type, the Circle `@sfinae` extension is used to simulate a function call in an unevaluated context. `std::declval` is used to synthesize an instance of the concrete type and each of the function arguments. If the member function name lookup succeeds and overload resolution chooses a candidate, then the whole expression will substitute correctly and yield true. If there's any error during substitution, the `@sfinae` extension will suppress the diagnostic and yield false.
 
-The method implementation in `impl_t` will attempt to call the corresponding function on the concrete object if such a call will succeed (`is_valid` is true) or if it's a required function. To check the required flag, evaluate the `typeclass::required::@(__func__)` expression in a `@sfinae` context. If this name lookup succeeds, the extension returns true.
+The method implementation in `impl_t` will attempt to call the corresponding function on the concrete object if such a call will succeed (`is_valid` is true) or if it's a required function. To check the required flag, evaluate the `typeclass::required::@(@method_name(typeclass, i))` expression in a `@sfinae` context. If this name lookup succeeds, the extension returns true.
 
 If the function call is both optional and invalid, we'll throw a C++ exception that combines the name of the concrete type and the function name into the error message.
 
