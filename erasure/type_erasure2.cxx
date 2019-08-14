@@ -125,7 +125,7 @@ struct var_t {
 
     // Define a has_XXX member function.
     bool @(format("has_%s", @method_name(typeclass, i)))() const {
-      @meta if(@sfinae(typeclass::required::@(__func__)))
+      @meta if(@sfinae(typeclass::required::@(@method_name(typeclass, i))))
         return true;
       else
         return model->@(__func__)();
