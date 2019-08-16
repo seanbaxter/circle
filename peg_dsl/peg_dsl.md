@@ -217,22 +217,15 @@ template<typename node_t>
     // where the part in () gets recursively processed by peg_dsl_fold.
 
     // Do a left-associative descent.
-    @meta if("+" == nodes[count - 2]->token) {
-      return peg_dsl_fold(nodes, count - 2) + peg_dsl_eval(*nodes[count - 1]);
 
-    } else @meta if("-" == nodes[count - 2]->token) {
-      return peg_dsl_fold(nodes, count - 2) - peg_dsl_eval(*nodes[count - 1]);
-
-    } else @meta if("*" == nodes[count - 2]->token) {
-      return peg_dsl_fold(nodes, count - 2) * peg_dsl_eval(*nodes[count - 1]);
-
-    } else @meta if("/" == nodes[count - 2]->token) {
-      return peg_dsl_fold(nodes, count - 2) / peg_dsl_eval(*nodes[count - 1]);
-
-    } else {
-      return peg_dsl_fold(nodes, count - 2) % peg_dsl_eval(*nodes[count - 1]);
-
-    }
+    // Since the DSL has operators with the same token spellings as C++,
+    // we can just use @op to handle them all generically, instead of switching
+    // over each token type.
+    return @op(
+      nodes[count - 2]->token,
+      peg_dsl_fold(nodes, count - 2),
+      peg_dsl_eval(*nodes[count - 1])
+    );
   }
 }
 ```
