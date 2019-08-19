@@ -284,7 +284,7 @@ violet
 puce
 ```
 
-Circle adds a _for-enum_statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
+Circle adds a _for-enum-statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
 
 Without introducing a runtime type info, we're able to build a generic function that maps an enumerator value to the enumerator name. 
 
