@@ -1,4 +1,13 @@
-# The Circle programming language
+# Circle
+The C++ Automation Language  
+2019  
+Sean Baxter
+
+> _"it's like c++ that went away to train with the league of shadows and came back 15 years later and became batman"_
+
+Download [here](https://www.circle-lang.org/)
+
+Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler updates.
 
 * Start with C++.
 * Integrate an interpreter. 
