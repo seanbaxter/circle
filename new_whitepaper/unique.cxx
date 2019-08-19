@@ -11,9 +11,14 @@ struct tuple_t {
 };
 
 template<typename type_t>
-void make_unique(std::vector<type_t>& vec) {
-  std::sort(vec.begin(), vec.end());
-  vec.resize(std::unique(vec.begin(), vec.end()) - vec.begin());
+void stable_unique(std::vector<type_t>& vec) {
+  // std::sort + std::unique also works, but isn't stable.
+  std::vector<type_t> vec2;
+  for(type_t x : vec) {
+    if(vec2.end() == std::find(vec2.begin(), vec2.end(), x))
+      vec2.push_back(x);
+  }
+  vec = std::move(vec2);
 }
 
 template<typename... types_t>
@@ -24,7 +29,7 @@ struct unique_tuple_t {
   @meta std::vector<@mtype> types { @dynamic_type(types_t)... };
 
   // Use an ordinary function to sort types.
-  @meta make_unique(types);
+  @meta stable_unique(types);
 
   // @pack_type returns an array/std::vector<@mtype> as a type parameter pack.
   // Print the unique list of names as a diagnostic.

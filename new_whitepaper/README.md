@@ -6,13 +6,14 @@
     * Full access to the host environment.
 * Reflection.
     * Simply interleave compile-time control flow with regular declarations.
-* Include introspection keywords.
+* Iintrospection keywords.
     * No runtime cost. Introspection gives access to info already maintained by the compiler.
 * Dynamic names.
     * `@()` turns strings and integers into identifiers.
-* Liberate parameter packs from templates.
+* Richer parameter packs.
+    * Parameter packs now separated from templates.
     * Many new extensions return parameter packs.
-    * Subscript template parameter packs with `...[]`.
+    * Subscript template and function parameter packs with `...[]`.
 * Injection from text.
     * `@type_id` - a type from a string
     * `@expression` - an expression from a string
@@ -130,10 +131,14 @@ struct tuple_t {
 };
 
 template<typename type_t>
-void make_unique(std::vector<type_t>& vec) {
-  // The usual C++ unique trick.
-  std::sort(vec.begin(), vec.end());
-  vec.resize(std::unique(vec.begin(), vec.end()) - vec.begin());
+void stable_unique(std::vector<type_t>& vec) {
+  // std::sort + std::unique also works, but isn't stable.
+  std::vector<type_t> vec2;
+  for(type_t x : vec) {
+    if(vec2.end() == std::find(vec2.begin(), vec2.end(), x))
+      vec2.push_back(x);
+  }
+  vec = std::move(vec2);
 }
 
 template<typename... types_t>
@@ -143,8 +148,8 @@ struct unique_tuple_t {
   // sort them! @dynamic_type converts a type to an @mtype prvalue.
   @meta std::vector<@mtype> types { @dynamic_type(types_t)... };
 
-  // Use an ordinary function to sort and unique types.
-  @meta make_unique(types);
+  // Use an ordinary function to unique these types.
+  @meta stable_unique(types);
 
   // @pack_type returns an array/std::vector<@mtype> as a type parameter pack.
   // Print the unique list of names as a diagnostic.
@@ -166,9 +171,9 @@ int main() {
 ```
 $ circle unique.cxx
 int
-float
 double
 char*
+float
 ```
 
 `unique_tuple_t` typedefs a `tuple_t` over a unique list of its template arguments. Unlike with Standard C++, Circle does this with no template metaprogramming abuse:
@@ -224,6 +229,55 @@ d : A C++ string
 ```
 
 Feed compile-time loops with introspection expressions like `@member_count` to control the number of steps. At each step, use queries like `@member_name` (to get the name of a class member as a string literal) and `@member_ref` (to access the i'th data member) to serialize objects.
+
+## Introspection on enums
+
+```cpp
+#include <iostream>
+#include <type_traits>
+
+template<typename type_t>
+const char* name_from_enum(type_t e) {
+  static_assert(std::is_enum<type_t>::value);
+
+  switch(e) {
+    // A ranged-for over the enumerators in this enum.
+    @meta for enum(type_t e2 : type_t) {
+      // e2 is known at compile time, so we can use it in a case-statement.
+      case e2:
+        return @enum_name(e2);
+    }
+
+    default:
+      return nullptr;
+  }
+}
+
+int main() {
+
+  enum color_t {
+    red, blue, green, yellow, purple, violet, chartreuse, puce,
+  };
+  color_t colors[] { yellow, violet, puce };
+
+  // Print all the color names in the array.
+  for(color_t c : colors)
+    std::cout<< name_from_enum(c)<< "\n";
+
+  return 0;
+}
+```
+```
+$ circle enums.cxx
+$ ./enums
+yellow
+violet
+puce
+```
+
+Circle adds a _for-enum_statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
+
+Without introducing a runtime type info, we're able to build a generic function that maps an enumerator value to the enumerator name. 
 
 ## Reflection - inject functions from the contents of a JSON
 
@@ -326,4 +380,248 @@ int main() {
 ```
 
 Circle macros allow you to modularize your metapogramming. They compose like normal functions, but when called, expand directly into the calling scope. You can even expand them into specific namespaces from any kind of scope.
+
+## Typed enums - a first-class type list
+
+[**typed_enums.cxx**](typed_enums.cxx)
+```cpp
+#include <iostream>
+
+// "enum typename" starts a typed enum. This includes an optional identifier
+// and a mandatory type-id. Use @enum_type to extract the associated type
+// of a typed enum.
+enum typename type_list_t {
+  int,
+  double*, 
+  char*, 
+  void, 
+  float[4]
+};
+
+int main() {
+  // Walk through the enum and print the associated types.
+  std::cout<< "type_list_t with a for-enum loop:\n";
+  @meta for enum(auto e : type_list_t)
+    std::cout<< @type_name(@enum_type(e))<< "\n"; 
+  std::cout<< "\n";
+
+  // We can do the same thing with an parameter pack.
+  std::cout<< "type_list_t with a pack expansion:\n";
+  std::cout<< @type_name(@enum_types(type_list_t))<< "\n" ...;
+
+  return 0;
+}
+```
+```
+$ circle typed_enums.cxx
+$ ./typed_enums
+type_list_t with a for-enum loop:
+int
+double*
+char*
+void
+float[4]
+
+type_list_t with a pack expansion:
+int
+double*
+char*
+void
+float[4]
+```
+
+Circle adds a twist on the enumeration, the _typed enum_. These behave like normal enums, but each enumerator has an associated type. This association is maintained by the compiler, and can be accessed with the `@enum_type` and `@enum_types` extensions. If an enum name is not provided, it is assigned a name like `_0`, `_1` and so on.
+
+## Typed enums 2 - type list operations
+
+[**typed_enums2.cxx**](typed_enums2.cxx)
+```cpp
+#include <iostream>
+
+enum typename type_list1_t {
+  // Circle enums may be specified with semicolon-separated statements.
+  int;
+  double*;
+  char*;
+};
+
+enum typename type_list2_t {
+  // or comma-separation declarations.
+  void**,
+  int[3],
+  char32_t
+};
+
+enum typename joined_t {
+  // We can programmatically inject with compile-time control flow
+  @meta for enum(auto e : type_list1_t)
+    @enum_type(e);
+
+  // Or with parameter pack trickery.
+  @enum_types(type_list2_t)...;
+};
+
+// Print all the associated types in joined_t
+@meta std::cout<< @type_name(@enum_types(joined_t))<< "\n" ...;
+
+int main() {
+  return 0;
+}
+```
+```
+$ circle typed_enums2.cxx
+int
+double*
+char*
+void**
+int[3]
+char32_t
+```
+
+Circle supports _enum-specifiers_ definitions with both comma-separated and semicolon-separated declarations. This lets us generate enums with compile-time control flow. `joined_t` is a type list that joins `type_list1_t` with `type_list2_t`. 
+
+## Typed enums 3 - join and unique
+
+[**typed_enums3.cxx**](typed_enums3.cxx)
+```cpp
+#include <iostream>
+#include <algorithm>
+#include <vector>
+
+template<typename type_t>
+void stable_unique(std::vector<type_t>& vec) {
+  std::vector<type_t> vec2;
+  for(type_t x : vec) {
+    if(vec2.end() == std::find(vec2.begin(), vec2.end(), x))
+      vec2.push_back(x);
+  }
+  vec = std::move(vec2);
+}
+
+enum typename type_list1_t {
+  int,
+  double*,
+  char*,
+  char32_t,
+};
+
+enum typename type_list2_t {
+  void**,
+  int[3],
+  double*,
+  int[3],
+  char32_t
+};
+
+enum typename uniqued_t {
+  // Make a std::vector<@mtype> holding all associated types from 
+  // type_list1_t and type_list2_t.
+  // The types array has automatic storage duration, determined by the
+  // braces of the enum-specifier.
+  @meta std::vector<@mtype> types {
+    @dynamic_type(@enum_types(type_list1_t))...,
+    @dynamic_type(@enum_types(type_list2_t))...
+  };
+
+  // Use STL algorithms to unique this vector.
+  @meta stable_unique(types);
+
+  // Declare a typed enum with these associated types.
+  @pack_type(types)...;
+};
+
+// Print all the associated types in uniqued_t
+@meta std::cout<< @type_name(@enum_types(uniqued_t))<< "\n" ...;
+
+int main() {
+  return 0;
+}
+```
+```
+$ circle typed_enums3.cxx
+int
+double*
+char*
+char32_t
+void**
+int[3]
+```
+
+Here we join two type lists and uniqueify their associated types. The _enum-specifier_ syntax has been extended to allow semicolon-separated statements. The `types` declaration holds `@mtype` objects of the associated types; this vector is transformed by `make_unique`, then expanded into a type parameter pack with `@pack_type`, which serevs as the enum definition.
+
+## A variant class
+
+[**variant.cxx**](variant.cxx)
+```cpp
+#include <iostream>
+
+template<typename type_list>
+struct variant_t {
+  static_assert(__is_typed_enum(type_list));
+
+  // Create an instance of the enum.
+  type_list kind { };
+
+  union {
+    // Create a variant member for each enumerator in the type list.
+    @meta for enum(auto e : type_list)
+      @enum_type(e) @(@enum_name(e));
+  };
+
+  // For a real variant, implement the default and copy/move ctors, assignment
+  // operators, etc. These use similar for-enum loops to perform actions on the
+  // active variant member.
+
+  // Implement a visitor. This calls the callback function and passes the
+  // active variant member. f needs to be a generic lambda or function object
+  // with a templated operator().
+  template<typename func_t>
+  auto visit(func_t f) {
+    switch(kind) {
+      @meta for enum(auto e : type_list) {
+        case e:
+          return f(@(@enum_name(e)));
+          break;      
+      }
+    }
+  }
+};
+
+// Define a type list to be used with the variant. Each enumerator identifier
+// maps to a variant member name. Each associated type maps to a variant
+// member type.
+enum typename class my_types_t {
+  i = int, 
+  d = double,
+  s = const char* 
+};
+
+int main() {
+  auto print_arg = [](auto x) {
+    std::cout<< @type_name(decltype(x))<< " : "<< x<< "\n";
+  };
+
+  variant_t<my_types_t> var;
+
+  // Fill with a double. var.d is the double variant member.
+  var.kind = my_types_t::d;
+  var.d = 3.14;
+  var.visit(print_arg);
+
+  // Fill with a string. var.s is the const char* variant member.
+  var.kind = my_types_t::s;
+  var.s = "Hello variant";
+  var.visit(print_arg);
+
+  return 0;
+}
+```
+```
+$ circle variant.cxx 
+$ ./variant
+double : 3.14
+const char* : Hello variant
+```
+
+The Circle variant leverages the power of typed enums. The `my_types_t` typed enum serves as a manifest for a variant specialization. An enum data member indicates the active variant member. The variant definition then loops over each enumerator and declares a variant member with the name of the enumerator and with its associated type. We specify enumerator names `i`, `d` and `s`, and we have these member names in the variant specialization.
 
