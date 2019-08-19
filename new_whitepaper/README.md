@@ -111,6 +111,8 @@ $ ./tuple
 Hello tuple
 ```
 
+Loop over each element in a parameter pack and declare a non-static data member for it. The type is `types_t...[i]`, which is the i'th element of the pack. The name is `@(i)`, which is an identifier like `_0`, `_1`, and so on.
+
 ## Unique types - imperative metaprogramming
 
 [**unique.cxx**](unique.cxx)
@@ -168,6 +170,11 @@ float
 double
 char*
 ```
+
+`unique_tuple_t` typedefs a `tuple_t` over a unique list of its template arguments. Unlike with Standard C++, Circle does this with no template metaprogramming abuse:
+1. Convert the argument types into `@mtype` variables and load into a vector. `@mtype` is a pointer-sized builtin type that encapsulates a cv-qualified type.
+1. Sort and unique the vector using STL algorithms.
+1. Expand the types into a `tuple_t` argument list with `@pack_type`--this yields a type parameter pack by extracting the types out of their `@mtype` objects in an array or vector.
 
 ## Introspection - serialize structs generically
 
@@ -267,6 +274,8 @@ Injecting unity = sq(sin(x)) + sq(cos(x))
 $ ./inject
 unity(.3) = 1
 ```
+
+Circle's interpreter gives unrestricted access to the host environment. We use iostreams and a JSON parsing library to load a JSON file at compile time. Compile-time control flow lets us traverse the JSON tables. Reflection lets us declare a C++ function for each JSON item. The `@expression` keyword converts the contained text to C++ code, which is returned as part of the function definition.
 
 ## Organizing injection with Circle macros
 
