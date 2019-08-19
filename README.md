@@ -11,7 +11,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 
 ## [New Circle whitepaper - rapid fire examples](new_whitepaper/README.md)  
 
-[Circle reference and examples](examples/README.md)
+[Circle reference and examples](examples/README.md)  
 [Kernel launches with Circle](https://www.circle-lang.org/saxpy.html)  
 [Automatic struct-of-array](https://www.circle-lang.org/s2a.html)  
 [Generating tensor contractions with Circle and TACO](gems/taco.md)  
