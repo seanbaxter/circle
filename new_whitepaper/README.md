@@ -55,7 +55,7 @@ $ ./hello
 Hello world
 ```
 
-Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing full functions, and you can make foreign function calls to routines that are defined externally.
+Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing function bodies, and you can make foreign function calls to routines that are defined externally.
 
 ## Dynamic names - turn strings and ints into identifiers
 
