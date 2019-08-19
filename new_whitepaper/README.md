@@ -271,11 +271,11 @@ unity(.3) = 1
   }
 }
 
-@macro void inject_from_json(const char* filename) {
+@macro void inject_from_json(std::string filename) {
   // Load a JSON file at compile time. These objects have automatic storage
   // duration at compile time. They'll destruct when the end of the macro
   // is hit.
-  @meta std::ifstream inject_file("inject.json");
+  @meta std::ifstream inject_file(filename);
   @meta nlohmann::json inject_json;
   @meta inject_file>> inject_json;
 
