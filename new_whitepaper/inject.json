@@ -1,0 +1,4 @@
+{
+  "sq"     : "x * x",
+  "unity"  : "sq(sin(x)) + sq(cos(x))"
+}
