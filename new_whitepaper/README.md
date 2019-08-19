@@ -10,7 +10,7 @@
     * No runtime cost. Introspection gives access to info already maintained by the compiler.
 * Dynamic names.
     * `@()` turns strings and integers into identifiers.
-* Richer parameter packs.
+* Rich parameter packs.
     * Parameter packs now separated from templates.
     * Many new extensions return parameter packs.
     * Subscript template and function parameter packs with `...[]`.
@@ -278,6 +278,111 @@ puce
 Circle adds a _for-enum_statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
 
 Without introducing a runtime type info, we're able to build a generic function that maps an enumerator value to the enumerator name. 
+
+## Matching enums with functions
+
+[**shapes.cxx**](shapes.cxx)
+```cpp
+#include "util.hxx"
+
+enum class shape_t {
+  circle,
+  triangle,
+  square, 
+  hexagon, 
+  octagon,
+};
+
+double circle(double r) {
+  return M_PI * r * r;
+}
+
+double triangle(double r) {
+  return r * sqrt(3) / 2;
+}
+
+double square(double r) {
+  return 4 * r * r;
+}
+
+double hexagon(double r) {
+  return 1.5 * sqrt(3) * (r * r);
+}
+
+double octagon(double r) {
+  return 2 * sqrt(2) * (r * r);
+}
+
+double polygon_area(shape_t shape, double r) {
+  switch(shape) {
+    @meta for enum(shape_t s : shape_t) {
+      case s: 
+        // Call the function that has the same name as the enumerator.
+        return @(@enum_name(s))(r);
+    }
+
+    default: 
+      assert(false);
+      return 0;
+  }
+}
+
+template<typename type_t>
+std::string enum_to_string(type_t x) {
+  static_assert(std::is_enum<type_t>::value);
+
+  switch(x) {
+    @meta for enum(auto y : type_t)
+      case y: return @enum_name(y);
+
+    default: return "<" + std::to_string((int)x) + ">";
+  }
+}
+
+template<typename type_t>
+type_t string_to_enum(const char* name) {
+  static_assert(std::is_enum<type_t>::value);
+
+  @meta for enum(type_t x : type_t) {
+    if(!strcmp(name, @enum_name(x)))
+      return x;
+  }
+
+  throw std::runtime_error(format("%s is not an enumerator of %s", 
+    name, @type_name(type_t)).c_str());
+}
+
+const char* usage = "  shapes <shape-name> <radius>\n";
+
+int main(int argc, char** argv) {
+  if(3 != argc) {
+    puts(usage);
+    exit(1);
+  }
+
+  shape_t shape = string_to_enum<shape_t>(argv[1]);
+  double radius = atof(argv[2]);
+
+  double area = polygon_area(shape, radius);
+
+  printf("Area of %s of radius %f is %f\n", enum_to_string(shape).c_str(),
+    radius, area);
+
+  return 0;
+}
+```
+```
+$ circle shapes.cxx
+$ ./shapes hexagon 3
+Area of hexagon of radius 3.000000 is 23.382686
+$ ./shapes octagon 3
+Area of octagon of radius 3.000000 is 25.455844
+$ ./shapes trapezoid 3
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  trapezoid is not an enumerator of shape_t
+Aborted (core dumped)
+```
+The dynamic name operator `@()` lets us associate different kinds of declarations that have the same name. The five enumerators in the scoped enum `shape_t` have corresponding functions that, given a radius, return their areas. In Standard C++, this association cannot be exploited. But with Circle, we can use the introspection expression `@enum_name` to yield an enumerator name, feed it to the dynamic name operator `@()` to create an identifier, and perform ordinary name lookup to match the area functions.
 
 ## Reflection - inject functions from the contents of a JSON
 
