@@ -1,14 +1,30 @@
 # The Circle programming language
 
-1. Start with C++.
-1. Integrate an interpreter allowing any statement to be executed at compile time and providing full access to the host environment.
-1. Interleave compile-time control flow with regular declarations: that's reflection.
-1. Include introspection keywords.
-1. Create a `@()` mechanism for turning strings and integers into identifiers. Ordinary name lookup rules apply.
-1. Liberate parameter packs from templates.
-1. Allow injection of type-ids, expressions, statements and whole files from text.
-1. Introduce an `@mtype` builtin to manipulate types like variables.
-1. Powerful Circle macros undergo argument deduction and overload resolution and expand their definitions into the calling scope.
+* Start with C++.
+* Integrate an interpreter. 
+    * Anything can be run at compile time.
+    * Full access to the host environment.
+* Reflection.
+    * Simply interleave compile-time control flow with regular declarations.
+* Include introspection keywords.
+    * No runtime cost. Introspection gives access to info already maintained by the compiler.
+* Dynamic names.
+    * `@()` turns strings and integers into identifiers.
+* Liberate parameter packs from templates.
+    * Many new extensions return parameter packs.
+    * Subscript template parameter packs with `...[]`.
+* Injection from text.
+    * `@type_id` - a type from a string
+    * `@expression` - an expression from a string
+    * `@statements` - a sequence of statements from a string
+    * `@include` - programmatically `#include` a file from a filename.
+* `@mtype` encapsulates a type-id in a type.
+    * `@dynamic_type` and `@static_type` convert between types and `@mtype`.
+    * Store in standard containers, sort them, unique them. 
+* Powerful macros.
+    * Circle macros undergo argument deduction and overload resolution like normal functions.
+    * Expand their contents into the calling scope.
+    * Create a meta context to hold compile-time variables.
 
 ## Hello Circle
 
