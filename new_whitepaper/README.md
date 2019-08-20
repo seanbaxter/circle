@@ -669,7 +669,7 @@ void**
 int[3]
 ```
 
-Here we join two type lists and uniqueify their associated types. The _enum-specifier_ syntax has been extended to allow semicolon-separated statements. The `types` declaration holds `@mtype` objects of the associated types; this vector is transformed by `make_unique`, then expanded into a type parameter pack with `@pack_type`, which serevs as the enum definition.
+Here we join two type lists and uniqueify their associated types. The _enum-specifier_ syntax has been extended to allow semicolon-separated statements. The `types` declaration holds `@mtype` objects of the associated types; this vector is transformed by `make_unique`, then expanded into a type parameter pack with `@pack_type`, which serves as the enum definition.
 
 ## A variant class
 
