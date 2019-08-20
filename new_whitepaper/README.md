@@ -24,6 +24,26 @@
     * Expand their contents into the calling scope.
     * Create a meta context to hold compile-time variables.
 
+## Examples:
+
+* [Hello Circle](#hello-circle)
+* [Dynamic names](#dynamic-names---turn-strings-and-ints-into-identifiers)
+* [Tuple - a flat data structure](#tuple---a-flat-data-structure)
+* [Unique types - imperative metaprogramming](#unique-types---imperative-metaprogramming)
+* [Introspection - serialize structs generically](#introspection---serialize-structs-generically)
+* [Introspection on enums](#introspection-on-enums)
+* [Matching enums with functions](#matching-enums-with-functions)
+* [Reflection - inject functions from the contents of a JSON](#reflection---inject-functions-from-the-contents-of-a-json)
+* [Organizing injection with Circle macros](#organizing-injection-with-circle-macros)
+* [Typed enums - a first-class type list](#typed-enums---a-first-class-type-list)
+* [Typed enums 2 - type list operations](#typed-enums-2---type-list-operations)
+* [Typed enums 3 - join and unique](#typed-enums-3---join-and-unique)
+* [A variant class](#a-variant-class)
+* [Generating downcast visitors](#generating-downcast-visitors)
+* [Expression macros for eprintf](#expression-macros-for-eprintf)
+* [Embedded domain-specific languages](#embedded-domain-specific-languages)
+* [A hand-rolled DSL: Reverse Polish Notation](#a-hand-rolled-dsl-reverse-polish-notation)
+
 ## Hello Circle
 
 [**hello.cxx**](hello.cxx)
@@ -1252,7 +1272,7 @@ Here we write a new DSL by hand: Reverse Polish Notation. RPN doesn't really eve
 
 In this case, appropriate action is transforming RPN into infix notation using a stack. We don't evaluate the expression as we go, as an interpreter might do, because our intent is to use RPN to generate code. The result of the RPN parsing is a hierarchical AST, which we can lower to C++ code using expression macros.
 
-To make our DSL almost as powerful as a 1970s HP desktop calculator, we flag a number of unary and binary elementary functions in addition to the four basic arithmetic operations. The spelling of these functions are saved in the AST nodes. 
+To make our DSL almost as powerful as a 1970s HP handheld calculator, we flag a number of unary and binary elementary functions in addition to the four basic arithmetic operations. The spelling of these functions are saved in the AST nodes. 
 
 When lowering the AST to C++ code, the function names (which are known at compile-time, since we parsed the RPN at compile time) are run through the dynamic name operator `@()`, which yields identifiers for each of them. When used in expressions, this triggers ordinary C++ name lookup, allowing each function name to find its corresponding function lvalue from `<cmath>`.
 
