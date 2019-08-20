@@ -1,49 +1,5 @@
 # The Circle programming language
 
-* Start with C++.
-* Integrate an interpreter. 
-    * Anything can be run at compile time.
-    * Full access to the host environment.
-* Reflection.
-    * Simply interleave compile-time control flow with regular declarations.
-* Introspection keywords.
-    * No runtime cost. Introspection gives access to info already maintained by the compiler.
-* Dynamic names.
-    * `@()` turns strings and integers into identifiers.
-* Rich parameter packs.
-    * Parameter packs now separated from templates.
-    * Many new extensions return parameter packs.
-    * Subscript template and function parameter packs with `...[]`.
-* Injection from text.
-    * Extensions to inject type-ids, expressions, statements and entire files.
-* `@mtype` encapsulates a type-id in a type.
-    * `@dynamic_type` and `@static_type` convert between types and `@mtype`.
-    * Store in standard containers, sort them, unique them. 
-* Powerful macros.
-    * Circle macros undergo argument deduction and overload resolution like normal functions.
-    * Expand their contents into the calling scope.
-    * Create a meta context to hold compile-time variables.
-
-## Examples:
-
-* [Hello Circle](#hello-circle)
-* [Dynamic names](#dynamic-names---turn-strings-and-ints-into-identifiers)
-* [Tuple - a flat data structure](#tuple---a-flat-data-structure)
-* [Unique types - imperative metaprogramming](#unique-types---imperative-metaprogramming)
-* [Introspection - serialize structs generically](#introspection---serialize-structs-generically)
-* [Introspection on enums](#introspection-on-enums)
-* [Matching enums with functions](#matching-enums-with-functions)
-* [Reflection - inject functions from the contents of a JSON](#reflection---inject-functions-from-the-contents-of-a-json)
-* [Organizing injection with Circle macros](#organizing-injection-with-circle-macros)
-* [Typed enums - a first-class type list](#typed-enums---a-first-class-type-list)
-* [Typed enums 2 - type list operations](#typed-enums-2---type-list-operations)
-* [Typed enums 3 - join and unique](#typed-enums-3---join-and-unique)
-* [A variant class](#a-variant-class)
-* [Generating downcast visitors](#generating-downcast-visitors)
-* [Expression macros for eprintf](#expression-macros-for-eprintf)
-* [Embedded domain-specific languages](#embedded-domain-specific-languages)
-* [A hand-rolled DSL: Reverse Polish Notation](#a-hand-rolled-dsl-reverse-polish-notation)
-
 ## Hello Circle
 
 [**hello.cxx**](hello.cxx)
@@ -63,7 +19,54 @@ $ ./hello
 Hello world
 ```
 
-Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing function definitions, and you can make foreign function calls to routines that are defined externally.
+Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing function definitions, and you can make foreign function calls to routines that are defined externally. 
+
+Compile-time control flow changes the execution of source translation, allowing types and functions to be defined in a data-dependent, imperative fashion.
+
+## The design
+
+* Start with C++.
+* Integrate an interpreter. 
+    * Anything can be run at compile time.
+    * Full access to the host environment.
+* Reflection.
+    * Simply interleave compile-time control flow with regular declarations.
+* Introspection keywords.
+    * No runtime cost. Introspection gives access to info already maintained by the compiler.
+* Dynamic names.
+    * `@()` turns strings and integers into identifiers.
+* Rich parameter packs.
+    * Parameter packs now separated from templates.
+    * Many new extensions return parameter packs.
+    * Subscript template and function parameter packs with `...[]`.
+* Injection from text.
+    * Extensions to inject type-ids, expressions, statements and entire files.
+* `@mtype` encapsulates a type-id in a variable.
+    * `@dynamic_type` and `@static_type` convert between types and `@mtype`.
+    * Store in standard containers, sort them, unique them. 
+* Powerful macros.
+    * Circle macros undergo argument deduction and overload resolution like normal functions.
+    * Expand their contents into the calling scope.
+    * Create a meta context to hold compile-time variables.
+
+## Examples:
+
+* [Dynamic names - turn strings and ints into identifiers](#dynamic-names---turn-strings-and-ints-into-identifiers)
+* [Tuple - a flat data structure](#tuple---a-flat-data-structure)
+* [Unique types - imperative metaprogramming](#unique-types---imperative-metaprogramming)
+* [Introspection - serialize structs generically](#introspection---serialize-structs-generically)
+* [Introspection on enums](#introspection-on-enums)
+* [Matching enums with functions](#matching-enums-with-functions)
+* [Reflection - inject functions from the contents of a JSON](#reflection---inject-functions-from-the-contents-of-a-json)
+* [Organizing injection with Circle macros](#organizing-injection-with-circle-macros)
+* [Typed enums - a first-class type list](#typed-enums---a-first-class-type-list)
+* [Typed enums 2 - type list operations](#typed-enums-2---type-list-operations)
+* [Typed enums 3 - join and unique](#typed-enums-3---join-and-unique)
+* [A variant class](#a-variant-class)
+* [Generating downcast visitors](#generating-downcast-visitors)
+* [Expression macros for eprintf](#expression-macros-for-eprintf)
+* [Embedded domain-specific languages](#embedded-domain-specific-languages)
+* [A hand-rolled DSL: Reverse Polish Notation](#a-hand-rolled-dsl-reverse-polish-notation)
 
 ## Dynamic names - turn strings and ints into identifiers
 
@@ -292,7 +295,7 @@ violet
 puce
 ```
 
-Circle adds a _for-enum_statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
+Circle adds a _for-enum-statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
 
 Without introducing a runtime type info, we're able to build a generic function that maps an enumerator value to the enumerator name. 
 
