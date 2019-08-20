@@ -1,13 +1,4 @@
-# Circle
-The C++ Automation Language  
-2019  
-Sean Baxter
-
-> _"it's like c++ that went away to train with the league of shadows and came back 15 years later and became batman"_
-
-Download [here](https://www.circle-lang.org/)
-
-Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler updates.
+# The Circle programming language
 
 * Start with C++.
 * Integrate an interpreter. 
@@ -24,10 +15,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
     * Many new extensions return parameter packs.
     * Subscript template and function parameter packs with `...[]`.
 * Injection from text.
-    * `@type_id` - a type from a string
-    * `@expression` - an expression from a string
-    * `@statements` - a sequence of statements from a string
-    * `@include` - programmatically `#include` a file from a filename.
+    * Extensions to inject type-ids, expressions, statements and entire files.
 * `@mtype` encapsulates a type-id in a type.
     * `@dynamic_type` and `@static_type` convert between types and `@mtype`.
     * Store in standard containers, sort them, unique them. 
@@ -55,7 +43,7 @@ $ ./hello
 Hello world
 ```
 
-Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing function bodies, and you can make foreign function calls to routines that are defined externally.
+Put the `@meta` keyword in front of a statement to execute it at compile time. There's an integrated interpreter for executing full functions, and you can make foreign function calls to routines that are defined externally.
 
 ## Dynamic names - turn strings and ints into identifiers
 
@@ -284,7 +272,7 @@ violet
 puce
 ```
 
-Circle adds a _for-enum-statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
+Circle adds a _for-enum_statement_, which conveniently iterates over the enumerators in an enum. Because this type information is only known at compile time, the statement must be prefixed with `@meta`. The loop index `e2` is not a constant (it's not even const), but it _is_ constexpr for the purpose of building _constant-expressions_. We use it emit a _case-statement_ for each enumerator.
 
 Without introducing a runtime type info, we're able to build a generic function that maps an enumerator value to the enumerator name. 
 
@@ -857,4 +845,420 @@ visit_ast(ast_call_t*) called
 Circle reduces boilerplate involved with class inheritance. A typed enum is used to associate all concrete types in the base type (`ast_t`) of an inheritance family with the `kind` member. We can then perform conditional downcasts from the base type to any of the concrete types using introspection on this type list. The [LLVM dyn_cast](http://llvm.org/docs/ProgrammersManual.html#the-isa-cast-and-dyn-cast-templates) pattern requires a `classof` declaration in each derived type, but we put this functionality in the `isa` function in the base class.
 
 A visitor pattern that examines the `kind` member of a base, performs the correct downcast, and dispatches to the derived type's function is implemented algorithmically, with a _for-enum_ over the enumerators in the base's type list. This kind of metaprogramming can be pushed much further, allowing parametric base types, return types, parameters and names for the visitor function.
+
+## Expression macros for eprintf
+
+[**eprintf.cxx**](eprintf.cxx)
+```cpp
+#include <vector>
+#include <cmath>
+#include <stdexcept>
+#include <cstdio>
+
+// Scan through until the closing '}'.
+inline const char* parse_braces(const char* text) {
+  const char* begin = text;
+
+  while(char c = *text) {
+    if('{' == c)
+      return parse_braces(text + 1);
+    else if('}' == c)
+      return text + 1;
+    else
+      ++text;    
+  }
+
+  throw std::runtime_error("mismatched { } in parse_braces");
+}
+
+// Edit the format specifier. Dump the text inside 
+inline void transform_format(const char* fmt, std::string& fmt2, 
+  std::vector<std::string>& exprs) {
+
+  std::vector<char> text;
+  while(char c = *fmt) {
+    if('{' == c) {
+      // Parse the contents of the braces.
+      const char* end = parse_braces(fmt + 1);
+      exprs.push_back(std::string(fmt + 1, end - 1));
+      fmt = end;
+      text.push_back('%');
+      text.push_back('s');
+
+    } else if('%' == c && '{' == fmt[1]) {
+      // %{ is the way to include a { character in the format string.
+      fmt += 2;
+      text.push_back('{');
+
+    } else {
+      ++fmt;
+      text.push_back(c);
+    }
+  }
+
+  fmt2 = std::string(text.begin(), text.end());
+}
+
+@macro auto eprintf(const char* fmt) {
+  // Process the input specifier. Remove {name} and replace with %s.
+  // Store the names in the array.
+  @meta std::vector<std::string> exprs;
+  @meta std::string fmt2;
+  @meta transform_format(fmt, fmt2, exprs);
+
+  // Convert each name to an expression and from that to a string.
+  // Pass to sprintf via format.
+  return printf(
+    @string(fmt2.c_str()), 
+    std::to_string(@expression(@pack_nontype(exprs))).c_str()...
+  );
+}
+
+
+int main() {
+  double x = 5;
+  eprintf("x = {x} sqrt = {sqrt(x)} exp = {exp(x)}\n");
+
+  return 0;
+}
+```
+```
+$ circle eprintf.cxx 
+$ ./eprintf 
+x = 5.000000 sqrt = 2.236068 exp = 148.413159
+```
+
+The `eprintf` is an unhygienic kind of printf. Rather than separately annotating an expression in the format specifier (with `%f` or `%s`, or perhaps with argument ordinals like `{0}`), we state the expression itself inside the format specifier:
+
+```cpp
+  double x = 5;
+  eprintf("x = {x} sqrt = {sqrt(x)} exp = {exp(x)}\n");
+```
+
+The eprintf implementation will actually execute the three braced expressions from the scope in which it's called. This requires some real metaprogramming.
+
+First, implement `eprintf` as an _expression macro_ rather than a normal function. We indicate this by having it return `auto`. (Statement macros return void.) The macro will be expanded from the scope of its call, which is critical, because `x` would not be found by name lookup otherwise.
+
+Since Circle allows execution of arbitrary code at compile time, we implement a `transform_format` function that scans for the braces in the format specifier, moves the contents into a vector of strings, and replaces the braces by `%s` printf escapes. We then use `@expression` to inject each of these strings as expressions, and pass the result objects to `std::to_string` to turn into strings. This operation is done simultaneously for all escapes in the format specifier by way of a parameter pack expansion.
+
+While eprintf may seem a bit gratuitous, consider the format specifier as a domain-specific language. Expression macros and `@expression` code injection are critical features for integrating DSLs with the surrounding C++ code.
+
+## Embedded domain-specific languages
+
+[**peg_dsl.cxx**](peg_dsl.cxx)
+```cpp
+// http://www.circle-lang.org/
+// A Circle language example using an open source dynamic BNF parser to 
+// implement a simple 
+
+// The parser:
+// https://github.com/yhirose/cpp-peglib
+
+#include "peglib.h"
+#include <cstdio>
+#include <stdexcept>
+
+// Define a simple grammar to do a 5-function integer calculation.
+@meta peg::parser peg_parser(R"(
+  EXPRESSION       <-  TERM (TERM_OPERATOR TERM)*
+  TERM             <-  FACTOR (FACTOR_OPERATOR FACTOR)*
+  FACTOR           <-  NUMBER / IDENTIFIER / '(' EXPRESSION ')'
+
+  TERM_OPERATOR    <-  < [-+] >
+  FACTOR_OPERATOR  <-  < [/*%] >
+  NUMBER           <-  < [0-9]+ >
+  IDENTIFIER       <-  < [_a-zA-Z] [_0-9a-zA-Z]* >
+
+  %whitespace      <-  [ \t\r\n]*
+)");
+
+// peg-cpplib attaches semantic actions to each rule to construct an AST.
+@meta peg_parser.enable_ast();
+
+@macro auto peg_dsl_eval(const peg::Ast& ast) {
+  @meta if(ast.name == "NUMBER") {
+    // Put @meta at the start of an expression to force stol's evaluation
+    // at compile time, which is when ast->token is available. This will turn
+    // the token spelling into an integral constant at compile time.
+    return (@meta stol(ast.token));
+
+  } else @meta if(ast.name == "IDENTIFIER") {
+    // Evaluate the identifier in the context of the calling scope.
+    // This will find the function parameters x and y in dsl_function and
+    // yield lvalues of them.
+    return @expression(ast.token);
+
+  } else {
+    // We have a sequence of nodes that need to be folded. Because this is an
+    // automatically-generated AST, we just have an array of nodes where 
+    // the even nodes are FACTOR and the odd nodes are OPERATORs.
+    // A bespoke AST would left-associate the array into a binary tree for
+    // evaluation that more explicitly models precedence.
+
+    @meta const auto& nodes = ast.nodes;
+    return peg_dsl_fold(nodes.data(), nodes.size());
+  }
+}
+
+template<typename node_t>
+@macro auto peg_dsl_fold(const node_t* nodes, size_t count) {
+  static_assert(1 & count, "expected odd number of nodes in peg_dsl_fold");
+
+  // We want to left-associate a run of expressions.
+
+  @meta if(1 == count) {
+    // If we're at a terminal in the expression, evaluate the FACTOR and
+    //  return it.
+    return peg_dsl_eval(*nodes[0]);
+
+  } else {
+    // Keep descending until we're at a terminal. To left associate, fold
+    // everything on the left with the element on the right. For the
+    // expression
+    //   a * b / c % d * e    this is evaluated as 
+    //   (a * b / c % d) * e, 
+    // where the part in () gets recursively processed by peg_dsl_fold.
+
+    // Do a left-associative descent.
+
+    // Since the DSL has operators with the same token spellings as C++,
+    // we can just use @op to handle them all generically, instead of switching
+    // over each token type.
+    return @op(
+      nodes[count - 2]->token,
+      peg_dsl_fold(nodes, count - 2),
+      peg_dsl_eval(*nodes[count - 1])
+    );
+  }
+}
+
+@macro auto peg_dsl_eval(const char* text) {
+  @meta std::shared_ptr<peg::Ast> ast;
+  @meta if(peg_parser.parse(text, ast)) {
+    // Generate code for the returned AST as an inline expression in the
+    // calling expression.
+    return peg_dsl_eval(*ast);
+
+  } else
+    @meta throw std::runtime_error("syntax error in PEG expression")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+long dsl_function(long x, long y) {
+  // This function has a DSL implementation. The DSL text is parsed and 
+  // lowered to code when dsl_function is translated. By the time it is called,
+  // any remnant of peg-cpplib is gone, and only the LLVM IR or AST remains.
+  return x * peg_dsl_eval("5 * x + 3 * y + 2 * x * (y % 3)") + y;
+}
+
+int main(int argc, char** argv) {
+  if(3 != argc) {
+    printf("Usage: peg_dsl [x] [y]\n");
+    exit(1);
+  }
+
+  int x = atoi(argv[1]);
+  int y = atoi(argv[2]);
+
+  int z = dsl_function(x, y);
+  printf("result is %d\n", z);
+
+  return 0;
+}
+```
+```
+$ circle peg_dsl.cxx
+$ ./peg_dsl 5 10
+result is 335
+```
+
+This wild program builds off the [eprintf.cxx](eprintf.cxx) example. We start by including an [open-source PEG parser](https://github.com/yhirose/cpp-peglib). This header-only parser doesn't know anything about Circle. It's intended for runtime execution. But since Circle hash an integrated interpreter, we'll use it at compile time to parse our own domain-specific language into an AST, then traverse the AST with Circle macros and lower the input to C++ code. Effectively we use C++-as-script to implement a new language frontend, and target C++ as a backend.
+
+The DSL is just a simple five-function infix calculator. The cpp-peglib parser came with a similar grammar as an example, so we took that and modified it slightly, to support IDENTIFIERs. Two rounds of parsing are needed to implement the DSL: First, the grammar as BNF is parsed by cpp-peglib into some internal data structures; Second, the input text in `dsl_function` is through cpp-peglib, and this time those data structures are applied to transform the text into an AST that conforms to the specified grammar.
+
+Expression macros are used to lower the parser's AST to C++. This kind of macro is very limited--its only non-meta statement must be a single _return-statement_. The argument for the return is essentially broken off and substituted for the macro expansion at the point where it's called. Since we are traversing an AST and returning subexpressions to represent each node, we are translating the DSL into C++ code as a single complex expression. The _unoptimized_ code when executing `peg_dsl_eval` is exactly the code embedded inside the quotes. All the recursive macro expansion work yields a single subexpression. We're able to generate exactly the code we intended, and don't rely on the optimizer to inline out many layers of function calls, like template metaprogramming DSLs do.
+
+## A hand-rolled DSL: Reverse Polish Notation
+
+[**rpn.cxx**](rpn.cxx)
+```cpp
+#include <cmath>
+#include <memory>
+#include <iostream>
+#include <sstream>
+#include <stack>
+
+namespace rpn {
+
+enum class kind_t {
+  var,       // A variable or number
+  op,        // + - * /
+  f1,        // unary function
+  f2,        // binary function
+};
+
+struct token_t {
+  kind_t kind;
+  std::string text;
+};
+
+struct token_name_t {
+  kind_t kind;
+  const char* string;
+};
+
+const token_name_t token_names[] {
+  // Supported with @op
+  { kind_t::op,    "+"     },
+  { kind_t::op,    "-"     },
+  { kind_t::op,    "*"     },
+  { kind_t::op,    "/"     },
+
+  // Unary functions
+  { kind_t::f1,    "abs"   },
+  { kind_t::f1,    "exp"   },
+  { kind_t::f1,    "log"   },
+  { kind_t::f1,    "sqrt"  },
+  { kind_t::f1,    "sin"   },
+  { kind_t::f1,    "cos"   },
+  { kind_t::f1,    "tan"   },
+  { kind_t::f1,    "asin"  },
+  { kind_t::f1,    "acos"  },
+  { kind_t::f1,    "atan"  },
+
+  // Binary functions
+  { kind_t::f2,    "atan2" },
+  { kind_t::f2,    "pow"   },
+};
+
+inline kind_t find_token_kind(const char* text) {
+  for(token_name_t name : token_names) {
+    if(!strcmp(text, name.string))
+      return name.kind;
+  }
+  return kind_t::var;
+}
+
+struct node_t;
+typedef std::unique_ptr<node_t> node_ptr_t;
+
+struct node_t {
+  kind_t kind;
+  std::string text;
+  node_ptr_t a, b;
+};
+
+inline node_ptr_t parse(const char* text) {
+  std::istringstream iss(text);
+  std::string token;
+
+  std::stack<node_ptr_t> stack;
+  while(iss>> token) {
+    // Make operator ^ call pow.
+    if("^" == token)
+      token = "pow";
+
+    // Match against any of the known functions.
+    kind_t kind = find_token_kind(token.c_str());
+
+    node_ptr_t node = std::make_unique<node_t>();
+    node->kind = kind;
+    node->text = token;
+    
+    switch(kind) {
+      case kind_t::var:
+        // Do nothing before pushing the node.
+        break;      
+
+      case kind_t::f1:
+        if(stack.size() < 1)
+          throw std::range_error("RPN formula is invalid");
+
+        node->a = std::move(stack.top()); stack.pop();
+        break;
+
+      case kind_t::op:
+      case kind_t::f2:
+        // Binary operators and functions pop two items from the stack,
+        // combine them, and push the result.
+        if(stack.size() < 2)
+          throw std::range_error("RPN formula is invalid");
+
+        node->b = std::move(stack.top()); stack.pop();
+        node->a = std::move(stack.top()); stack.pop();
+        break;
+    }
+
+    stack.push(std::move(node));
+  }
+
+  if(1 != stack.size())
+    throw std::range_error("RPN formula is invalid");
+
+  return std::move(stack.top());
+}
+
+@macro auto eval_node(const node_t* __node) {
+  @meta+ if(rpn::kind_t::var == __node->kind) {
+    @emit return @expression(__node->text);
+
+  } else if(rpn::kind_t::op == __node->kind) {
+    @emit return @op(
+      __node->text, 
+      rpn::eval_node(__node->a.get()),
+      rpn::eval_node(__node->b.get())
+    );
+
+  } else if(rpn::kind_t::f1 == __node->kind) {
+    // Call a unary function.
+    @emit return @(__node->text)(
+      rpn::eval_node(__node->a.get())
+    );
+
+  } else if(rpn::kind_t::f2 == __node->kind) {
+    // Call a binary function.
+    @emit return @(__node->text)(
+      rpn::eval_node(__node->a.get()),
+      rpn::eval_node(__node->b.get())
+    );
+  }
+}
+
+// Define an expression macro for evaluating the RPN expression. This
+// expands into the expression context from which it is called. It can have
+// any number of meta statements, but only one real return statement, and no
+// real declarations (because such declarations are prohibited inside
+// expressions).
+@macro auto eval(const char* __text) {
+  @meta rpn::node_ptr_t __node = rpn::parse(__text);
+  return rpn::eval_node(__node.get());
+}
+
+} // namespace rpn
+
+double my_function(double x, double y, double z) {
+  return rpn::eval("z 1 x / sin y * ^");
+}
+
+int main() {
+  double result = my_function(.3, .6, .9);
+  printf("%f\n", result);
+  return 0;
+}
+```
+
+Here we write a new DSL by hand: Reverse Polish Notation. RPN doesn't really even have a syntax, so using a BNF parser like cpp-peglib is of limited value. Instead, we'll use `std::istringstream` to read in a token at a time, then take appropriate action.
+
+In this case, appropriate action is transforming RPN into infix notation using a stack. We don't evaluate the expression as we go, as an interpreter might do, because our intent is to use RPN to generate code. The result of the RPN parsing is a hierarchical AST, which we can lower to C++ code using expression macros.
+
+To make our DSL almost as powerful as a 1970s HP desktop calculator, we flag a number of unary and binary elementary functions in addition to the four basic arithmetic operations. The spelling of these functions are saved in the AST nodes. 
+
+When lowering the AST to C++ code, the function names (which are known at compile-time, since we parsed the RPN at compile time) are run through the dynamic name operator `@()`, which yields identifiers for each of them. When used in expressions, this triggers ordinary C++ name lookup, allowing each function name to find its corresponding function lvalue from `<cmath>`.
+
+By first transforming the RPN text into an AST, we allow evaluation to proceed without involving a stack. Expression macros have their _return-statement_ arguments detached and substituted at the point of call, producing one complex expression in `my_function`. 
+
+After parsing to AST and lowering AST to C++, the RPN input `z 1 x / sin y * ^`, which has precedences `(z (((1 x /) sin) y *) ^)`, is transformed into an expression that is absolutely equivalent to `pow(z, sin(1 / x) * y)`. 
+
+Circle allows extending the language with DSLs. The frontend is written with compile-time C++ (think C++ as a script language) and the backend targets the C++ frontend.
 

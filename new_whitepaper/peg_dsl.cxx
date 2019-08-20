@@ -5,7 +5,7 @@
 // The parser:
 // https://github.com/yhirose/cpp-peglib
 
-#include "peglib.h"
+#include <peglib.h>
 #include <cstdio>
 #include <stdexcept>
 
@@ -25,6 +25,9 @@
 
 // peg-cpplib attaches semantic actions to each rule to construct an AST.
 @meta peg_parser.enable_ast();
+
+template<typename node_t>
+@macro auto peg_dsl_fold(const node_t* nodes, size_t count);
 
 @macro auto peg_dsl_eval(const peg::Ast& ast) {
   @meta if(ast.name == "NUMBER") {
