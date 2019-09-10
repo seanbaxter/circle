@@ -346,7 +346,7 @@ The negation operator `!` is not allowed before comparison tests.
 The conditional test `?` performs contextual conversion to bool on the pattern initializer. If the result is true, the test passes. This may be used in conjunction with `!` to test that the initializer is null or false.
 
 * `[.y: ?]` - test that the `y` data member converts to true.
-* `[\_, \_, !?]` - test that the third aggregate element converts to false.
+* `[_, _, !?]` - test that the third aggregate element converts to false.
 
 ### Expression test
 
