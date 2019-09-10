@@ -124,7 +124,7 @@ Compiler details:
 * [Itanium C++ ABI](http://itanium-cxx-abi.github.io/cxx-abi/) support for wide compatibility. 
 * [CUDA](#gpu-programming) backend support.
 * gdb/DWARF debug metadata.
-* Only 115,000 lines for fast feature development. 
+* Only 135,000 lines for fast feature development. 
 
 ### Hello world
 
