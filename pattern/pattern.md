@@ -165,7 +165,7 @@ If the object is an array, each identifier in the _identifier-list_ is bound to 
 Circle enhances the structured binding by throwing out the _identifier-list_ syntax and adopting a pattern syntax. This freer syntax gives three new features:
 1. **Recursive binding declarations:** Each element in the structured binding can be a new pattern, rather than merely an identifier. This allows continuous decomposition of elements that are themselves aggregates.
 1. **Designated bindings:** Specify bindings by member name rather than position. This resembles member access, which is more idiomatic to C programmers than indexed access.
-1. **Wildcard bindings:** Use the underscope `_` token to specify a wildcard token. It excuses the user from having to come up with new names for each binding, and is intended to pad out elements in a structured binding that the user doesn't need. This declaration has no associated type or value.
+1. **Wildcard bindings:** Use the underscore `_` token to specify a wildcard token. It excuses the user from having to come up with new names for each binding, and is intended to pad out elements in a structured binding that the user doesn't need. This declaration has no associated type or value.
 
 [**binding2.cxx**](binding2.cxx)
 ```cpp
