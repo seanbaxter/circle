@@ -496,6 +496,7 @@ int main() {
         // object. Use @string to convert it to a string literal available
         // at runtime.
         @meta std::string s = "A " + size + " " + enum_to_string(shape);
+        @meta printf("%s\n", s.c_str());
 
         // If -1 != r_limit, test against the radius and the shape. Otherwise
         // test only against the shape.
