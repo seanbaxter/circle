@@ -350,7 +350,7 @@ The conditional test `?` performs contextual conversion to bool on the pattern i
 
 ### Expression test
 
-If the test dosen't begin with a comparison token or `?`, it's interpreted as an expression. This is an _inclusive-or-expression_ in the place of the pattern. The pattern initializer is implicitly compared to this expression using (the perhaps overloaded) operator `==`. The value of the expression itself doesn't matter, only how it compares to the pattern initializer.
+If the test doesn't begin with a comparison token or `?`, it's interpreted as an expression. This is an _inclusive-or-expression_ in the place of the pattern. The pattern initializer is implicitly compared to this expression using (the perhaps overloaded) operator `==`. The value of the expression itself doesn't matter, only how it compares to the pattern initializer.
 
 * `3` - the initializer is 3.
 * `3 || > 10 && < 50` - the initializer is 3, or it's greater than 10 and less than 50.
@@ -404,7 +404,7 @@ $ ./pattern5
 p->x = 1, p->y = 2
 ```
 
-In the first clause, the initializer is a node_t lvalue (refering to `b`). The designated binding `.p` accesses `b.p`, yielding a pointer lvalue. This initializer is passed through the `?` test, which performs contextual conversion to bool on the pointer. Because the pointer isn't nullptr, this check succeeds, and matching within the clause continues. The `*` operator is encountered, which applies `operator*` on the initializer, yielding `*b.p`. Now we're at a structured binding which gets initialized not with the value of `b`, but with `a`! We bind `a.x` and `a.y` and print them out. If the `b.p` pointer well null, it would fail the test, and the second clause would match, causing execution of the second statement.
+In the first clause, the initializer is a node_t lvalue (refering to `b`). The designated binding `.p` accesses `b.p`, yielding a pointer lvalue. This initializer is passed through the `?` test, which performs contextual conversion to bool on the pointer. Because the pointer isn't nullptr, this check succeeds, and matching within the clause continues. The `*` operator is encountered, which applies `operator*` on the initializer, yielding `*b.p`. Now we're at a structured binding which gets initialized not with the value of `b`, but with `a`! We bind `a.x` and `a.y` and print them out. If the `b.p` pointer were null, it would fail the test, and the second clause would match, causing execution of the second statement.
 
 ## Match expressions and match statements
 
@@ -444,7 +444,7 @@ $ ./pattern6
 
 ## Meta control flow in pattern matching
 
-[Park et al](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1371r1.pdf) propose using commas to separate clauses in match expressions and semicolons to separate clauses in match statements. They also propose using colon to separate the left-hand side pattern from the right-hand side statement in a match statement, and a fat arrow **=>** to separet the left-hand side pattern from the right-hand side expression in a match expression. 
+[Park et al](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1371r1.pdf) propose using commas to separate clauses in match expressions and semicolons to separate clauses in match statements. They also propose using colon to separate the left-hand side pattern from the right-hand side statement in a match statement, and a fat arrow **=>** to separate the left-hand side pattern from the right-hand side expression in a match expression. 
 
 These choices create parser difficulties for Circle's treatment of pattern matching. Unlike the C++ proposal, Circle's clauses are _parsed as ordinary statements_. That is, inside the match braces, the tokens are parsed as they would be inside the braces of a _compound-statement_ or _enum-_ or _class-specifier_. While the only valid _real_ statement is a match clause (i.e., a pattern on the left, fat arrow, statement or expression on the right), meta statements are still permitted as a mechanism for code generation. 
 
@@ -535,7 +535,7 @@ $ ./pattern7
 A medium triangle
 ```
 
-We can use any meta statements inside the _match-expression_, as we do in the _enum-specifier_ that begins this sample. First we loop over the enumerators in `shape_t`. Inside that we define an array defining small, medium and large radius limits, and meta for over that. The indices are concatenated into a `std::string` _at compile time_. We branch over `r_limit` to conditionally include a comparison test in the pattern if `r_limit` isn't -1. The right-hand side of the clause returns `@string(s)`, which is the string literal version of the compile-time concatenated string. Normally we'd need to include a _trailing-return-type_ in the _match-expression_ to allow returning different types, but string literals are array types, and array return types decay to pointers to their underlying types, avoiding a return-type-deduction failure.
+We can use any meta statements inside the _match-expression_, as we do in the _enum-specifier_ that begins this sample. First we loop over the enumerators in `shape_t`. Inside that we define an array defining small, medium and large radius limits, and meta for over that. The indices are concatenated into a `std::string` _at compile time_. We branch over `r_limit` to conditionally include a comparison test in the pattern if `r_limit` isn't -1. The right-hand side of the clause returns `@string(s)`, which is the string literal version of the compile-time concatenated string. Normally we'd need to include a _trailing-return-type_ in the _match-expression_ to allow returning different types, but string literals are array types, and when returned from functions arrays decay to pointer types, avoiding return-type-deduction failure.
 
 ## Patterns involving types
 
