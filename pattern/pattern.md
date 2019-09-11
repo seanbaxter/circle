@@ -313,7 +313,7 @@ Difference of squares!
 
 ## Pattern matching test syntax
 
-There are five kinds of patterns:
+There are six kinds of patterns:
 1. Wildcards: the underscore identifier.
 1. Bindings: other underscore-leading identifiers.
 1. Structured bindings.
