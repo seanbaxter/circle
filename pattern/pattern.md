@@ -12,8 +12,13 @@ Pattern matching in a general-purpose language accomplishes much the same thing:
 #include <cstdlib>
 
 int main(int argc, char** argv) {
-
-  @match(atoi(argv[1])) {
+  if(2 != argc) {
+    printf("Give me a number\n");
+    return -1;
+  }
+  
+  long x = atol(argv[1]);
+  @match(x) {
     1                       => printf("It's 1\n");
     < 0                     => printf("It's negative\n");
     > 100                   => printf("More than 100\n");
@@ -339,7 +344,14 @@ Binary expressions cover the four C++ comparison operators, `<`, `<=`, `>` and `
 * `< 3 || 7` - the initializer is less than 3, or it's 7. 
 * `< 10 && !5` - the initializer is less than 10 but not 5.
 
-The negation operator `!` is not allowed before comparison tests.
+In C++, it's idiomatic to provide only `operator<` for user-defined types, so each of the four comparisons are actually transformed to calls to `<` and `!`:
+
+* `a < b` is itself
+* `a <= b` is transformed to `!(b < a)`
+* `a > b` is transformed to `b < a`
+* `a >= b` is transformed to `!(a < b)`
+
+The negation operator `!` is not allowed before comparison tests, as it could only confuse the user. Choose the operator with the comparison you want to effect, and it will be transformed by the compiler to a call to `<`.
 
 ### Conditional test
 
@@ -348,7 +360,7 @@ The conditional test `?` performs contextual conversion to bool on the pattern i
 * `[.y: ?]` - test that the `y` data member converts to true.
 * `[_, _, !?]` - test that the third aggregate element converts to false.
 
-### Expression test
+### Equivalence test
 
 If the test doesn't begin with a comparison token or `?`, it's interpreted as an expression. This is an _inclusive-or-expression_ in the place of the pattern. The pattern initializer is implicitly compared to this expression using (the perhaps overloaded) operator `==`. The value of the expression itself doesn't matter, only how it compares to the pattern initializer.
 
@@ -364,14 +376,70 @@ If you want your test to override the pattern's treatment of these operators, en
 * `3 || !4 && !10` - the initializer is 3, or it something other than 4 or 10.
 * `(3 || !4 && !10)` - `3 || !4 && !10` evaluates to true. compare the initializer to true.
 
-### Range tests
+### Range test
 
-If the token immediately after an expression test is `...`, a second expression test is immediately parsed and a range test is formed. The grammar is _inclusive-or-expression_ `...` _inclusive-or-expression_. If `x` refers to the pattern's initializer, then the range `a ... b` conceptually evaluates `a <= x && x < b`. However, it's idiomatic in C++ to provide only `operator<` for user-defined types, so the range test is actually implemented as `!(x < a) && (x < b)`.
+If the token immediately after an equivalence test is `...`, a second expression test is immediately parsed and a range test is formed. The grammar is _inclusive-or-expression_ `...` _inclusive-or-expression_. If `x` refers to the pattern's initializer, then the range `a ... b` conceptually evaluates `a <= x && x < b`. However, it's implemented as `!(x < a) && (x < b)` to support user-defined types with an overloaded `operator<`.
 
 * `1 ... 10` - 1 <= x < 10.
 * `!1 ... 10` - not in the range 1 <= x < 10.
 * `1...10` - a tokenization error. 1. looks like the start of a floating-point number, but isn't valid.
 * `0 ... 5 || 10 ... 15` - in the range 0 <= x < 5 or 10 <= x < 15.
+
+### Expression test
+
+All the tests above compare the pattern initializer expression to something. What if, instead, the initializer should be an argument to an expression, and that expression is itself the test? We introduce the _expression test_ after the `/` token. But now that the initializer isn't implicitly on the left-hand side of a comparison, but is rather part of a _condition_ expression, we need a way to access the initializer's value prior to binding it.
+
+In the context of pattern tests, the underscore `_` is a special declaration that holds the pattern initializer.
+
+All the above forms can be rewritten using expression tests:
+
+* `5` is the same as `/ _ == 5`
+* `< 10` is the same as `/ _ < 10`
+* `1 ... 5` is the same as `/ (!(_ < 1) && (_ < 5))`
+* `?` is the same as `/ (bool)_`
+
+[**pattern4_1.cxx**](pattern4_1.cxx)
+```cpp
+#include <cstdio>
+
+int sq(int x) {
+  return x * x;
+}
+
+int main() {
+  struct foo_t {
+    int x, y, z;
+  };
+  foo_t obj { 3, 4, 5 };
+
+  // Use / to evaluate an expression test. The _ token inside any pattern test
+  // gives the pattern initializer at that point.
+  @match(obj) {
+    // Compare .z to expressions of _x and _y.
+    [_x, _y, sq(_x) + sq(_y)]                   => printf("Sum of squares!\n");
+    [_x, _y, abs(sq(_x) - sq(_y))]              => printf("Difference of squares!\n");
+    
+    // We can bind _z to .z and use a guard
+    // [_x, _y, _z] if(sq(_x) + sq(_y) == sq(_z))  => printf("Perfect squares!\n");
+
+    // or we can use / to introduce an expression test. The _ declaration in
+    // a pattern test refers to the initializer for that element, in this case
+    // .z. We can optionally bind the .z member after the pattern test.
+    [_x, _y, / sq(_x) + sq(_y) == sq(_)]        => printf("Perfect squares!\n");
+
+    _                                           => printf("I got nothing.\n");
+  };
+  return 0;
+} 
+
+```
+```
+$ circle pattern4_1.cxx
+$ ./pattern4_1
+Perfect squares!
+```
+
+Here we amend [pattern4_1.cxx](pattern4_1.cxx). The perfect squares test previously required a guard expression, because we needed the value of the `z` member to square and compare it. Using the expression test allows us to compare an expression not to the initializer, but simply to test its true/false status. Exposing `_` lets us incorporate the yet-unbound pattern initializer into this conditional expression.
 
 ## Dereference operator
 

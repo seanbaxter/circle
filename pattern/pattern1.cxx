@@ -2,8 +2,13 @@
 #include <cstdlib>
 
 int main(int argc, char** argv) {
+  if(2 != argc) {
+    printf("Give me a number\n");
+    return -1;
+  }
   
-  @match(atoi(argv[1])) {
+  long x = atol(argv[1]);
+  @match(x) {
     1                       => printf("It's 1\n");
     < 0                     => printf("It's negative\n");
     > 100                   => printf("More than 100\n");
@@ -18,5 +23,4 @@ int main(int argc, char** argv) {
   };
   
   return 0;
-
 } 
