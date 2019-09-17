@@ -318,13 +318,14 @@ Difference of squares!
 
 ## Pattern matching test syntax
 
-There are six kinds of patterns:
+There are seven kinds of patterns:
 1. Wildcards: the underscore identifier.
 1. Bindings: other underscore-leading identifiers.
 1. Structured bindings.
 1. Designated bindings.
 1. Tests.
 1. Dereference operator.
+1. Variant conversion.
 
 Wildcards and bindings are terminals in this grammar. Structured and designated bindings are non-terminals, as their elements are recursively parsed as patterns. Tests can go either way: a test by itself is a terminal, but a test may precede another pattern.
 
@@ -605,7 +606,7 @@ A medium triangle
 
 We can use any meta statements inside the _match-expression_, as we do in the _enum-specifier_ that begins this sample. First we loop over the enumerators in `shape_t`. Inside that we define an array defining small, medium and large radius limits, and meta for over that. The indices are concatenated into a `std::string` _at compile time_. We branch over `r_limit` to conditionally include a comparison test in the pattern if `r_limit` isn't -1. The right-hand side of the clause returns `@string(s)`, which is the string literal version of the compile-time concatenated string. Normally we'd need to include a _trailing-return-type_ in the _match-expression_ to allow returning different types, but string literals are array types, and when returned from functions arrays decay to pointer types, avoiding return-type-deduction failure.
 
-## Patterns involving types
+## Variant conversion patterns
 
 [p1371r1](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1371r1.pdf) proposes some "alternative patterns," which name types inside `< >`. They name several cases for this pattern:
 
@@ -613,6 +614,61 @@ We can use any meta statements inside the _match-expression_, as we do in the _e
 1. `std::any`-like. If there exists a valid non-member `any_cast<Alt>`, use that to convert to the requested type.
 1. Polymorphic types. If `std::is_polymorphic_v<V>` is true, use `dynamic_cast` to convert to the requested type.
 
-I'm holding off on implementing type-oriented patterns like this on my first cut at pattern matching. The reason is that Circle has a special mechanism for dealing with types, the [typed enum](https://github.com/seanbaxter/circle/blob/master/examples/README.md#typed-enums), which makes implementing variant types very easy. Adding support matching types against typed enums would be very easy, and also allow convenient meta for generation of clauses. 
+In this early implementation, I implement the variant conversion pattern. Considering the tediousness of using `std::variant`, I think this is a consider value-add to the language.
 
-However, to make the alternative patterns really generic, some thought needs to go into their treatment under substitution failure. When the clause is instantiated and a type specified in an alternative pattern is not supported by the initializer, does this make the program ill-formed, or is the clause silently dropped from the match definition? I feel that SFINAE behavior during match instantiation makes the construct more expressive, although this instantiation behavior is without precedent--a _case-statement_ which fails to substitute, or a condition in an _if-else_ chain, always generates a compilation error. Coming from the other direction, since Circle lets you define a match definition with compile-time control flow, couldn't that be used to selectively add clauses appropriate to each type _at instantiation_? It would be a mistake on the part of the user to generate an alternative pattern incompatible with the _match-expression_'s initializer type.
+The authors propose putting the variant type name inside `< >`. There are two problems with this:
+1. Due to the existence of comparison operators `<` and `>`, `< >` aren't a syntactic pair in C++. Treating them as such (as in _template-arguments-list_) makes syntax error recovery far more difficult than it should be.
+1. A `<` token starting a pattern is ambiguous with the less-than pattern test.
+
+The syntax I've chosen uses a `<{ }>` to introduce a variant conversion pattern. This resolves both of the above issues, and the choice of braces conveys a conversion from variant. Future additions can use `<[ ]>` and `<( )>` for different kinds of conversions.
+
+[**pattern8.cxx**](pattern8.cxx)  
+```cpp
+#include <cstdio>
+#include <variant>
+#include <string>
+
+template<typename type_t>
+void func(type_t var) {
+  @match(var) {
+    <{ int         }> 5            => printf("It's 5\n");
+    <{ int         }> 1 ... 10 _x  => printf("1 <= %d < 10\n", _x);
+    <{ int         }>              => printf("Some other int\n");
+    
+    <{ std::string }> "Hello"     => printf("It says Hello!\n");
+    <{ std::string }> "Goodbye"   => printf("It says Goodbye!\n");
+    <{ std::string }>             => printf("Some other string\n");
+ 
+    <{ double      }> 0 ... 3.14  => printf("A double in the range of pi\n");
+    <{ double      }> < 0 _x      => _x = abs(_x);  // Make it positive.
+    <{ double      }>             => printf("Some other double\n");
+  };
+}
+
+int main() {
+  std::variant<int, std::string, double> var;
+
+  var = 4;
+  func(var);
+
+  var = "Goodbye";
+  func(var);
+
+  var = 1.1;
+  func(var);
+
+  return 0;
+}
+```
+```
+$ circle pattern8.cxx
+$ ./pattern8
+1 <= 4 < 10
+It says Goodbye!
+A double within the range of pi
+```
+
+The variant pattern performs both a test and a conversion. First, `std::variant_size` is specialized over the type of the pattern initializer; `value` yields the number of alternatives. Then `std::variant_alternative` is tried for each constant index `I` up to `value` until a match is found with the requested alternative type. This index `I` is used for both the comparison and the accessor. If the `.index()` member function on the variant returns `I`, the test succeeds, and `std::get<I>` is invoked on the variant, yielding an lvalue to the requested variant member.
+
+Just like the other tests, a variant conversion may be a terminal or non-terminal in the pattern. It may be followed by another other pattern (including another variant conversion, if the extracted member is itself an `std::variant`). The variant pattern, when successful, converts a variant lvalue to its alternative member lvalue, which can then undergo expression tests or associated with a binding declaration.
+
