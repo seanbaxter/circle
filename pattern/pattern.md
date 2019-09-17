@@ -614,7 +614,7 @@ We can use any meta statements inside the _match-expression_, as we do in the _e
 1. `std::any`-like. If there exists a valid non-member `any_cast<Alt>`, use that to convert to the requested type.
 1. Polymorphic types. If `std::is_polymorphic_v<V>` is true, use `dynamic_cast` to convert to the requested type.
 
-In this early implementation, I implement the variant conversion pattern. Considering the tediousness of using `std::variant`, I think this is a consider value-add to the language.
+In this early implementation, I implement the variant conversion pattern. Considering the tediousness of using `std::variant`, I think this is a considerable value-add to the language.
 
 The authors propose putting the variant type name inside `< >`. There are two problems with this:
 1. Due to the existence of comparison operators `<` and `>`, `< >` aren't a syntactic pair in C++. Treating them as such (as in _template-arguments-list_) makes syntax error recovery far more difficult than it should be.
