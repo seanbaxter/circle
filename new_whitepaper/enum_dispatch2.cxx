@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 
