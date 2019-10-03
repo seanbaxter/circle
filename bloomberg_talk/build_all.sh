@@ -1,0 +1,15 @@
+set -x
+circle meta1.cxx
+circle meta2.cxx
+circle meta3.cxx
+circle meta4.cxx
+circle reflect1.cxx
+circle reflect2.cxx
+circle reflect3.cxx
+circle reflect4.cxx
+circle reflect5.cxx
+circle reflect6.cxx
+circle rpn.cxx
+circle tuple1.cxx
+circle tuple2.cxx
+circle tuple3.cxx
