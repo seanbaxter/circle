@@ -24,6 +24,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Walkthrough 1: Injecting functions from text](walkthrough/functions.md)  
 [Walkthrough 2: Evaluating expressions from text](walkthrough/eprintf.md)  
 [Walkthrough 3: Deserializing JSON to classes](walkthrough/json_loader.md)  
-  **NEW**  [Type erasure in Circle](erasure/type_erasure.md)  
+[Type erasure in Circle](erasure/type_erasure.md)  
   **NEW**  [Pattern-matching expressions and enhanced structured bindings](pattern/pattern.md)  
   **NEW**  [Spaceship operator](spaceship/spaceship.md)  
+  **NEW**  [F#-style type providers in Circle](type_provider/type_provider.md)  
