@@ -28,3 +28,4 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
   **NEW**  [Pattern-matching expressions and enhanced structured bindings](pattern/pattern.md)  
   **NEW**  [Spaceship operator](spaceship/spaceship.md)  
   **NEW**  [F#-style type providers in Circle](type_provider/type_provider.md)  
+  **NEW**  [Video - Circle compiler walkthrough](https://www.youtube.com/watch?v=1m_5SVmGA4k)  
