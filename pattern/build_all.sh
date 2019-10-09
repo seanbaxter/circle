@@ -7,3 +7,6 @@ circle pattern5.cxx
 circle pattern6.cxx
 circle pattern7.cxx
 circle pattern8.cxx
+circle pattern9.cxx
+circle pattern10.cxx
+circle pattern11.cxx

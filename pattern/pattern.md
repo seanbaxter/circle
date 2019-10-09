@@ -672,3 +672,150 @@ The variant pattern performs both a test and a conversion. First, `std::variant_
 
 Just like the other tests, a variant conversion may be a terminal or non-terminal in the pattern. It may be followed by another other pattern (including another variant conversion, if the extracted member is itself an `std::variant`). The variant pattern, when successful, converts a variant lvalue to its alternative member lvalue, which can then undergo expression tests or associated with a binding declaration.
 
+## Parameter packs in structured bindings
+
+I ran across the C++ proposal [_Structured Bindings can introduce a Pack_](http://open-std.org/JTC1/SC22/WG21/docs/papers/2018/p1061r0.html), which advances the idea of allowing a pack _declaration_ in a structured binding. C++ has never allowed a free-standing, object-like pack declaration; it has always attached packs to template parameters and function parameters with a template-parameter dependent type. Structured bindings are a particularly good choice for introducing this feature, because this construct makes declarations without further overloading and abusing the long-suffering _simple-declaration_ grammar, an ambiguous and hard-to-parse mess. 
+
+To introduce a pack inside a structured binding, write its name after the `...` token. The pack doesn't have to be the first item in the binding, but it must be the last. Pack declarations can occur anywhere in a compound structured binding or pattern match. The pack collects all structured binding elements from the pattern's initializer from its starting point through the end of the initializer.
+
+[**pattern9.cxx**](pattern9.cxx)
+```cpp
+#include <tuple>
+#include <iostream>
+
+int main() {
+  // Structured bindings accept arrays, tuples and generic class objects.
+  auto foo = std::make_tuple(1.1, 20, "Hello tuple", 'c');
+
+  // Bind a parameter pack to each element in the tuple.
+  auto [...pack] = foo;
+
+  // Print like a schlub.
+  std::cout<< "pack printed with a loop:\n";
+  @meta for(int i = 0; i < sizeof...(pack); ++i)
+    std::cout<< "  "<< pack...[i]<< "\n";
+
+  // Print like a champ.
+  std::cout<< "pack printed with an expansion:\n";
+  std::cout<< "  "<< pack<< "\n" ...;
+
+  // Print the types of the pack.
+  std::cout<< "pack types are:\n";
+  std::cout<< "  "<< @type_name(decltype(pack), true)<< "\n" ...;
+
+  // Create a new pack with reversed values.
+  constexpr size_t count = sizeof...(pack);
+  auto bar = std::make_tuple(pack...[count - 1 - __integer_pack(count)]...);
+  auto [...reversed] = bar;
+
+  std::cout<< "reversed pack is:\n";
+  std::cout<< "  "<< reversed<< "\n" ...;
+
+  return 0;
+}
+```
+```
+$ circle pattern9.cxx
+$ ./pattern9
+pack printed with a loop:
+  1.1
+  20
+  Hello tuple
+  c
+pack printed with an expansion:
+  1.1
+  20
+  Hello tuple
+  c
+pack types are:
+  double&
+  int&
+  const char*&
+  char&
+reversed pack is:
+  c
+  Hello tuple
+  20
+  1.1
+```
+
+I've also incorporated the pack token `...` as a multi-element structured binding wildcard. This consumes all initializer elements through the end of the binding:
+
+[**pattern10.cxx**](pattern10.cxx)
+```cpp
+#include <tuple>
+#include <iostream>
+
+int main() {
+  // Use the parameter pack as a wildcard to consume the remainder of 
+  // the binding elements. This is a multi-element wildcard.
+  auto [x, y, ...] = std::make_tuple(1.1, 20, "Hello tuple", 'c');
+  std::cout<< x<< " "<< y<< "\n";
+
+  // Use single-element wildcards to space out the pack.
+  auto [_, _, ...pack] = std::make_tuple(1.1, 20, "Hello tuple", 'c');
+  std::cout<< "pack:\n";
+  std::cout<< "  "<< pack<< "\n" ...;
+
+  return 0;
+}
+```
+```
+$ circle pattern10.cxx
+$ ./pattern10
+1.1 20
+pack:
+  Hello tuple
+  c
+```
+
+Part of the need for structured bindings is to provide porcelain around the `tuple_size` and `tuple_element` calls required to extract data from `std::tuple`. The standard tuple is hard to work with. The Circle tuple, by contrast, is so easy to work with that you might not even bother with structured bindings and pack declarations. Although you _may_ decompose a Circle tuple in a structured binding (class objects that don't implement `tuple_size` are undergo member-wise decomposition), it's probably easier to just turn the object into an unexpanded parameter pack using the `@member_pack` extension:
+
+[**pattern11.cxx**](pattern11.cxx)
+```cpp
+#include <tuple>
+#include <cstdio>
+
+auto dot_product(auto a, auto b) {
+  auto& [...p1] = a;
+  auto& [...p2] = b;
+  return (... + (p1 * p2));
+}
+
+template<typename... types_t>
+struct tuple_t {
+  @meta for(size_t i = 0; i < sizeof...(types_t); ++i)
+    types_t...[i] @(i);
+};
+
+int main() {
+  // std::pair registers as a tuple by implementing tuple_size.
+  double x1 = dot_product(std::make_pair(2.1, 3), std::make_pair(4, 2l));
+  printf("x1 = %f\n", x1);
+
+  // std::tuple.
+  double x2 = dot_product(std::make_tuple(1.1, 3.1f), std::make_tuple(2, 3));
+  printf("x2 = %f\n", x2);
+
+  // tuple_t undergoes structured binding as a normal class.
+  tuple_t<double, float, int> v1 { 1.5, 2.1f, 4 }, v2 { 2.2, 1.3f, 9 };
+  double x3 = dot_product(v1, v2);
+  printf("x3 = %f\n", x3);
+
+  // Use @member_pack to apply fold directly.
+  double x4 = (... + (@member_pack(v1) * @member_pack(v2)));
+  printf("x4 = %f\n", x4);
+
+  return 0;
+}
+```
+```
+$ circle pattern11.cxx
+$ ./pattern11
+x1 = 14.400000
+x2 = 11.499999
+x3 = 42.030000
+x4 = 42.030000
+```
+
+The flat layout of `tuple_t` makes it easy to reflect over its members and apply transformations without the sugar that structured bindings provide.
