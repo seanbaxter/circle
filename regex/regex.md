@@ -2,7 +2,7 @@
 
 Circle's compile-time execution helps accelerate domain-specific languages. One of the most-used DSLs is [Perl-compatible regular expressions](https://en.wikipedia.org/wiki/Perl_Compatible_Regular_Expressions). By processing the regex pattern at compile time, we can emit code optimized for specific patterns. The pattern-specific code exposes much more potential for the compiler backend to make optimizations. A regex generated for a specific pattern might run 100x faster than a regex library that dynamically parses the pattern.
 
-Compile-time regex for C++ is pretty owned by [Hana Dusikova](https://twitter.com/hankadusikova) and its implementation is thoroughly explained in her [slide presentations](https://www.compile-time.re/). A rich compile-time regex implementation can be broken into three partes:
+Compile-time regex for Standard C++ is pretty much owned by [Hana Dusikova](https://twitter.com/hankadusikova) and its implementation is thoroughly explained in her [slide presentations](https://www.compile-time.re/). A rich compile-time regex implementation can be broken into three partes:
 
 1. Parse the regex pattern. This can be done with an LL(1) or recursive-descent parser.
 1. _Optional:_ Convert the graph from a non-deterministic to a deterministic finite automata. This involves running [Powerset construction](https://en.wikipedia.org/wiki/Powerset_construction]) and [DFA minimization](https://en.wikipedia.org/wiki/DFA_minimization), transforming a backtracking regex to a non-backtracking regex.
