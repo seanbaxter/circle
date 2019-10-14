@@ -8,7 +8,7 @@ Compile-time regex for Standard C++ is pretty much owned by [Hana Dusikova](http
 1. _Optional:_ Convert the graph from a non-deterministic to a deterministic finite automata. This involves running [Powerset construction](https://en.wikipedia.org/wiki/Powerset_construction]) and [DFA minimization](https://en.wikipedia.org/wiki/DFA_minimization), transforming a backtracking regex to a non-backtracking regex.
 1. Convert the data structure holding the NFA or DFA into an expression template type. Provide a function template overload for each node type (for NFAs) to support sequences, alternations, repetitions, etc. These functions lower the regex to code.
 
-The really heavy lifting (from a metaprogramming standpoint) resides in the pattern parsing. By contrast, Dusikova's evaluation code for NFAs, once you have the expression template, is pretty straight-forward. For the Circle treatment I'll follow her lead and use function template overloads to lower the regex AST to code, but use an ordinary recursive descent parser, with unrestricted access to the C++ language and libraries, to process the pattern.
+The really heavy lifting (from a metaprogramming standpoint) resides in the pattern parsing. By contrast, Dusikova's evaluation code for NFAs, once you have the expression template, is pretty straight-forward. For the Circle treatment I'll follow her lead and use function template overloads to lower the pattern's expression template to code, but use an ordinary recursive descent parser, with unrestricted access to the C++ language and libraries, to process the pattern.
 
 ```cpp
 #include "eval.hxx"
