@@ -341,7 +341,7 @@ PCRE_LINKAGE result_parse_t grammar_t::parse_term(const char* pattern,
         result = parse_alternation(pattern);
 
         // Put the result into a capture node.
-        auto capture = std::make_unique<node_t>(node_t::kind_capture>);
+        auto capture = std::make_unique<node_t>(node_t::kind_capture);
         capture->capture_index = capture_count++;
         capture->children.push_back(std::move(result->attr));
         result->attr = std::move(capture);

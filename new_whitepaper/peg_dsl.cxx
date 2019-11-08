@@ -5,9 +5,9 @@
 // The parser:
 // https://github.com/yhirose/cpp-peglib
 
-#include <peglib.h>
 #include <cstdio>
 #include <stdexcept>
+#include "peglib.h"
 
 // Define a simple grammar to do a 5-function integer calculation.
 @meta peg::parser peg_parser(R"(
