@@ -1,5 +1,5 @@
 {
   "phone number"           : "([2-9]\\d{2})-(\\d{3})-(\\d{4})",
   "social security number" : "(\\d{3})-(\\d{2})-(\\d{4})",
-  "zip code"               : "(\\d{5})(-\\d{4})?"
+  "zip code"               : "(\\d{5})-(\\d{4})?"
 }
