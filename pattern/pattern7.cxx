@@ -10,6 +10,8 @@ std::string enum_to_string(type_t e) {
       case e2: 
         return @enum_name(e2);
     } 
+    default:
+      return "<unknown>";
   }
 }
 

@@ -9,6 +9,7 @@ circle reflect3.cxx
 circle reflect4.cxx
 circle reflect5.cxx
 circle reflect6.cxx
+circle eprintf.cxx
 circle rpn.cxx
 circle tuple1.cxx
 circle tuple2.cxx
