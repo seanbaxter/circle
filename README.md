@@ -29,4 +29,4 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
   **NEW**  [Spaceship operator](spaceship/spaceship.md)  
   **NEW**  [F#-style type providers in Circle](type_provider/type_provider.md)  
   **NEW**  [Video - Circle compiler walkthrough](https://www.youtube.com/watch?v=1m_5SVmGA4k)  
-  **NEW**  [Compile-time regular expressions](regex/regex.md)  
+  **NEW**  [Compile-time regular expressions](regex/regex.md)   
