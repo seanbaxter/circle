@@ -27,8 +27,8 @@ int main() {
   double x3 = dot_product(v1, v2);
   printf("x3 = %f\n", x3);
 
-  // Use @member_pack to apply fold directly.
-  double x4 = (... + (@member_pack(v1) * @member_pack(v2)));
+  // Use @member_values to apply fold directly.
+  double x4 = (... + (@member_values(v1) * @member_values(v2)));
   printf("x4 = %f\n", x4);
 
   return 0;

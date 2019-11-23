@@ -24,12 +24,12 @@ void load_from_json(nlohmann::json& j, type_t& obj) {
     } else {
       /*
       throw std::runtime_error(format("'%s' is not an enumerator of '%s'\n", 
-        j.get<std::string>().c_str(), @type_name(type_t)).c_str());
+        j.get<std::string>().c_str(), @type_string(type_t)).c_str());
       */
 
       std::ostringstream oss;
       oss<< '\''<< j.get<std::string>() << "\' is not an enumerator of '"<< 
-        @type_name(type_t)<< "\n";
+        @type_string(type_t)<< "\n";
       oss<< "Did you mean\n";
       oss<< "  "<< @enum_names(type_t)<< "\n" ...;
       oss<< "?\n";
@@ -166,7 +166,7 @@ void load_from_json(nlohmann::json& j, type_t& obj) {
       if(j.end() != it) {
         // There is a key in the JSON file. Use it to initialize the member.
         try { 
-          load_from_json(*it, @member_ref(obj, i));
+          load_from_json(*it, @member_value(obj, i));
 
         } catch(std::runtime_error e) {
           throw std::runtime_error(format(".%s: %s", @member_name(type_t, i),

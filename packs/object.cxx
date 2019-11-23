@@ -13,7 +13,7 @@ void print_object(const type_t& obj) {
   std::cout<< 
     std::setw(20)<< std::left<< 
     @decl_string(@member_types(type_t), @member_names(type_t))<< " : "<<
-    @member_pack(obj)<< "\n" ...;
+    @member_values(obj)<< "\n" ...;
 }
 
 struct bar_t {
@@ -30,7 +30,7 @@ int main() {
   std::cout<< 
     std::setw(20)<< std::left<< 
     @decl_string(@member_types(bar_t), @member_names(bar_t))<< " : "<<
-    @member_pack(bar)<< "\n" ...;
+    @member_values(bar)<< "\n" ...;
   std::cout<< "\n";
 
   // Try it as a template.

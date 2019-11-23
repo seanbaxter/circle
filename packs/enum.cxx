@@ -18,7 +18,7 @@ void print_typed_enum() {
   std::cout<< 
     std::setw(30)<< std::left<< 
     @decl_string(@enum_types(type_t), @enum_names(type_t))<< " : "<<
-    (int)@enum_pack(type_t)<< "\n" ...;
+    (int)@enum_values(type_t)<< "\n" ...;
 }
 
 int main() {
@@ -28,7 +28,7 @@ int main() {
   std::cout<< 
     std::setw(30)<< std::left<< 
     @decl_string(@enum_types(my_list_t), @enum_names(my_list_t))<< " : "<<
-    (int)@enum_pack(my_list_t)<< "\n" ...;
+    (int)@enum_values(my_list_t)<< "\n" ...;
   std::cout<< "\n";
 
   // Try it as a template.

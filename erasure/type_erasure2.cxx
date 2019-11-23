@@ -68,7 +68,7 @@ struct impl_t : public model_t<typeclass> {
 
         // We could also call __cxa_pure_virtual or std::terminate here.
         throw std::runtime_error(@string(format("%s::%s not implemented", 
-          @type_name(type_t), __func__
+          @type_string(type_t), __func__
         )));
       }
     }

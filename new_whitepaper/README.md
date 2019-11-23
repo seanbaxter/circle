@@ -173,7 +173,7 @@ struct unique_tuple_t {
 
   // @pack_type returns an array/std::vector<@mtype> as a type parameter pack.
   // Print the unique list of names as a diagnostic.
-  @meta std::cout<< @type_name(@pack_type(types))<< "\n"...;
+  @meta std::cout<< @type_string(@pack_type(types))<< "\n"...;
 
   // Typedef a tuple_t over these unique types.
   typedef tuple_t<@pack_type(types)...> type_t;
@@ -216,7 +216,7 @@ void print_obj(const type_t& obj) {
   // Loop over each non-static data member.
   @meta for(int i = 0; i < @member_count(type_t); ++i) {
     // Print its member name and member value.
-    std::cout<< @member_name(type_t, i)<< " : "<< @member_ref(obj, i)<< "\n";
+    std::cout<< @member_name(type_t, i)<< " : "<< @member_value(obj, i)<< "\n";
   }
 }
 
@@ -248,7 +248,7 @@ c : A C string
 d : A C++ string
 ```
 
-Feed compile-time loops with introspection expressions like `@member_count` to control the number of steps. At each step, use queries like `@member_name` (to get the name of a class member as a string literal) and `@member_ref` (to access the i'th data member) to serialize objects.
+Feed compile-time loops with introspection expressions like `@member_count` to control the number of steps. At each step, use queries like `@member_name` (to get the name of a class member as a string literal) and `@member_value` (to access the i'th data member) to serialize objects.
 
 ## Introspection on enums
 
@@ -369,7 +369,7 @@ type_t string_to_enum(const char* name) {
   }
 
   throw std::runtime_error(format("%s is not an enumerator of %s", 
-    name, @type_name(type_t)).c_str());
+    name, @type_string(type_t)).c_str());
 }
 
 const char* usage = "  shapes <shape-name> <radius>\n";
@@ -527,12 +527,12 @@ int main() {
   // Walk through the enum and print the associated types.
   std::cout<< "type_list_t with a for-enum loop:\n";
   @meta for enum(auto e : type_list_t)
-    std::cout<< @type_name(@enum_type(e))<< "\n"; 
+    std::cout<< @type_string(@enum_type(e))<< "\n"; 
   std::cout<< "\n";
 
   // We can do the same thing with an parameter pack.
   std::cout<< "type_list_t with a pack expansion:\n";
-  std::cout<< @type_name(@enum_types(type_list_t))<< "\n" ...;
+  std::cout<< @type_string(@enum_types(type_list_t))<< "\n" ...;
 
   return 0;
 }
@@ -587,7 +587,7 @@ enum typename joined_t {
 };
 
 // Print all the associated types in joined_t
-@meta std::cout<< @type_name(@enum_types(joined_t))<< "\n" ...;
+@meta std::cout<< @type_string(@enum_types(joined_t))<< "\n" ...;
 
 int main() {
   return 0;
@@ -656,7 +656,7 @@ enum typename uniqued_t {
 };
 
 // Print all the associated types in uniqued_t
-@meta std::cout<< @type_name(@enum_types(uniqued_t))<< "\n" ...;
+@meta std::cout<< @type_string(@enum_types(uniqued_t))<< "\n" ...;
 
 int main() {
   return 0;
@@ -723,7 +723,7 @@ enum typename class my_types_t {
 
 int main() {
   auto print_arg = [](auto x) {
-    std::cout<< @type_name(decltype(x))<< " : "<< x<< "\n";
+    std::cout<< @type_string(decltype(x))<< " : "<< x<< "\n";
   };
 
   variant_t<my_types_t> var;
@@ -844,7 +844,7 @@ void visit_ast(ast_t* ast) {
 // type-specific actions.
 @meta for enum(auto e : ast_t::kind_t) {
   void visit_ast(@enum_type(e)* type) {
-    std::cout<< "visit_ast("<< @type_name(@enum_type(e))<< "*) called\n";
+    std::cout<< "visit_ast("<< @type_string(@enum_type(e))<< "*) called\n";
   }
 }
 

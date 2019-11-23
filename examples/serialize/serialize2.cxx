@@ -10,7 +10,7 @@
 template<typename type_t>
 void stream(std::ostream& os, const type_t& obj, int indent) {
 
-  os<< @type_name(type_t)<< " ";
+  os<< @type_string(type_t)<< " ";
 
   if constexpr(std::is_enum<type_t>::value) {
     os<< '\"';
@@ -86,7 +86,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
       os<< @member_name(type_t, i)<< " : ";
 
       // Stream the value of the member.
-      stream(os, @member_ref(obj, i), indent + 1);
+      stream(os, @member_value(obj, i), indent + 1);
 
       // On the next go-around, insert a comma before the newline.
       insert_comma = true;

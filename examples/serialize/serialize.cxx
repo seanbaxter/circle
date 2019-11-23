@@ -10,15 +10,15 @@ void stream(std::ostream& os, const type_t& obj) {
   static_assert(std::is_class<type_t>::value, "stream requires class type");
 
   // Stream the type name followed by the object name.
-  os<< @type_name(type_t)<< " {\n";
+  os<< @type_string(type_t)<< " {\n";
 
   // Iterate over each member of type_t.
   @meta for(int i = 0; i < @member_count(type_t); ++i) {
     // Stream the member name and the member value.
     os<< "  "<< 
-      @type_name(@member_type(type_t, i))<< " "<< 
+      @type_string(@member_type(type_t, i))<< " "<< 
       @member_name(type_t, i)<< ": "<<
-      <<'\"'<< @member_ref(obj, i)<< "\"\n";
+      <<'\"'<< @member_value(obj, i)<< "\"\n";
   }
   os<<"}\n";
 }

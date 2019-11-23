@@ -100,7 +100,7 @@ void lua_engine_t::push_object(const arg_t& object) {
   lua_createtable(state, 0, @member_count(arg_t));
   @meta for(size_t i = 0; i < @member_count(arg_t); ++i) {
     // Push the data member.
-    push(@member_ref(object, i));
+    push(@member_value(object, i));
 
     // Insert the item at t[member-name].
     lua_setfield(state, -2, @member_name(arg_t, i));
@@ -207,7 +207,7 @@ std::optional<value_t> lua_engine_t::get_value(const char* name) {
         lua_pushstring(state, name);
         lua_gettable(state, -2);
         if(auto x = get_value<@member_type(value_t, i)>(name))
-          @member_ref(obj, i) = std::move(*x);
+          @member_value(obj, i) = std::move(*x);
       }}
 
       value = std::move(obj);

@@ -53,7 +53,7 @@ struct tuple_t {
 
 When the `tuple_t` class template is instantiated, the body of the meta for is injected once per loop iteration. The type parameter pack `types_t` is accessed _like an array_. `types_t...[i]` yields the i'th element of the parameter pack at each step.
 
-## `@member_pack`, `@member_names` and `@member_types`
+## `@member_values`, `@member_names` and `@member_types`
 
 The indexed versions of the Circle introspection operators have pack-yielding equivalents. These three intrinsics yield values, names and types of the non-static member objects of a class object or class type.
 
@@ -76,7 +76,7 @@ void print_object(const type_t& obj) {
   std::cout<< 
     std::setw(20)<< std::left<< 
     @decl_string(@member_types(type_t), @member_names(type_t))<< " : "<<
-    @member_pack(obj)<< "\n" ...;
+    @member_values(obj)<< "\n" ...;
 }
 
 struct bar_t {
@@ -93,7 +93,7 @@ int main() {
   std::cout<< 
     std::setw(20)<< std::left<< 
     @decl_string(@member_types(bar_t), @member_names(bar_t))<< " : "<<
-    @member_pack(bar)<< "\n" ...;
+    @member_values(bar)<< "\n" ...;
   std::cout<< "\n";
 
   // Try it as a template.
@@ -118,7 +118,7 @@ std::string c        : Hello
 
 We can build complicated expressions from unexpanded parameter packs. When the expression is expanded, everything built around the pack is expanded as well.
 
-In this example, we use the Circle intrinsic `@decl_string` to stringify a type and id as a declarator. We then print a colon and print out `@member_pack`, which returns a glvalue to each member in the argument class-object expression.
+In this example, we use the Circle intrinsic `@decl_string` to stringify a type and id as a declarator. We then print a colon and print out `@member_values`, which returns a glvalue to each member in the argument class-object expression.
 
 We could write a loop and step through each member, but Circle parameter packs are more succinct.
 
@@ -142,7 +142,7 @@ int main() {
   foo_t foo { 1, 3.14, "Hello" };
 
   // Expand the foo_t instance into a list of its members.
-  func(@member_pack(foo)...);
+  func(@member_values(foo)...);
 
   return 0;
 }
@@ -155,7 +155,7 @@ $ ./object2
 Hello
 ```
 
-This example illustrates a good use of the `@member_pack` operator. A class object is broken into its constituent members and passed to a function. The function infers its parameters from the arguments, and prints them with an expanded cout expression.
+This example illustrates a good use of the `@member_values` operator. A class object is broken into its constituent members and passed to a function. The function infers its parameters from the arguments, and prints them with an expanded cout expression.
 
 [**object3.cxx**](object3.cxx)
 ```cpp
@@ -163,7 +163,7 @@ This example illustrates a good use of the `@member_pack` operator. A class obje
 
 template<typename type1_t, typename type2_t>
 auto dot_product(const type1_t& left, const type2_t& right) {
-  return ((@member_pack(left) * @member_pack(right)) + ...);
+  return ((@member_values(left) * @member_values(right)) + ...);
 }
 
 template<typename type_t>
@@ -201,7 +201,7 @@ mag3 = 3.741657
 mag4 = 5.477226
 ```
 
-The `@member_pack` operator allows us to automate loops over not merely elements of arrays, but members of class objects. The generic `dot_product` function adds up the products of corresponding members of any two classes that have the same number of non-static data members, with types that can be multiplied and accumulated. We test this out on our own `vec3_t` and `vec4_t` types.
+The `@member_values` operator allows us to automate loops over not merely elements of arrays, but members of class objects. The generic `dot_product` function adds up the products of corresponding members of any two classes that have the same number of non-static data members, with types that can be multiplied and accumulated. We test this out on our own `vec3_t` and `vec4_t` types.
 
 What happens if we uncomment the `dot_product(vec3, vec4)` line?
 
@@ -209,7 +209,7 @@ What happens if we uncomment the `dot_product(vec3, vec4)` line?
 
 Pack expansion in the unary right fold fails, because the operand packs have different dimensions. Type safety is built into C++, and carries through to ad hoc pack expressions in Circle.
 
-## `@enum_pack`, `@enum_names` and `@enum_types`
+## `@enum_values`, `@enum_names` and `@enum_types`
 
 Enumerations and classes are similar in that they contain a sorted collection of countable non-type entities. Classes contain non-static data members and enums contain enumerators. These three intrinsics function similarly to their `@member` brethren. They return parameter packs of enumerators, enumerator names (as string literals) and associated types of enumerators (for typed enums only).
 
@@ -235,7 +235,7 @@ void print_typed_enum() {
   std::cout<< 
     std::setw(30)<< std::left<< 
     @decl_string(@enum_types(type_t), @enum_names(type_t))<< " : "<<
-    (int)@enum_pack(type_t)<< "\n" ...;
+    (int)@enum_values(type_t)<< "\n" ...;
 }
 
 int main() {
@@ -245,7 +245,7 @@ int main() {
   std::cout<< 
     std::setw(30)<< std::left<< 
     @decl_string(@enum_types(my_list_t), @enum_names(my_list_t))<< " : "<<
-    (int)@enum_pack(my_list_t)<< "\n" ...;
+    (int)@enum_values(my_list_t)<< "\n" ...;
   std::cout<< "\n";
 
   // Try it as a template.
@@ -270,7 +270,7 @@ const char* c                  : 2
 float(*d)(float, float)        : 3
 ```
 
-One distinction is that `@member_pack` takes a class object-returning expression while `@enum_pack` takes the type-id of an enumeration. It's not returning data about an instance, but rather data about the type.
+One distinction is that `@member_values` takes a class object-returning expression while `@enum_values` takes the type-id of an enumeration. It's not returning data about an instance, but rather data about the type.
 
 [**enum2.cxx**](enum2.cxx)
 ```cpp
@@ -298,13 +298,13 @@ int fold_from_enum() {
   // func(), and add the results up.
   // Use a binary fold expression so that even if the enum is empty we'll 
   // get a valid integer out.
-  return (0 + ... + my_class_t<@enum_pack(type_t)>().func());  
+  return (0 + ... + my_class_t<@enum_values(type_t)>().func());  
 }
 
 int main() {
 
   // Perform the fold expression in a non-dependent context.
-  int result1 = (0 + ... + my_class_t<@enum_pack(my_enum_t)>().func()); 
+  int result1 = (0 + ... + my_class_t<@enum_values(my_enum_t)>().func()); 
   std::cout<< "Result from main = "<< result1<< "\n";
 
   // Perform the fold expression inside a function template.
@@ -386,7 +386,7 @@ Like the architecture of Circle generally, Circle's parameter pack support is in
 
 template<typename... types_t>
 struct foo_t {
-  @meta printf("%s\n", @type_name(types_t)) ...;
+  @meta printf("%s\n", @type_string(types_t)) ...;
 };
 
 int main() {
@@ -471,8 +471,8 @@ int main() {
   tuple_t<int, double*, char[3], float> a;
   typename reverse_args_t<decltype(a)>::type_t b;
 
-  @meta printf("a is %s\n", @type_name(decltype(a), true));
-  @meta printf("b is %s\n", @type_name(decltype(b), true));
+  @meta printf("a is %s\n", @type_string(decltype(a), true));
+  @meta printf("b is %s\n", @type_string(decltype(b), true));
 
   return 0;
 }

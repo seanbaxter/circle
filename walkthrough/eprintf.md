@@ -292,7 +292,7 @@ void stream_simple(std::ostream& os, const type_t& obj) {
       os<< @member_name(type_t, i)<< " : ";
 
       // Stream the value of the member.
-      stream_simple(os, @member_ref(obj, i));
+      stream_simple(os, @member_value(obj, i));
 
       // On the next go-around, insert a comma before the newline.
       insert_comma = true;

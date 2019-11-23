@@ -9,7 +9,7 @@ void print_obj(const type_t& obj) {
   // Loop over each non-static data member.
   @meta for(int i = 0; i < @member_count(type_t); ++i) {
     // Print its member name and member value.
-    std::cout<< @member_name(type_t, i)<< " : "<< @member_ref(obj, i)<< "\n";
+    std::cout<< @member_name(type_t, i)<< " : "<< @member_value(obj, i)<< "\n";
   }
 }
 

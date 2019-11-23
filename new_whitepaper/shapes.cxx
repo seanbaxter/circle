@@ -64,7 +64,7 @@ type_t string_to_enum(const char* name) {
   }
 
   throw std::runtime_error(format("%s is not an enumerator of %s", 
-    name, @type_name(type_t)).c_str());
+    name, @type_string(type_t)).c_str());
 }
 
 const char* usage = "  shapes <shape-name> <radius>\n";

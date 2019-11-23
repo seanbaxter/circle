@@ -24,7 +24,7 @@ int main() {
   @macro define_csv_type("obj_type_t", "schema.csv");
 
   // Print the field types and names.
-  @meta std::cout<< @type_name(@member_types(obj_type_t))<< " "<< 
+  @meta std::cout<< @type_string(@member_types(obj_type_t))<< " "<< 
     @member_names(obj_type_t)<< "\n" ... ;
  
   // Load the values at runtime. The schema is inferred and checked against
@@ -50,7 +50,7 @@ int main() {
   int index = rand() % data.size();
   std::cout<< index + 2<< ":\n";
   std::cout<< "  "<< @member_names(obj_type_t)<< ": "<< 
-    @member_pack(data[index])<< "\n" ...;
+    @member_values(data[index])<< "\n" ...;
 
   return 0;
 }
@@ -67,7 +67,7 @@ A sample CSV file is required at compile-time. It must provide a header line fol
 
 The `define_csv_type` macro is provided the name of the struct with members for each CSV field as a string, along the name of the schema file. The macro is expanded into the calling scope, in this case declaring `obj_type_t` in function `main`. This macro leans heavily on Circle's integrated interpreter. It uses iostreams to load the schema file from disk and parse out the field names and types. After the struct is defined, its member types and names are printed, at compile time, as a diagnostic.
 
-The runtime phase is pretty basic. The `read_csv_file` function template loads a data file at runtime. This file must conform to schema parsed at compile time. The returned records are printed in two different ways: first by direct access of `Latitude` and `Longitude` members; then again by using the introspection keywords `@member_names` and `@member_pack`.
+The runtime phase is pretty basic. The `read_csv_file` function template loads a data file at runtime. This file must conform to schema parsed at compile time. The returned records are printed in two different ways: first by direct access of `Latitude` and `Longitude` members; then again by using the introspection keywords `@member_names` and `@member_values`.
 
 The point of type providers are that they allow both generic _and_ non-generic access. In this example, the user accesses two members by name, indicating some expectation about the data format. If this expectation doesn't hold, it will generate a compile-time error.
 
@@ -253,7 +253,7 @@ void verify_schema(const type_info_t& type_info) {
   if(type_info.fields.size() != num_fields) {
     throw std::runtime_error(format(
       "%s has %d fields while schema has %d fields", 
-      @type_name(type_t), num_fields, type_info.fields.size()
+      @type_string(type_t), num_fields, type_info.fields.size()
     ));
   }
 
@@ -264,7 +264,7 @@ void verify_schema(const type_info_t& type_info) {
     if(field.field_name != @member_name(type_t, i)) {
       throw std::runtime_error(format(
         "field %d is called %s in %s and %s in schema",
-        i, @member_name(type_t, i), @type_name(type_t), field.field_name.c_str()
+        i, @member_name(type_t, i), @type_string(type_t), field.field_name.c_str()
       ));
     }
   }
@@ -313,10 +313,10 @@ type_t read_csv_line(const char* text, int line) {
         }
       }
 
-      @member_ref(obj, i) = x;
+      @member_value(obj, i) = x;
 
     } else {
-      @member_ref(obj, i) = std::string(text, end);
+      @member_value(obj, i) = std::string(text, end);
     }
 
     // Advance to the comma or end-of-string.

@@ -2,7 +2,7 @@
 
 template<typename type1_t, typename type2_t>
 auto dot_product(const type1_t& left, const type2_t& right) {
-  return ((@member_pack(left) * @member_pack(right)) + ...);
+  return ((@member_values(left) * @member_values(right)) + ...);
 }
 
 template<typename type_t>

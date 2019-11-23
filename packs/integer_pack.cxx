@@ -20,8 +20,8 @@ int main() {
   tuple_t<int, double*, char[3], float> a;
   typename reverse_args_t<decltype(a)>::type_t b;
 
-  @meta printf("a is %s\n", @type_name(decltype(a), true));
-  @meta printf("b is %s\n", @type_name(decltype(b), true));
+  @meta printf("a is %s\n", @type_string(decltype(a), true));
+  @meta printf("b is %s\n", @type_string(decltype(b), true));
 
   return 0;
 }

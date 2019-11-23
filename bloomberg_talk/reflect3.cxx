@@ -5,9 +5,9 @@
 
 template<typename type_t>
 void print_type() {
-  std::cout<< @type_name(type_t)<< "\n";
+  std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< 
-    @type_name(@member_types(type_t))<< " "<< 
+    @type_string(@member_types(type_t))<< " "<< 
     @member_names(type_t)<< "\n" ...;
 }
 

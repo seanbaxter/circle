@@ -34,7 +34,7 @@ struct unique_tuple_t {
 
   // @pack_type returns an array/std::vector<@mtype> as a type parameter pack.
   // Print the unique list of names as a diagnostic.
-  @meta std::cout<< @type_name(@pack_type(types))<< "\n"...;
+  @meta std::cout<< @type_string(@pack_type(types))<< "\n"...;
 
   // Typedef a tuple_t over these unique types.
   typedef tuple_t<@pack_type(types)...> type_t;

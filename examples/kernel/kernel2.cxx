@@ -9,7 +9,7 @@
 template<int sm, typename type_t>
 void fake_kernel(const type_t* input, type_t* output, size_t count) {
   // Look for a JSON item with the sm and typename keys.
-  @meta kernel_key_t key { sm, @type_name(type_t) };
+  @meta kernel_key_t key { sm, @type_string(type_t) };
   @meta cirprint("Compiling kernel %:\n", key);
 
   // At compile-time, call the lua function kernel_params and pass our key.

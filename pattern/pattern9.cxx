@@ -17,7 +17,7 @@ int main() {
 
   // Print the types of the pack.
   std::cout<< "pack types are:\n";
-  std::cout<< "  "<< @type_name(decltype(pack), true)<< "\n" ...;
+  std::cout<< "  "<< @type_string(decltype(pack), true)<< "\n" ...;
 
   // Create a new pack with reversed values.
   constexpr size_t count = sizeof...(pack);

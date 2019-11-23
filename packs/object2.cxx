@@ -16,7 +16,7 @@ int main() {
   foo_t foo { 1, 3.14, "Hello" };
 
   // Expand the foo_t instance into a list of its members.
-  func(@member_pack(foo)...);
+  func(@member_values(foo)...);
 
   return 0;
 }

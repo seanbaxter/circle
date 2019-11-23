@@ -9,7 +9,7 @@ struct foo_t {
 
 int main() {
   foo_t obj { 2, 3, 4, 5 };
-  double x = (... + @member_pack(obj));
+  double x = (... + @member_values(obj));
   printf("x = %f\n", x);
 
   return 0;

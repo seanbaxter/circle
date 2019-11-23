@@ -89,7 +89,7 @@ struct my_base_t {
   @meta for(int i = 0; i < @method_count(interface); ++i) {
     @meta printf("Injecting %s: %s\n", 
       @method_name(interface, i), 
-      @type_name(@method_type(interface, i))
+      @type_string(@method_type(interface, i))
     );
 
     // Declare a pure virtual function with the same name and signature.
@@ -111,7 +111,7 @@ int main() {
   @meta for(int i = 0; i < @method_count(my_base); ++i) {
     @meta printf("Found %s: %s\n", 
       @method_name(my_base, i), 
-      @type_name(@method_type(my_base, i))
+      @type_string(@method_type(my_base, i))
     );
   }
 
@@ -473,7 +473,7 @@ struct impl_t : public model_t<typeclass> {
 
         // We could also call __cxa_pure_virtual or std::terminate here.
         throw std::runtime_error(@string(format("%s::%s not implemented", 
-          @type_name(type_t), __func__
+          @type_string(type_t), __func__
         )));
       }
     }

@@ -3,9 +3,9 @@
 template<typename type_t>
 void print_object(const type_t& obj) {
   std::cout<< 
-    @type_name(@member_types(type_t))<< " "<< 
+    @type_string(@member_types(type_t))<< " "<< 
     @member_names(type_t)<< ": "<< 
-    @member_pack(obj)<< "\n" ...;
+    @member_values(obj)<< "\n" ...;
 }
 
 template<typename type_t>

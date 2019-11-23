@@ -701,7 +701,7 @@ int main() {
 
   // Print the types of the pack.
   std::cout<< "pack types are:\n";
-  std::cout<< "  "<< @type_name(decltype(pack), true)<< "\n" ...;
+  std::cout<< "  "<< @type_string(decltype(pack), true)<< "\n" ...;
 
   // Create a new pack with reversed values.
   constexpr size_t count = sizeof...(pack);
@@ -769,7 +769,7 @@ pack:
   c
 ```
 
-Part of the need for structured bindings is to provide porcelain around the `tuple_size` and `tuple_element` calls required to extract data from `std::tuple`. The standard tuple is hard to work with. The Circle tuple, by contrast, is so easy to work with that you might not even bother with structured bindings and pack declarations. Although you _may_ decompose a Circle tuple in a structured binding (class objects that don't implement `tuple_size` are undergo member-wise decomposition), it's probably easier to just turn the object into an unexpanded parameter pack using the `@member_pack` extension:
+Part of the need for structured bindings is to provide porcelain around the `tuple_size` and `tuple_element` calls required to extract data from `std::tuple`. The standard tuple is hard to work with. The Circle tuple, by contrast, is so easy to work with that you might not even bother with structured bindings and pack declarations. Although you _may_ decompose a Circle tuple in a structured binding (class objects that don't implement `tuple_size` are undergo member-wise decomposition), it's probably easier to just turn the object into an unexpanded parameter pack using the `@member_values` extension:
 
 [**pattern11.cxx**](pattern11.cxx)
 ```cpp
@@ -802,8 +802,8 @@ int main() {
   double x3 = dot_product(v1, v2);
   printf("x3 = %f\n", x3);
 
-  // Use @member_pack to apply fold directly.
-  double x4 = (... + (@member_pack(v1) * @member_pack(v2)));
+  // Use @member_values to apply fold directly.
+  double x4 = (... + (@member_values(v1) * @member_values(v2)));
   printf("x4 = %f\n", x4);
 
   return 0;

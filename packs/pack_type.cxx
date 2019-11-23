@@ -4,7 +4,7 @@
 
 template<typename... types_t>
 struct foo_t {
-  @meta printf("%s\n", @type_name(types_t)) ...;
+  @meta printf("%s\n", @type_string(types_t)) ...;
 };
 
 int main() {

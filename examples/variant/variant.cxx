@@ -423,7 +423,7 @@ int main() {
     // The variant member is passed by reference. Remove the reference type
     // to pretty print it.
     typedef typename std::remove_reference<decltype(member)>::type type_t;
-    cirprint("%: %\n", @type_name(type_t, true), member);
+    cirprint("%: %\n", @type_string(type_t, true), member);
   });
 
   return 0;

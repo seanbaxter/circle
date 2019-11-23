@@ -6,7 +6,7 @@ struct my_base_t {
   @meta for(int i = 0; i < @method_count(interface); ++i) {
     @meta printf("Injecting %s: %s\n", 
       @method_name(interface, i), 
-      @type_name(@method_type(interface, i))
+      @type_string(@method_type(interface, i))
     );
 
     // Declare a pure virtual function with the same name and signature.
@@ -28,7 +28,7 @@ int main() {
   @meta for(int i = 0; i < @method_count(my_base); ++i) {
     @meta printf("Found %s: %s\n", 
       @method_name(my_base, i), 
-      @type_name(@method_type(my_base, i))
+      @type_string(@method_type(my_base, i))
     );
   }
 

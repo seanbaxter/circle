@@ -460,7 +460,7 @@ Circle is built on three main technologies:
     * `@member_count(type)`
     * `@member_name(type, index)`
     * `@member_ptr(type, index)`
-    * `@member_ref(object, index)`
+    * `@member_value(object, index)`
     * `@member_type(type, index)`
 
     Introspect on enum types:  
@@ -470,7 +470,7 @@ Circle is built on three main technologies:
     * `@enum_value(type, index)`
 
     Generic type operators:  
-    * `@type_name(type)`
+    * `@type_string(type)`
     * `@type_id(name)`
   
     The arguments for all the operators above must be known at compile time. This sounds limiting--how do we benefit at runtime? Use same-language reflection to write metaprograms that query the introspection operators and bake the type information into functions. That is, the type information you want is moved into the final assembly simply by your using the operators in functions.
@@ -923,7 +923,7 @@ Introspect on class types:
 * `@member_count(type)` - Number of non-static data members in class.
 * `@member_name(type, index)` - String literal name of i'th non-static data member.
 * `@member_ptr(type, index)` - Expression returning pointer-to-data-member of i'th member.
-* `@member_ref(object, index)` - Expression returning lvalue to i'th member of object.
+* `@member_value(object, index)` - Expression returning lvalue to i'th member of object.
 * `@member_type(type, index)` - Type of i'th non-static data member.
 
 Introspect on enum types:
@@ -933,7 +933,7 @@ Introspect on enum types:
 * `@enum_value(type, index)` - Expression returning i'th unique enumerator prvalue.
 
 Generic type operators:
-* `@type_name(type)` - Convert a type to a string literal.
+* `@type_string(type)` - Convert a type to a string literal.
 * `@type_id(name)` - Convert a name to a type.
 
 Circle provides simple introspection keywords for accessing name, type and value information of enumerators and non-static data members. There is no runtime support to this feature; these mechanisms simply expose information that all languages must maintain at compile-time. To access the introspection data in your executable, you'll need to use it in a function. Fortunately Circle's meta control flow makes it simple to automatically visit all the type information for a type and bake it into a function.
@@ -1028,15 +1028,15 @@ void stream(std::ostream& os, const type_t& obj) {
   static_assert(std::is_class<type_t>::value, "stream requires class type");
 
   // Stream the type name followed by the object name.
-  os<< @type_name(type_t)<< " {\n";
+  os<< @type_string(type_t)<< " {\n";
 
   // Iterate over each member of type_t.
   @meta for(int i = 0; i < @member_count(type_t); ++i) {
     // Stream the member name and the member value.
     os<< "  "<< 
-      @type_name(@member_type(type_t, i))<< " "<< 
+      @type_string(@member_type(type_t, i))<< " "<< 
       @member_name(type_t, i)<< ": "<<
-      <<'\"'<< @member_ref(obj, i)<< "\"\n";
+      <<'\"'<< @member_value(obj, i)<< "\"\n";
   }
   os<< "}\n";
 }
@@ -1107,7 +1107,7 @@ For all other class types, use class introspection to loop over non-static data 
 template<typename type_t>
 void stream(std::ostream& os, const type_t& obj, int indent) {
 
-  os<< @type_name(type_t)<< " ";
+  os<< @type_string(type_t)<< " ";
 
   if constexpr(std::is_enum<type_t>::value) {
     os<< '\"';
@@ -1183,7 +1183,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
       os<< @member_name(type_t, i)<< " : ";
 
       // Stream the value of the member.
-      stream(os, @member_ref(obj, i), indent + 1);
+      stream(os, @member_value(obj, i), indent + 1);
 
       // On the next go-around, insert a comma before the newline.
       insert_comma = true;
@@ -1897,7 +1897,7 @@ Circle's interpreter will allow us to host the configuration. Circle's introspec
 template<int sm, typename type_t>
 void fake_kernel(const type_t* input, type_t* output, size_t count) {
   // Look for a JSON item with the sm and typename keys.
-  @meta kernel_key_t key { sm, @type_name(type_t) };
+  @meta kernel_key_t key { sm, @type_string(type_t) };
   @meta cirprint("Compiling kernel %:\n", key);
 
   // At compile-time, find the JSON item for key and read all the members
@@ -2007,7 +2007,7 @@ end
 template<int sm, typename type_t>
 void fake_kernel(const type_t* input, type_t* output, size_t count) {
   // Look for a JSON item with the sm and typename keys.
-  @meta kernel_key_t key { sm, @type_name(type_t) };
+  @meta kernel_key_t key { sm, @type_string(type_t) };
   @meta cirprint("Compiling kernel %:\n", key);
 
   // At compile-time, call the lua function kernel_params and pass our key.
@@ -2127,7 +2127,7 @@ void lua_engine_t::push_object(const arg_t& object) {
   lua_createtable(state, 0, @member_count(arg_t));
   @meta for(size_t i = 0; i < @member_count(arg_t); ++i) {
     // Push the data member.
-    push(@member_ref(object, i));
+    push(@member_value(object, i));
 
     // Insert the item at t[member-name].
     lua_setfield(state, -2, @member_name(arg_t, i));
@@ -2197,7 +2197,7 @@ template<typename type_t>
 void go(type_t& obj) {
   // Try to set obj.x = 1.
   if constexpr(@sfinae(obj.x = 1)) {
-    printf("Setting %s obj.x = 1.\n", @type_name(type_t));
+    printf("Setting %s obj.x = 1.\n", @type_string(type_t));
     obj.x = 1;
   }
 
@@ -2208,7 +2208,7 @@ void go(type_t& obj) {
 
   // Try to use type_t::big_endian as a value.
   if constexpr(@sfinae((bool)type_t::big_endian)) {
-    printf("%s is big endian.\n", @type_name(type_t));
+    printf("%s is big endian.\n", @type_string(type_t));
   }
 }
 
@@ -2480,8 +2480,8 @@ struct shape_computer_t {
   color_obj_t color;
   fill_obj_t fill;
 
-  @meta printf("Instantiating { %s, %s, %s }\n", @type_name(shape_obj_t),
-    @type_name(color_obj_t), @type_name(fill_obj_t));
+  @meta printf("Instantiating { %s, %s, %s }\n", @type_string(shape_obj_t),
+    @type_string(color_obj_t), @type_string(fill_obj_t));
 
   double go(double x) { 
     return (x * shape.val() + color.val()) * fill.val(); 
@@ -2959,7 +2959,7 @@ struct s2a_pointers_t {
     // Loop over each member of s, and set that member from data loaded from
     // the corresponding array.
     @meta for(int i = 0; i < count; ++i)
-      @member_ref(obj, i) = this->@(@member_name(type_t, i))[index];
+      @member_value(obj, i) = this->@(@member_name(type_t, i))[index];
 
     return obj;
   }
@@ -2969,7 +2969,7 @@ struct s2a_pointers_t {
     // Loop over each member of type_t, and store its value into the 
     // corresponding array.
     @meta for(int i = 0; i < count; ++i)
-      this->@(@member_name(type_t, i))[index] = @member_ref(obj, i);
+      this->@(@member_name(type_t, i))[index] = @member_value(obj, i);
   }
 };
 

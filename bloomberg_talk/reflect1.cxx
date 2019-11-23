@@ -6,9 +6,9 @@ template<typename type_t>
 void print_object(const type_t& obj) {
   @meta for(int i = 0; i < @member_count(type_t); ++i) {
     std::cout<< 
-      @type_name(@member_type(type_t, i))<< " "<< 
+      @type_string(@member_type(type_t, i))<< " "<< 
       @member_name(type_t, i)<< ": "<< 
-      @member_ref(obj, i)<< "\n";
+      @member_value(obj, i)<< "\n";
   }
 }
 

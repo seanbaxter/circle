@@ -9,7 +9,7 @@ struct int3_t {
 
 int main() {
   int3_t a { 1, 2, 3 }, b { 1, 2, 4 }, c { 1, 1, 5 };
-  printf("%s\n", @type_name(decltype(a <=> b)));
+  printf("%s\n", @type_string(decltype(a <=> b)));
 
   bool x = a < b;
   printf("%d\n", x);

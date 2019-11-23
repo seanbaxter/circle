@@ -168,7 +168,7 @@ void verify_schema(const type_info_t& type_info) {
   if(type_info.fields.size() != num_fields) {
     throw std::runtime_error(format(
       "%s has %d fields while schema has %d fields", 
-      @type_name(type_t), num_fields, type_info.fields.size()
+      @type_string(type_t), num_fields, type_info.fields.size()
     ));
   }
 
@@ -179,7 +179,7 @@ void verify_schema(const type_info_t& type_info) {
     if(field.field_name != @member_name(type_t, i)) {
       throw std::runtime_error(format(
         "field %d is called %s in %s and %s in schema",
-        i, @member_name(type_t, i), @type_name(type_t), field.field_name.c_str()
+        i, @member_name(type_t, i), @type_string(type_t), field.field_name.c_str()
       ));
     }
   }
@@ -224,10 +224,10 @@ type_t read_csv_line(const char* text, int line) {
         }
       }
 
-      @member_ref(obj, i) = x;
+      @member_value(obj, i) = x;
 
     } else {
-      @member_ref(obj, i) = std::string(text, end);
+      @member_value(obj, i) = std::string(text, end);
     }
 
     // Advance to the comma or end-of-string.
@@ -278,7 +278,7 @@ int main() {
   @macro define_csv_type("obj_type_t", "schema.csv");
 
   // Print the field types and names.
-  @meta std::cout<< @type_name(@member_types(obj_type_t))<< " "<< 
+  @meta std::cout<< @type_string(@member_types(obj_type_t))<< " "<< 
     @member_names(obj_type_t)<< "\n" ... ;
  
   // Load the values at runtime. The schema is inferred and checked against
@@ -304,7 +304,7 @@ int main() {
   int index = rand() % data.size();
   std::cout<< index + 2<< ":\n";
   std::cout<< "  "<< @member_names(obj_type_t)<< ": "<< 
-    @member_pack(data[index])<< "\n" ...;
+    @member_values(data[index])<< "\n" ...;
 
   return 0;
 }

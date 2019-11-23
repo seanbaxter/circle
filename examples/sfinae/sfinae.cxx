@@ -4,7 +4,7 @@ template<typename type_t>
 void go(type_t& obj) {
   // Try to set obj.x = 1.
   if constexpr(@sfinae(obj.x = 1)) {
-    printf("Setting %s obj.x = 1.\n", @type_name(type_t));
+    printf("Setting %s obj.x = 1.\n", @type_string(type_t));
     obj.x = 1;
   }
 
@@ -15,7 +15,7 @@ void go(type_t& obj) {
 
   // Try to use type_t::big_endian as a value.
   if constexpr(@sfinae((bool)type_t::big_endian)) {
-    printf("%s is big endian.\n", @type_name(type_t));
+    printf("%s is big endian.\n", @type_string(type_t));
   }
 }
 

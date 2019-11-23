@@ -20,7 +20,7 @@ bool compare_key(json& item, const key_t& key) {
   @meta for(int i = 0; i < @member_count(key_t); ++i) {
     if(item.count(@member_name(key_t, i))) {
       auto x = item[@member_name(key_t, i)].template get<@member_type(key_t, i)>();
-      if(@member_ref(key, i) != x)
+      if(@member_value(key, i) != x)
         return false;
     }
   }
@@ -91,7 +91,7 @@ value_t load_json_value(json& item, const key_t& key) {
       // Extract the value from the JSON if it exists.
       typedef @member_type(value_t, i) type_t;
       if(auto val = read_json_value<type_t>(item.at(name), key, name))
-        @member_ref(value, i) = std::move(*val);
+        @member_value(value, i) = std::move(*val);
 
     } else
       cirprint("  **No field '%' in %\n", name, key);

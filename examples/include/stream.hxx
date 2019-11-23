@@ -7,7 +7,7 @@
 template<typename type_t>
 void stream(std::ostream& os, const type_t& obj, int indent) {
 
-  os<< @type_name(type_t)<< " ";
+  os<< @type_string(type_t)<< " ";
   int indent_next = -1 != indent ? indent + 1 : -1;
 
   if constexpr(@is_class_template(type_t, std::basic_string)) {
@@ -96,7 +96,7 @@ void stream(std::ostream& os, const type_t& obj, int indent) {
       os<< @member_name(type_t, i)<< " : ";
 
       // Stream the value of the member.
-      stream(os, @member_ref(obj, i), indent_next);
+      stream(os, @member_value(obj, i), indent_next);
 
       // On the next go-around, insert a comma before the newline.
       insert_comma = true;

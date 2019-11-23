@@ -45,7 +45,7 @@ enum typename uniqued_t {
 };
 
 // Print all the associated types in uniqued_t
-@meta std::cout<< @type_name(@enum_types(uniqued_t))<< "\n" ...;
+@meta std::cout<< @type_string(@enum_types(uniqued_t))<< "\n" ...;
 
 int main() {
   return 0;

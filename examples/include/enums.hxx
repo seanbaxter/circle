@@ -41,7 +41,7 @@ type_t enum_from_name_error(const char* name) {
   if(auto e = enum_from_name<type_t>(name))
     return *e;
   else {
-    fprintf(stderr, "'%s' is not an '%s'.\n", name, @type_name(type_t));
+    fprintf(stderr, "'%s' is not an '%s'.\n", name, @type_string(type_t));
     exit(1);    
   }
 }

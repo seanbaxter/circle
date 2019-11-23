@@ -8,7 +8,7 @@ int main() {
   };
   auto& [a, b] = foo_t { 1, 2 };
 
-  printf("%s\n", @type_name(decltype(a)));
+  printf("%s\n", @type_string(decltype(a)));
 
   return 0;
 

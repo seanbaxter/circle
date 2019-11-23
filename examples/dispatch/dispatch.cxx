@@ -78,8 +78,8 @@ struct shape_computer_t {
   color_obj_t color;
   fill_obj_t fill;
 
-  @meta printf("Instantiating { %s, %s, %s }\n", @type_name(shape_obj_t),
-    @type_name(color_obj_t), @type_name(fill_obj_t));
+  @meta printf("Instantiating { %s, %s, %s }\n", @type_string(shape_obj_t),
+    @type_string(color_obj_t), @type_string(fill_obj_t));
 
   double go(double x) { 
     return (x * shape.val() + color.val()) * fill.val(); 

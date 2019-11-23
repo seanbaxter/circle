@@ -43,7 +43,7 @@ enum typename class my_types_t {
 
 int main() {
   auto print_arg = [](auto x) {
-    std::cout<< @type_name(decltype(x))<< " : "<< x<< "\n";
+    std::cout<< @type_string(decltype(x))<< " : "<< x<< "\n";
   };
 
   variant_t<my_types_t> var;

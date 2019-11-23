@@ -25,7 +25,7 @@ enum typename joined_t {
 };
 
 // Print all the associated types in joined_t
-@meta std::cout<< @type_name(@enum_types(joined_t))<< "\n" ...;
+@meta std::cout<< @type_string(@enum_types(joined_t))<< "\n" ...;
 
 int main() {
   return 0;

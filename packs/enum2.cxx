@@ -19,7 +19,7 @@ struct my_class_t<my_enum_t::b> {
 
 template<typename type_t>
 int foo() {
-  int result = (1 + ... + my_class_t<@enum_pack(type_t)>().func());  
+  int result = (1 + ... + my_class_t<@enum_values(type_t)>().func());  
   return result;
 }
 
@@ -27,7 +27,7 @@ int main() {
   // Instantiate my_class_t specialized over each enumerator, call
   // func(), and add the results up.
 
-  // int result = (1 + ... + my_class_t<@enum_pack(my_enum_t)>().func());
+  // int result = (1 + ... + my_class_t<@enum_values(my_enum_t)>().func());
   std::cout<< "We got "<< foo<my_enum_t>()<< "\n";
 
   return 0;

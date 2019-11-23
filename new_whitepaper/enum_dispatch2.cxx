@@ -71,7 +71,7 @@ type_t string_to_enum(const char* name) {
 
   throw std::runtime_error("value is not an enumerator");
 
-  printf("%s is not an enumerator of type %s\n", name, @type_name(type_t));
+  printf("%s is not an enumerator of type %s\n", name, @type_string(type_t));
   exit(1);
 }
 

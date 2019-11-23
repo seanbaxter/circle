@@ -15,12 +15,12 @@ int main() {
   // Walk through the enum and print the associated types.
   std::cout<< "type_list_t with a for-enum loop:\n";
   @meta for enum(auto e : type_list_t)
-    std::cout<< @type_name(@enum_type(e))<< "\n"; 
+    std::cout<< @type_string(@enum_type(e))<< "\n"; 
   std::cout<< "\n";
 
   // We can do the same thing with an parameter pack.
   std::cout<< "type_list_t with a pack expansion:\n";
-  std::cout<< @type_name(@enum_types(type_list_t))<< "\n" ...;
+  std::cout<< @type_string(@enum_types(type_list_t))<< "\n" ...;
   
   return 0;
 }

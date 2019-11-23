@@ -88,7 +88,7 @@ void visit_ast(ast_t* ast) {
 // type-specific actions.
 @meta for enum(auto e : ast_t::kind_t) {
   void visit_ast(@enum_type(e)* type) {
-    std::cout<< "visit_ast("<< @type_name(@enum_type(e))<< "*) called\n";
+    std::cout<< "visit_ast("<< @type_string(@enum_type(e))<< "*) called\n";
   }
 }
 
