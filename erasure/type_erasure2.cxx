@@ -21,7 +21,7 @@ struct model_t {
     @meta std::string func_name = @method_name(typeclass, i);
 
     // Declare a "has_" function.
-    virtual bool @(format("has_%s", func_name.c_str()))() const = 0;
+    virtual bool @("has_", func_name)() const = 0;
 
     // Declare a pure virtual function for each interface method.
     virtual @func_decl(@method_type(typeclass, i), func_name, args) = 0;
@@ -51,8 +51,10 @@ struct impl_t : public model_t<typeclass> {
       )
     );
 
+    @meta printf("%d: is_valid = %d\n", i, is_valid);
+
     // Implement the has_XXX function.
-    bool @(format("has_%s", func_name.c_str()))() const override {
+    bool @("has_", func_name)() const override {
       return is_valid;
     }
 
@@ -124,7 +126,7 @@ struct var_t {
   @meta for(int i = 0; i < @method_count(typeclass); ++i) {
 
     // Define a has_XXX member function.
-    bool @(format("has_%s", @method_name(typeclass, i)))() const {
+    bool @("has_", @method_name(typeclass, i))() const {
       @meta if(@sfinae(typeclass::required::@(@method_name(typeclass, i))))
         return true;
       else

@@ -297,12 +297,12 @@ struct parse_state_t {
   std::array<range_t, capture_count> captures;
 };
 
-template<const char pattern[], bool debug = false>
+template<const char pattern[], bool print_tree = false>
 auto match_regex(const char* begin, const char* end) {
   // First parse the regex pattern at compile time.
   @meta auto parsed = parse_regex(pattern);
 
-  @meta+ if(debug)
+  @meta+ if(print_tree)
     print_ast(parsed.first.get());
 
   // Construct an expression template type from the AST.
@@ -324,9 +324,9 @@ auto match_regex(const char* begin, const char* end) {
   return result;
 }
 
-template<const char pattern[], bool debug = false>
+template<const char pattern[], bool print_tree = false>
 auto match_regex(const char* text) {
-  return match_regex<pattern, debug>(text, text + strlen(text));
+  return match_regex<pattern, print_tree>(text, text + strlen(text));
 }
 
 } // namespace pcre

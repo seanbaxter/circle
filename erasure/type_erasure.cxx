@@ -160,7 +160,7 @@ int main() {
   obj_t a = obj_t::construct<allcaps_t>();
   a.print("Hello a");
 
-  // Copy-construc a to get b.
+  // Copy-construct a to get b.
   obj_t b = a; 
   b.print("Hello b");
 

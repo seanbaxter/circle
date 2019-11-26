@@ -7,7 +7,7 @@ struct func_decl_t {
   const char* expr;
 };
 
-@meta func_decl_t func_decls[] {
+@meta const func_decl_t func_decls[] {
   {
     "int(int, int)",
     "absdiff",
@@ -22,6 +22,8 @@ struct func_decl_t {
 
 // Loop over the entries in func_decl_t at compile time.
 @meta for(func_decl_t decl : func_decls) {
+
+  @meta const char* expr = decl.expr;
 
   // Declare a function for each entry.
   @func_decl(@type_id(decl.type), decl.name, args) {
