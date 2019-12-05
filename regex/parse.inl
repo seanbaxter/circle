@@ -158,7 +158,8 @@ struct grammar_t {
   result_parse_t parse_term(const char* pattern, bool expect);
   result_parse_t parse_duplication(const char* pattern, bool expect = false);
   result_parse_t parse_concat(const char* pattern, bool expect);
-  result_parse_t parse_alternation(const char* pattern, bool topmost = false);
+  result_parse_t parse_alternation(const char* pattern, bool expect, 
+    bool topmost = false);
 
   void throw_error(const char* pattern, const char* msg);
 
@@ -325,6 +326,8 @@ PCRE_LINKAGE result_parse_t grammar_t::parse_term(const char* pattern,
     case '+':
     case '*':
     case '?':
+      if(expect)
+        throw_error(pattern, "unexpected token where term expected");
       break;
 
     case '(': {
@@ -334,11 +337,11 @@ PCRE_LINKAGE result_parse_t grammar_t::parse_term(const char* pattern,
       if('?' == pattern[0] && ':' == pattern[1]) {
         // This is a non-capture grouping.
         pattern += 2;
-        result = parse_alternation(pattern);        
+        result = parse_alternation(pattern, true);        
 
       } else {
         // This is a capture grouping.
-        result = parse_alternation(pattern);
+        result = parse_alternation(pattern, true);
 
         // Put the result into a capture node.
         auto capture = std::make_unique<node_t>(node_t::kind_capture);
@@ -527,7 +530,7 @@ PCRE_LINKAGE result_parse_t grammar_t::parse_concat(const char* pattern,
 }
 
 PCRE_LINKAGE result_parse_t grammar_t::parse_alternation(const char* pattern,
-  bool topmost) {
+  bool expect, bool topmost) {
 
   result_parse_t a = parse_concat(pattern, true);
   while(a) {
@@ -575,7 +578,7 @@ PCRE_LINKAGE void grammar_t::throw_error(const char* pattern, const char* msg) {
 
 PCRE_LINKAGE std::pair<node_ptr_t, int> parse_regex(const char* pattern) {
   grammar_t g { pattern };
-  result_parse_t result = g.parse_alternation(pattern, true);
+  result_parse_t result = g.parse_alternation(pattern, true, true);
   if(*result->next)
     g.throw_error(result->next, "cannot complete pattern parse");
 
