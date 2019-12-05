@@ -325,6 +325,7 @@ PCRE_LINKAGE result_parse_t grammar_t::parse_term(const char* pattern,
     case '+':
     case '*':
     case '?':
+      throw_error(pattern, "unexpected token in term");
       break;
 
     case '(': {
