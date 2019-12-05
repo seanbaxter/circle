@@ -1,7 +1,7 @@
 #include "eval.hxx"
 
 void regex_match(const char* text) {
-  auto match = pcre::match_regex<"g(}[:xdigit:]{3})[:xdigit:]*(r*)r[ea]((y|z)*?)", true>(text);
+  auto match = pcre::match_regex<"g([:xdigit:]{3})[:xdigit:]*(r*)r[ea]((y|z)*?)", true>(text);
 
   if(match) {
     printf("Matched characters [%d, %d]\n", match->begin - text, 
