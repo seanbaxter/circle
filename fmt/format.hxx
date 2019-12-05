@@ -510,6 +510,7 @@ struct format_arg_t {
   std::string expr;
 };
 
+// A non-pack argument.
 template<format_type_t fmt_type_, int index_, typename type_t>
 struct arg_t {
   static constexpr format_type_t fmt_type = fmt_type_;
@@ -518,6 +519,11 @@ struct arg_t {
   fmt_t fmt;
   const type_t& obj;
 };
+
+template<format_type_t fmt_type, int index, typename type_t>
+arg_t<fmt_type, index, type_t> make_arg(fmt_t fmt, const type_t& obj) {
+  return { fmt, obj };
+}
 
 template<format_type_t fmt_type, int index, typename type_t>
 arg_t<fmt_type, index, type_t> make_arg(fmt_t fmt, int width, int precision, 
@@ -529,6 +535,27 @@ arg_t<fmt_type, index, type_t> make_arg(fmt_t fmt, int width, int precision,
   return { fmt, obj };
 }
 
+// A pack argument.
+template<format_type_t fmt_type_, int index_, typename... types_t>
+struct pack_t {
+  static constexpr format_type_t fmt_type = fmt_type_;
+  static constexpr int index = index_;
+
+  fmt_t fmt;
+  const types_t& @(int...) ...;
+};
+
+template<format_type_t fmt_type, int index, typename... types_t>
+pack_t<fmt_type, index, types_t...> make_pack(fmt_t fmt, int width, 
+  int precision, const types_t&... objs) {
+
+  fmt.width = width;
+  fmt.precision = precision;
+
+  return { fmt, objs... };
+}
+
+// Format builder.
 struct fmt_builder_t {
 
   result_t<range_t> parse_braces(range_t range);  
@@ -1055,7 +1082,7 @@ auto make_array_string(const fmt_t& fmt, const type_t& obj) {
 }
 
 template<int ord, format_type_t fmt_type, int index, typename type_t>
-auto stream_arg(const arg_t<fmt_type, index, type_t>& arg, std::string& s) {
+auto stream_arg(arg_t<fmt_type, index, type_t> arg, std::string& s) {
 
   // Handle array types specially. This will preserve formatting options and 
   // apply them to elements.
@@ -1138,6 +1165,24 @@ auto stream_arg(const arg_t<fmt_type, index, type_t>& arg, std::string& s) {
   }
 }
 
+
+template<int ord, format_type_t fmt_type, int index, typename... types_t>
+auto stream_arg(pack_t<fmt_type, index, types_t...> pack, std::string& s) {
+  // Manually expand the pack into individual arguments.
+  s += '[';
+  @meta for(size_t i = 0; i < sizeof...(types_t); ++i) {
+    // Stream a comma between pack elements.
+    @meta if(i)
+      s += ',';
+    s += ' ';
+
+    // Stream the pack element as an arg.
+    stream_arg<ord>(make_arg<fmt_type, index>(pack.fmt, pack.@(i)), s);
+  }
+
+  s += " ]";
+}
+
 template<size_t len, typename... args_t>
 auto format_text(const char* fmt, const args_t&... args) {
   // Reserve enough space for twice the format text plus 8 bytes per argument.
@@ -1176,12 +1221,22 @@ auto format_text(const char* fmt, const args_t&... args) {
 }
 
 @macro auto eval_arg(const format_arg_t& __arg) {
-  return cirfmt::make_arg<__arg.type, __arg.index>( 
-    __arg.fmt,
-    cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
-    cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
-    @expression(__arg.expr)
-  );
+  @meta if(__arg.pack) {
+    return cirfmt::make_pack<__arg.type, __arg.index>( 
+      __arg.fmt,
+      cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
+      cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
+      @expression(__arg.expr) ...
+    ); 
+
+  } else {
+    return cirfmt::make_arg<__arg.type, __arg.index>( 
+      __arg.fmt,
+      cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
+      cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
+      @expression(__arg.expr)
+    ); 
+  }
 }
 
 @macro auto format(const char* __fmt) {
