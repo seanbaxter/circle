@@ -2,7 +2,10 @@
 #include <vector>
 #include <cstdarg>
 #include <array>
+#include <list>
 #include <map>
+#include <set>
+#include <optional>
 #include <string>
 #include <algorithm>
 #include <cmath>
@@ -41,11 +44,9 @@ struct range_t {
   }
   bool advance_if(const char* s) {
     size_t len = strlen(s);
-    bool status = false;
-    if(size() >= len) {
-      status = 0 == memcmp(begin, s, len);
+    bool status = size() >= len && 0 == memcmp(begin, s, len);
+    if(status)
       begin += len;
-    }
     return status;
   }
 
@@ -650,9 +651,9 @@ inline result_t<format_arg_t> fmt_builder_t::parse_arg(range_t range) {
   // format_spec is not a valid alignment option, then it is assumed that both
   // the fill character and the alignment option are absent.
   switch(char align = range[1]) {
+    // Match an align with a preceding fill character.
     case '<':
     case '>':
-    case '=':
     case '^':
       arg.fmt.fill = range.begin[0];
       arg.fmt.align = align;
@@ -660,9 +661,17 @@ inline result_t<format_arg_t> fmt_builder_t::parse_arg(range_t range) {
       break;
 
     default:
+      switch(char align = range[0]) {
+        // Match an align with no preceding fill character.
+        case '<':
+        case '>':
+        case '^':
+          arg.fmt.align = align;
+          range.begin += 1;
+          break;
+      }
       break;
   }
-  
 
   // Parse the sign.
   switch(char sign = range[0]) {
@@ -755,7 +764,7 @@ inline result_t<format_arg_t> fmt_builder_t::parse_arg(range_t range) {
     default: {
       // Any remaining character is an error.
       std::string msg = va_format("unrecognized type format code '%c'", type);
-      throw_error(begin, msg.c_str());
+      throw_error(range.begin, msg.c_str());
     }
   }
 
@@ -926,7 +935,13 @@ auto make_array_string(const fmt_t& fmt, const type_t& obj);
 
 template<typename type_t>
 auto stream_generic(fmt_t fmt, const type_t& obj, std::string& s) {
-  if constexpr(std::is_integral_v<type_t>) {
+  if constexpr(requires { static_cast<const char*>(obj); }) {
+    // Has a decay to const char*. Prefer this over std::string, because it's
+    // probably faster.
+    const char* p = static_cast<const char*>(obj);
+    stream_text(fmt, '<', p, strlen(p), s);
+
+  } else if constexpr(std::is_integral_v<type_t>) {
     // Use 'd' as the default integral format type.
     fmt.type = 'd';
     stream_integer(fmt, obj, s);
@@ -975,7 +990,10 @@ auto stream_generic(fmt_t fmt, const type_t& obj, std::string& s) {
 
   } else if constexpr(std::is_array_v<type_t> || 
     @is_class_template(type_t, std::vector) ||
-    @is_class_template(type_t, std::array)) {
+    @is_class_template(type_t, std::array) ||
+    @is_class_template(type_t, std::list) ||
+    @is_class_template(type_t, std::set) ||
+    @is_class_template(type_t, std::multiset)) {
 
     std::string s2 = make_array_string(fmt, obj);
     s += s2;
@@ -983,6 +1001,16 @@ auto stream_generic(fmt_t fmt, const type_t& obj, std::string& s) {
   } else if constexpr(@is_class_template(type_t, std::map)) {
     std::string s2 = make_map_string(obj);
     stream_text(fmt, '<', s2.c_str(), s2.size(), s);
+
+  } else if constexpr(@is_class_template(type_t, std::optional)) {
+    if(obj) {
+      // Recurse on the value.
+      stream_generic(fmt, *obj, s);
+
+    } else {
+      // Stream (null)
+      stream_text(fmt, '<', "(null)", 6, s);
+    }
 
   } else if constexpr(std::is_class_v<type_t>) {
     std::string s2 = make_class_string(obj);
@@ -1086,9 +1114,14 @@ auto stream_arg(arg_t<fmt_type, index, type_t> arg, std::string& s) {
 
   // Handle array types specially. This will preserve formatting options and 
   // apply them to elements.
-  @meta if(std::is_array_v<type_t> || 
+
+  @meta if((std::is_array_v<type_t> && 
+      !requires { static_cast<const char*>(arg.obj); }) || 
     @is_class_template(type_t, std::array) ||
-    @is_class_template(type_t, std::vector)) {
+    @is_class_template(type_t, std::vector) ||
+    @is_class_template(type_t, std::list) ||
+    @is_class_template(type_t, std::set) ||
+    @is_class_template(type_t, std::multiset)) {
 
     // Reserve 16 bytes per data member.
     s.reserve(s.capacity() + 16 * std::size(arg.obj));
@@ -1224,23 +1257,22 @@ auto format_text(const char* fmt, const args_t&... args) {
   @meta if(__arg.pack) {
     return cirfmt::make_pack<__arg.type, __arg.index>( 
       __arg.fmt,
-      cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
-      cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
+      ::cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
+      ::cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
       @expression(__arg.expr) ...
     ); 
 
   } else {
     return cirfmt::make_arg<__arg.type, __arg.index>( 
       __arg.fmt,
-      cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
-      cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
+      ::cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
+      ::cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
       @expression(__arg.expr)
     ); 
   }
 }
 
 @macro auto format(const char* __fmt) {
-
   @meta try {
     @meta ::cirfmt::fmt_builder_t __builder { __fmt };
     @meta __builder.parse();
