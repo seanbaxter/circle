@@ -1,6 +1,8 @@
 # The Circle format library
 
-The [printf format specifier](https://en.cppreference.com/w/cpp/io/c/fprintf) is universally-beloved. But printf has technical drawbacks, so C++ has long offered an alternative in iostreams. Iostreams is, however, universally-despised. [Boost.Format](https://www.boost.org/doc/libs/1_71_0/libs/format/doc/format.html) is a mature library that combines the familiar format specifiers with type-safe and memory-safe implementation. However, it was slow, like iostreams. More recently, [fmtlib](https://github.com/fmtlib/fmt) provides a more concise syntax and relieves the user from having to link against Boost. This served as the basis for the [C++20 format library](https://en.cppreference.com/w/cpp/utility/format).
+The [printf format specifier](https://en.cppreference.com/w/cpp/io/c/fprintf) is universally beloved. But printf has technical drawbacks, so C++ has long offered an alternative in iostreams. Iostreams is very bad, unfortunately. Many projects have tried to capture printf's magic in a C++ package.
+
+[Boost.Format](https://www.boost.org/doc/libs/1_71_0/libs/format/doc/format.html) is a mature library that combines the familiar format specifiers with type-safe and memory-safe implementation. However, it was slow, like iostreams. More recently, [fmtlib](https://github.com/fmtlib/fmt) provides a more concise syntax and relieves the user from having to link against Boost. This served as the basis for the [C++20 format library](https://en.cppreference.com/w/cpp/utility/format).
 
 As a way to understand Circle's metaprogramming features I threw together my own version of the format utility. This uses the same format-spec syntax as fmtlib, but embeds the arguments themselves into the format specifier string! It's like [Python f-strings](http://www.blog.pythonlibrary.org/2018/03/13/python-3-an-intro-to-f-strings/), but for C++.
 
