@@ -20,7 +20,7 @@ int main() {
   "shapes = {shapes}\n"_print;
 
   // Center the enum names and use '~' to fill.
-  "shapes = {:~^15:shapes}\n"_print;
+  "shapes = {shapes:~^15}\n"_print;
  
   // Use reflection to print all enum names in a loop.
   "Your enum names are:\n"_print;
@@ -34,7 +34,7 @@ int main() {
 
   // Use 12-character width and center. This applies to
   // each element in the pack expansion.
-  "enum names = {:^12:...@enum_names(shape_t)}\n"_print;
+  "enum names = {...@enum_names(shape_t):^12}\n"_print;
 
   return 0;
 }

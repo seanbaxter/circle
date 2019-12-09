@@ -569,7 +569,6 @@ struct fmt_builder_t {
 
   void parse();
 
-
   void throw_error(const char* pos, const char* error);
   void throw_error(int offset, const char* error);
 
@@ -753,8 +752,8 @@ inline result_t<format_arg_t> fmt_builder_t::parse_arg(range_t range) {
       ++range.begin;
       break;
 
-    case ':':
-      // Allow ':' to close the format specifier.
+    case '}':
+      // Allow '}' to close the format specifier.
       break;
 
     case 0:
@@ -796,32 +795,38 @@ inline void fmt_builder_t::parse() {
         format2.push_back('{');
 
       } else {
-        // A : starts a format specifier. But :: is a scope resolution
-        // operator on the expression.
+        // Each argument starts with the expression. 
+        // Use @parse_expression to get the 
+
+        // Match a pack-expansion operator.
+        bool is_pack = range.advance_if("...");
+
+        // Parse the expression. @parse_expression returns the number of 
+        // characters in an expression evaluation.
+        size_t count = @@parse_expression(range.begin);
+        std::string expr = std::string(range.begin, range.begin + count);
+        range.begin += count;
+
+        // Parse the format specifier.
         format_arg_t arg { };
-        if(range[1] != ':' && range.advance_if(':')) {
+        if(range.advance_if(':')) {
           // We have a format specifier.
           auto arg_ = parse_arg(range);
           range.advance(arg_);
           arg = std::move(arg_->attr);
-
-          if(!range.advance_if(':'))
-            throw_error(range.begin, "expected ':' to close format specifier");
         }
+
+        if(!range)
+          throw_error(range.begin, "unexpected end of format specifier");
+        else if(!range.advance_if('}'))
+          throw_error(range.begin, "expected '}' to close format specifier");
+
+        arg.pack = is_pack;
+        arg.expr = std::move(expr);
 
         // Insert this argument after these characters of the new format
         // specifier.
         arg.index = format2.size();
-
-        // Match a pack-expansion operator.
-        arg.pack = range.advance_if("...");
-
-        // Forward to the closing brace.
-        const char* closing = advance_brace(range);
-        arg.expr = { range.begin, closing - 1};
-        if(!arg.expr.size())
-          throw_error(range.begin, "expected expression in format specifier");
-        range.advance(closing);
 
         // Push this argument to the builder.
         args.push_back(std::move(arg));
@@ -1244,42 +1249,43 @@ auto format_text(const char* fmt, const args_t&... args) {
   return s;
 }
 
-@macro auto eval_integer(int __index, const std::string& __s) {
-  @meta if(__s.size()) {
-    return (int)@expression(__s);
+@mauto eval_integer(int index, const std::string& s) {
+  @meta if(s.size()) {
+    // Eval a width or precision specifier. Convert it to int.
+    return (int)@@expression(s);
 
   } else {
-    return __index;
+    return index;
   }
 }
 
-@macro auto eval_arg(const format_arg_t& __arg) {
-  @meta if(__arg.pack) {
-    return cirfmt::make_pack<__arg.type, __arg.index>( 
-      __arg.fmt,
-      ::cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
-      ::cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
-      @expression(__arg.expr) ...
+@mauto eval_arg(const format_arg_t& arg) {
+  @meta if(arg.pack) {
+    return cirfmt::make_pack<arg.type, arg.index>( 
+      arg.fmt,
+      eval_integer(arg.fmt.width, arg.width_expr),
+      eval_integer(arg.fmt.precision, arg.precision_expr),
+      @@expression(arg.expr) ...
     ); 
 
   } else {
-    return cirfmt::make_arg<__arg.type, __arg.index>( 
-      __arg.fmt,
-      ::cirfmt::eval_integer(__arg.fmt.width, __arg.width_expr),
-      ::cirfmt::eval_integer(__arg.fmt.precision, __arg.precision_expr),
-      @expression(__arg.expr)
+    return cirfmt::make_arg<arg.type, arg.index>( 
+      arg.fmt,
+      eval_integer(arg.fmt.width, arg.width_expr),
+      eval_integer(arg.fmt.precision, arg.precision_expr),
+      @@expression(arg.expr)
     ); 
   }
 }
 
-@macro auto format(const char* __fmt) {
+@mauto format(const char* fmt) {
   @meta try {
-    @meta ::cirfmt::fmt_builder_t __builder { __fmt };
-    @meta __builder.parse();
+    @meta fmt_builder_t builder { fmt };
+    @meta builder.parse();
 
-    return ::cirfmt::format_text<__builder.format2.size()>(
-      @string(__builder.format2),
-      ::cirfmt::eval_arg(@pack_nontype(__builder.args))...
+    return format_text<builder.format2.size()>(
+      @string(builder.format2),
+      eval_arg(@pack_nontype(builder.args))...
     );
 
   } catch(...) {
@@ -1293,21 +1299,21 @@ inline size_t write_f(FILE* f, const std::string& s) {
   return ::fwrite(s.c_str(), 1, s.size(), f);
 }
 
-@macro auto write(FILE* __f, const char* __fmt) {
-  ::cirfmt::write_f(__f, ::cirfmt::format(__fmt));
+@mauto write(FILE* f, const char* fmt) {
+  write_f(f, format(fmt));
 }
 
-@macro auto write(const char* __fmt) {
-  return ::cirfmt::write_f(::stdout, ::cirfmt::format(__fmt));
+@mauto write(const char* fmt) {
+  return write_f(::stdout, format(fmt));
 }
 
 
 } // namespace cirfmt
 
 // User-defined literal functions for yielding a std::string...
-@macro auto operator""_format(const char* __fmt, size_t) {
+@mauto operator""_format(const char* fmt, size_t) {
   @meta try {
-    return ::cirfmt::format(__fmt);
+    return cirfmt::format(fmt);
 
   } catch(...) {
     @meta throw;
@@ -1315,9 +1321,9 @@ inline size_t write_f(FILE* f, const std::string& s) {
 }
 
 // ... and for printing to stdout.
-@macro auto operator""_print(const char* __fmt, size_t) {
+@mauto operator""_print(const char* fmt, size_t) {
   @meta try {
-    return ::cirfmt::write(__fmt);
+    return cirfmt::write(fmt);
 
   } catch(...) {
     @meta throw;

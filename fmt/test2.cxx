@@ -13,16 +13,16 @@ int main() {
   "Default settings = {x}\n"_print;
 
   // Print the array in hexadecimal scientific notation.
-  "Hexadecimal array = {:a:x}\n"_print;
+  "Hexadecimal array = {x:a}\n"_print;
 
   // Print the array with width.precision specifiers. Center-justify the
   // numbers and fill the 11-character width with '*' characters.
-  "Fill and width/prec = {:*^11.2:x}\n"_print;
+  "Fill and width/prec = {x:*^11.2}\n"_print;
 
   // Print the array with dynamic width.precision specifiers.
   int y = 9;
   int z = 12;
-  "Dynamic width/prec = {:{y + 5}.{z / 4}:x}\n"_print;
+  "Dynamic width/prec = {x:{y + 5}.{z / 4}}\n"_print;
 
   // Initialize a linked list from the vector.
   std::list<double> w {
