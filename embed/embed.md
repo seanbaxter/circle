@@ -20,7 +20,7 @@ But I revisited it and it was a bit slow. It was, after all, breaking apart the 
 
 ## @embed 
 
-[thephd](https://twitter.com/thephantomderp) messaged me on Twitter [@seanbax](https://twitter.com/seanbax) about loading a file during source translation and yielding a constant array. I sent him a sample using `@array`, then really got to examine its performance. I made the change described above, turning `@array` into a utility that just copies bits instead of running the gauntlet of C++ semantic analysis. But how to explain the continued poor performance?
+[thephd](https://twitter.com/thephantomderp) messaged me on Twitter [(@seanbax)](https://twitter.com/seanbax) about loading a file during source translation and yielding a constant array. I sent him a sample using `@array`, then really got to examine its performance. I made the change described above, turning `@array` into a utility that just copies bits instead of running the gauntlet of C++ semantic analysis. But how to explain the continued poor performance?
 
 I volunteered to write an `@embed` keyword, not aware that he had been running his own [`std::embed` proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1040r4.html) for the past year and a half. But I immediately hit on the same idea as him, because it's a self-explanatory, narrowly-scoped, useful feature that should be [obvious](https://thephd.github.io/full-circle-embed) to anyone wanting to embed data from a file into a translation unit.
 
