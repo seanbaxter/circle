@@ -260,7 +260,45 @@ user  0m4.623s
 sys 0m0.151s
 ```
 
-It's actually a bit -lower than `std::vector`'s constructor! `memset` would run at full speed, so that won't slow you down. Would `std::fill` run fast or slow? I don't know. One thing specific features like `@embed` do are reduce uncertainty. I **know** `@embed` will run fast, because it only has fast code paths.
+It's actually a bit -lower than `std::vector`'s constructor! If we initialized an array of `char`s rather than `int`s it would be again 4x slower.
+
+`memset` would run at full speed, so that won't slow you down. Would `std::fill` run fast or slow? I don't know. One thing specific features like `@embed` do are reduce uncertainty. I **know** `@embed` will run fast, because it only has fast code paths.
+
+## This is not a preprocessor trick
+
+[**embed5.cxx**](embed5.cxx)
+```cpp
+#include <cstdio>
+
+// Load the file from a string non-type template parameter.
+template<const char filename[]>
+void do_shader() {
+  static const char text[] = @embed(char, filename);
+  printf("do_shader<%s> -> %zu bytes\n", filename, sizeof(text));
+}
+
+int main() {
+  do_shader<"embed1.cxx">();
+  do_shader<"embed2.cxx">();
+  do_shader<"embed3.cxx">();
+  do_shader<"embed4.cxx">();
+  do_shader<"embed5.cxx">();
+  return 0;
+}
+```
+```
+$ circle embed5.cxx
+$ ./embed5
+do_shader<embed1.cxx> -> 263 bytes
+do_shader<embed2.cxx> -> 1911 bytes
+do_shader<embed3.cxx> -> 2009 bytes
+do_shader<embed4.cxx> -> 2087 bytes
+do_shader<embed5.cxx> -> 423 bytes
+```
+
+Circle doesn't feature any preprocessor functionality beyond what C++ requires. Extensions like `@embed` operate during definition or instantiation (when an argument is dependent). This is really useful for programmatically injecting code or data into your translation unit.
+
+This sample uses string non-type template parameters to feed `@embed`. The file is loaded only once for each specialization and stored in a static object. You could decay this function to a pointer and stick it in a map to get dynamic lookup of these specializations from a runtime filename.
 
 ## What to do
 
@@ -275,4 +313,6 @@ It makes sense to augment the compiler with a _library of features_, that are im
 The design philosophy of Circle was to provide compile-time control flow, driven by data, allowing you to access information maintained by the compiler. Introspection works this way: use control flow to loop over members of a type, and at each step query the compiler for information about that member. It's only natural that a compiler with rich compile-time control flow would expose much more functionality from the compiler (as distinct from the core language itself), simply because the user could do more with it. Exposing more useful functionality with a compiler-provided library would really improve the programmer experience.
 
 As far as `@embed`, I'll clean some of the internals up (better deduplication, for example), and think about it for a while. Extending it to support a virtual file system, where you could point it at a folder, have it vacuum up the contents of that folder, and expose access to the contents through a literal would be useful. Additionally, patterns for pasing text files, CSV, XML, JSON, YAML and the other usual suspects into appropriate data structures that are accessible at both compile-time and runtime would be super useful. I've long been parsing JSON at compile using [JSON for Modern C++](https://github.com/nlohmann/json]), but the integration and performance leave room for improvement.
+
+Maybe Circle needs a runtime library. .NET, Java, Python and most producitivity languages ship with an extensive library. C++ ships with hardly anything, requiring the user to fend for themselves. A runtime library that was usable at the compiler (via foreign function calls, or, failing that, compiler extensions) would aid program expressiveness and help achieve some performance symmetry.
 
