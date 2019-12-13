@@ -302,7 +302,7 @@ This sample uses string non-type template parameters to feed `@embed`. The file 
 
 ## What to do
 
-I didn't try to make the interpreter fast, and I was successful in not making it fast. How much effort should be put into that? Probably as much as can be spared. But as more steps are taken to transform the AST into some optimizable graph, you depend more and more on heuristics to indicate if it's a worth-while optimization. These could certainly lead the interpreter astray. Additionally, this is C++ we're talking about optimizing, not a language with a narrow feature set like JavaScript. I don't think we should accept miracles in this direction.
+I didn't try to make the interpreter fast, and I was successful in not making it fast. How much effort should be put into that? Probably as much as can be spared. But as more steps are taken to transform the AST into some optimizable graph, you depend more and more on heuristics to indicate if it's a worth-while optimization. These could certainly lead the interpreter astray. Additionally, this is C++ we're talking about optimizing, not a language with a narrow feature set like JavaScript. I don't think we should hope for miracles of performance.
 
 For most stuff, a slow interpreter is fast. You may parse a configuration file of a few-dozen lines and you won't notice the throughput. But on collections of tens of millions of elements, you'll feel the pain.
 
