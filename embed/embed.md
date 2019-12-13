@@ -57,7 +57,7 @@ I generated a 50MB binary file of ints. Now to embed it. (Drumroll.)
 ```cpp
 #include <cstdio>
 
-inline const char* filename = "test_binary.data";
+const char* filename = "test_binary.data";
 const int data[] = @embed(int, filename);
 
 @meta printf("data has %zu bytes\n", sizeof(data));
