@@ -260,7 +260,7 @@ user  0m4.623s
 sys 0m0.151s
 ```
 
-It's actually a bit -lower than `std::vector`'s constructor! If we initialized an array of `char`s rather than `int`s it would be again 4x slower.
+It's actually a bit slower than `std::vector`'s constructor! If we initialized an array of `char`s rather than `int`s it would be again 4x slower.
 
 `memset` would run at full speed, so that won't slow you down. Would `std::fill` run fast or slow? I don't know. One thing specific features like `@embed` do are reduce uncertainty. I **know** `@embed` will run fast, because it only has fast code paths.
 
