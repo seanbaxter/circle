@@ -232,8 +232,8 @@ result_t match(state_t& state, it_t it, list_t<capture_end_t<index>, ts...>) {
 }
 
 // Given a compile-time node_t*, return the corresponding mtype.
-@macro auto lower_ast(node_t* p) {
-
+@mauto lower_ast(node_t* p) {
+  
   // Evaluate the types of the child nodes.
   @meta std::vector<@mtype> types { 
     lower_ast(@pack_nontype(p->children).get())... 
