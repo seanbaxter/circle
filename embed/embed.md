@@ -2,7 +2,7 @@
 
 `@embed` is a new extension in Circle that takes a file path, loads the named file, and yields a constant array with the file's data. Like a string literal, this may initialize an array object, or it may be decayed to a pointer.
 
-[ThePHD](https://twitter.com/thephantomderp) has been leading the charge for an embed extension with [P1040](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1040r4.html). He wrote up his experience with standardization and Circle in an amusing rant [here](https://thephd.github.io/full-circle-embed), with follow-up performance information here[](https://thephd.github.io/embed-the-details).
+[ThePHD](https://twitter.com/thephantomderp) has been leading the charge for an embed extension with [P1040](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1040r4.html). He wrote up his experience with standardization and Circle in an amusing rant [here](https://thephd.github.io/full-circle-embed), with follow-up performance information [here](https://thephd.github.io/embed-the-details).
 
 ## @embed usage
 
