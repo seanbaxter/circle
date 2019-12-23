@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <vector>
 
-const int size = 12'500'000;
+const int size = 50; //12'500'000;
 
 int main() {
   std::vector<int> data(size);

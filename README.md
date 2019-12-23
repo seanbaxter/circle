@@ -29,6 +29,6 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Spaceship operator](spaceship/spaceship.md)  
 [F#-style type providers in Circle](type_provider/type_provider.md)  
 [Video - Circle compiler walkthrough](https://www.youtube.com/watch?v=1m_5SVmGA4k)  
-  **NEW**  [Compile-time regular expressions](regex/regex.md)  
-  **NEW**  [The Circle format library](fmt/fmt.md)  
-  
+[Compile-time regular expressions](regex/regex.md)  
+[The Circle format library](fmt/fmt.md)  
+**NEW** [File @embed and a compile-time design dilemma](embed/embed.md)  
