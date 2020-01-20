@@ -17,7 +17,7 @@ void print_typed_enum() {
 
   std::cout<< 
     std::setw(30)<< std::left<< 
-    @decl_string(@enum_types(type_t), @enum_names(type_t))<< " : "<<
+    @enum_decl_strings(type_t)<< " : "<<
     (int)@enum_values(type_t)<< "\n" ...;
 }
 
@@ -27,7 +27,7 @@ int main() {
   // Try this in a non-dependent context.
   std::cout<< 
     std::setw(30)<< std::left<< 
-    @decl_string(@enum_types(my_list_t), @enum_names(my_list_t))<< " : "<<
+    @enum_decl_strings(my_list_t)<< " : "<<
     (int)@enum_values(my_list_t)<< "\n" ...;
   std::cout<< "\n";
 
