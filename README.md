@@ -31,4 +31,5 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 [Video - Circle compiler walkthrough](https://www.youtube.com/watch?v=1m_5SVmGA4k)  
 [Compile-time regular expressions](regex/regex.md)  
 [The Circle format library](fmt/fmt.md)  
-**NEW** [File @embed and a compile-time design dilemma](embed/embed.md)  
+[File @embed and a compile-time design dilemma](embed/embed.md)  
+**NEW** [List comprehensions, slices, ranges, for-expressions, functional folds and expansion expressions](comprehension/comprehension.md)  
