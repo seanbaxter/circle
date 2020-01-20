@@ -96,7 +96,7 @@ std::vector<int> a { 5, 3, 1, 4, 2, 3, 5, 1 }, b { 2, 1, 4, 6, 2, 0, 9, 5 };
 int sum = (... + a[:]);
 int greater = (... + (int)(a[:] > b[:]));
 bool has_equal = (... || (a[:]==b[:]));
-int max = (... + std::max a[:]);
+int max = (... std::max a[:]);
 ```
 
 Circle also extends _fold-expressions_ to participate in dynamic pack expansion. We can provide a binary operator or two-parameter function and iteratively apply it to each element in the dynamic pack expression, reducing the results into the initializer object. `sum` simply adds up all the elements in a. `greater` compares each pair of elements, and increments the counter when the comparison is true. `has_equal` is set to true if any corresponding elements have the same value. `max` holds the largest value in `a`.
