@@ -25,9 +25,9 @@
   a. [Convert a range comprehension to a vector](#convert-a-range-comprehension-to-a-vector)  
 1. [Points of evolution](#points-of-evolution)  
 
-Circle adds a new property to all expressions: the _dynamic pack_ property. They resemble _static packs_ (such as those bound to variadic template parameters), in that they are lazily threaded through enclosing expressions, and are expanded with the `...` token. Dynamic packs, however, represent entities with dynamic sizes, and expansion causes the generation of implicit loops.
+Circle adds a new property to all expressions: the _dynamic pack_ property. Dynamic packs resemble _static packs_ (such as those bound to variadic template parameters) in that they are lazily threaded through enclosing expressions and are expanded with the `...` token. Dynamic packs, however, represent entities with dynamic sizes, and expansion causes the generation of implicit loops.
 
-This new property enables a host of powerful features, capabilities that productivity languages like Python and Matlab, as well as functional languages, have had for decades. C++ has never implemented these features, and they haven't been part of the C++ user's consciousness, because C++ has stayed away from adding features with a dynamic runtime component. That is, most C++ features added after the 1980s have involved only the compiler front-end. Top-line features like class inheritance, templates, parameter packs, lambda functions, type inference, modern value categories and concepts/requires-clauses don't generate code at runtime; instead they offer to reshape C++ source code to more concisely generate the same kind of executable.
+The dynamic pack property enables powerful features that productivity languages like Python and Matlab, as well as many functional languages, have offered for decades. C++ has never implemented these features, and they haven't been part of the C++ user's consciousness, because C++ has stayed away from adding features with a dynamic runtime component. That is, most C++ features have enhanced only the compiler front-end, and kept code-generation capability that doesn't deviate much from that of C. Top-line features like class inheritance, templates, parameter packs, lambda functions, type inference, modern value categories and concepts/requires-clauses don't generate code at runtime; instead they offer to reshape C++ source code to more concisely generate the same kind of executable.
 
 C++ has incorporated a couple of dynamic features, but only virtual functions (the cheapest of these features) and exception handling are widely used. RTTI and virtual inheritance have high costs, low utility, and feel unidiomatic and weird. None of these dynamic features are at the heart of the C++ user experience.
 
@@ -38,7 +38,7 @@ std::vector<int> v { 5, 3, 1, 4, 2, 3, 5, 1 };
 printf("%d\n", v[:])...;
 ```
 
-This code prints all elements in a vector container, each on their own line. `...` is a pack expansion, so it needs to operate on a pack. In this case, `printf("%d\n", v[:])` is a _pack expression_, and `v[:]` is a _pack generator_. `[:]` is a _slice operator_, which transforms the contents of an array or STL container into a dynamic parameter pack.
+This code prints all elements in a vector container, each element on its own line. `...` is a pack expansion, so it needs to operate on a pack expression. In this case, `printf("%d\n", v[:])` is a _pack expression_, and `v[:]` is a _pack generator_. `[:]` is a _slice operator_, which transforms the contents of an array or STL container into a dynamic parameter pack.
 
 Similarly to Python, the slice operator takes three optional arguments:
 * **begin** - a signed value indicating where to start sampling the container. When negative, the index counts from the end of the container. -1 points to one past the last element.
@@ -50,7 +50,7 @@ std::vector<int> v { 5, 3, 1, 4, 2, 3, 5, 1 };
 printf("%d\n", v[::-1])...;
 ```
 
-This code prints all elements in reverse order. If the step is positive (or not specified), the begin and end indices default to 0 and -1, respectively. If the step is negative, the begin and end indices default to -1 and 0. The above slice is shorthand for `v[-1:0:-1]`. 
+This code prints all elements in reverse order. If the step is positive (it defaults to 1 when not specified), the begin and end indices default to 0 and -1, respectively. If the step is negative, the begin and end indices default to -1 and 0. The above slice is shorthand for `v[-1:0:-1]`. 
 
 ```cpp
 std::vector<int> v { 5, 3, 1, 4, 2, 3, 5, 1 };
@@ -64,16 +64,14 @@ std::vector<int> a { 5, 3, 1, 4, 2, 3, 5, 1 }, b { 2, 1, 4, 6, 2, 0, 9, 5 };
 a[:] = 3 * a[:] + b[:] ...;
 ```
 
-This statement replaces each element in `a` with the element-wise computation `3 * a + b`. Note that `std::vector` itself doesn't overload operators * or +. Circle's list comprehension doesn't operate on the containers. It operates on the elements themselves. The result object of the slice expression `a[:]` is `lvalue int`, so we can apply any builtin operator on the slice, or call any function on it. The magic that enables dynamic loop generation is in the dynamic pack bit.
+This statement replaces each element in `a` with the element-wise computation `3 * a + b`. Note that `std::vector` itself doesn't overload operators * or +. Operations on pack expressions transform not the containers but the elements themselves. The result object of the slice expression `a[:]` is `lvalue int`, so we can apply any builtin operator on the slice, or call any function on it. The magic that enables dynamic loop generation is in the dynamic pack bit.
 
 ```cpp
 std::vector<int> v { 5, 3, 1, 4, 2, 3, 5, 1 };
 std::vector<int> v2 = [ v[::-1]... ];
 ```
 
-As in Python, square brackets are form a list comprehension expression. The result object has type `std::vector`, where the template argument of the vector is inferred from the type of the elements in the list. `v[::-1]` is a pack expression, and we expand it into a compiler-generated dynamic loop with the `...` pack expansion token.
-
-At runtime, the executable initializes a vector, reserves memory, and expands the dynamic pack into the container.
+As in Python, square brackets form a list comprehension expression. The result object has type `std::vector<T>`, where the argument T is inferred from the type of the elements in the list. List comprehensions provide expansion loci for dynamic packs, so we can expand the contents of `v` into `v2`. At runtime, the executable initializes a vector, reserves memory, and expands the dynamic pack into the container.
 
 ```cpp
 std::vector<int> a { 5, 3, 1, 4, 2, 3, 5, 1 }, b { 2, 1, 4, 6, 2, 0, 9, 5 };
@@ -87,7 +85,7 @@ std::vector<int> a { 5, 3, 1, 4, 2, 3, 5, 1 }, b { 2, 1, 4, 6, 2, 0, 9, 5 };
 std::set<int> c = [ 3 * a[:] + b[:]... ];
 ```
 
-Here we initialize an `std::set` with the same set of values. The result object of the list comprehension is `std::vector<int>`. `std::set<int>` doesn't have a constructor that takes a vector, so we would expect a compiler error. Circle list comprehensions, however, implicitly convert to `std::initializer_list` when they fail to initialize the left-hand side. The data in the vector serves as backing store for the `std::initializer_list`, which is simply a pointer into the vector and a count (that is, `vec.data()` and `vec.size()`). This implicit conversion lets us initialize or assign to any STL or user-defined container with an `std::initializer_list` constructor or assignment operator. The vector that holds the list comprehension is freed at the end of the initialization, since that storage is no longer required (the container having copied the initializer list into its internal data format).
+Here we initialize an `std::set` with the results of an expansion. The result object of the list comprehension is `std::vector<int>`. As `std::set<int>` doesn't have a constructor that takes a vector, we'd normally expect a compiler error. Circle list comprehensions, however, implicitly convert to `std::initializer_list` when they fail to initialize the left-hand side. The data in the vector serves as backing store for the `std::initializer_list`, which is simply a pointer into the vector and a count (that is, `vec.data()` and `vec.size()`). This implicit conversion lets us initialize or assign to any STL or user-defined container equiped with an `std::initializer_list` constructor or assignment operator. The vector that holds the list comprehension is freed at the end of the initialization, since that storage is no longer required (the container having copied the initializer list into its internal data format).
 
 Uniform initialization in Standard C++ is incomplete. The `std::initializer_list` type itself is dynamic--the length of the structure is stored in an opaque data member; it's not part of the type. But Standard C++ does nothing to exploit this dynamicness of size! The only way to generate an `std::initializer_list` is with braced initializers, and those only support a static count of elements. Why? Well, Standard C++ doesn't like features that make heap allocations, and that's what's required to allocate backing store when the number of elements in an initializer list is not known at compile time.
 
@@ -101,7 +99,7 @@ bool has_equal = (... || (a[:]==b[:]));
 int max = (... + std::max a[:]);
 ```
 
-Circle also extends fold-expressions to participate in dynamic pack expansion. We can provide a binary operator or two-parameter function and iteratively apply it to each element in the dynamic pack expression, reducing the results into the initializer object. `sum` simply adds up all the elements in a. `greater` compares each pair of elements, and increments the counter when the comparison is true. `has_equal` is set to if any corresponding elements have the same value. `max` holds the largest value in `a`.
+Circle also extends _fold-expressions_ to participate in dynamic pack expansion. We can provide a binary operator or two-parameter function and iteratively apply it to each element in the dynamic pack expression, reducing the results into the initializer object. `sum` simply adds up all the elements in a. `greater` compares each pair of elements, and increments the counter when the comparison is true. `has_equal` is set to true if any corresponding elements have the same value. `max` holds the largest value in `a`.
 
 We don't have to write any loop. We don't have to call any STL algorithm. We can express our reduction using an existing but under-utilized syntax.
 
@@ -153,7 +151,7 @@ int main() {
 }
 ```
 ```
-$ circle ranges/iterate.cxx  && ./iterate 
+$ circle iterate.cxx  && ./iterate 
 50 30 10 40 20 30 50 10 
 50 30 10 40 20 30 50 10 
 10 50 30 20 40 10 30 50 
@@ -164,19 +162,19 @@ Circle: greater than 4? true
  8  5  5  6 
 ```
 
-Circle's dynamic packs are about vectorizing operations over collections. C++ recognizes the power of these vectorized expressions, so it first introduced STL algorithms that take predicate objects to carry logic from the user to the library; then C++11 added lambda expressions to ease the creation of funciton objects; then C++20 added ranges to make the algorithms more composable. These features all paper over a fundamental problem: C++ doesn't let the user directly express their intent. 
+Circle's dynamic packs are about vectorizing operations over collections. C++ recognizes the power of these vectorized expressions, so it first introduced STL algorithms that take predicate objects to carry logic from the user to the library. C++11 added lambda expressions to ease the creation of funciton objects. C++20 added ranges to make the algorithms more composable. These features all paper over a fundamental problem: C++ doesn't let the user directly express their intent. 
 
-* Why should the user have to choose an option from a menu of algorithms then wrap their logic in a lambda? Lambda closure involves a lot of tricky side-effects, which are avoided by the pack expansion approach.
+* Why should the user have to choose an option from a menu of algorithms then wrap their logic in a lambda? Lambda closure involves making a lot of subtle decisions, which are all avoided when using the dynamic pack expansion approach.
 * Why introduce algorithms that have a fixed interface then require the user to conform to this interface by means of programmable iterators?
 * Why must we rely on libraries to emulate functionality that has been built into Fortran, Matlab, Python and other languages for decades?
 
-C++11's parameter packs showed us the way forward: add a pack flag to each expression in the language, allowing lazy evaluation and a loop over all elements once the enclosing expansion ellipsis is struck. Circle extends the parameter pack to not just static containers of objects, but dynamic ones too.
+C++11's parameter packs showed us the way forward: add a pack flag to each expression in the language, allowing lazy evaluation and a loop over all elements once the enclosing expansion ellipsis is struck. Circle extends the parameter pack philosophy past simple template parameter packs and onto containers with dynamic data.
 
 Circle's first cut into dynamic packs adds features that break down in three composable categories:
 
 ## 1. Dynamic pack generators
 
-Special operators yield dynamic pack expressions. The slice operator, `[:]`, yields a pack over the contents of an array or STL container. Expressions involving dynamic pack expressions are themselves dynamic pack expressions. For example, `sq(x[:] + 1)` is a pack expression--the result of adding a pack with a non-pack is a pack, and passing a pack as a function argument makes the result object a pack. This is the same logic as static parameter packs in C++11.
+Special operators yield dynamic pack expressions. The slice operator, `[:]`, yields a pack over the contents of an array or STL container. Expressions involving dynamic pack expressions are themselves dynamic pack expressions. For example, `sq(x[:] + 1)` is a pack expression--the result of adding a pack with a non-pack is a pack, and passing a pack as a function argument makes the result object of the function call a pack. This is the same logic as static parameter packs in C++11.
 
 Dynamic packs, as with their parameter pack predecessors, must be expanded. Dynamic pack expansion generates an implicit runtime loop over each element in the sequence.
 
@@ -307,7 +305,7 @@ int main() {
 }
 ```
 
-Why query `size` on each slice rather than using a `begin != end` predicate like ranged _for-statetment_? We to generate fast code, and computing an expansion count lets us get away with evaluating just a single predicate expression to enter each loop step, no matter how complex the expression. This code is precise, but verbose. Circle's generate this code for you from compact dynamic pack syntax.
+Why query `size` on each slice rather than using a `begin != end` predicate like ranged _for-statetment_? We want to generate fast code, and computing an expansion count lets us get away with evaluating just a single predicate expression to enter each loop step, no matter how complex the expression. This code is performant but verbose. Circle generate this code for you from a concise dynamic pack syntax.
 
 ### a. Slice expressions
 
@@ -363,19 +361,17 @@ Hellodlrow
 HLOWRDel ol
 ```
 
-Slices are implicitly sized by querying the `size` member function on the container. After adjusting by the `begin` and `end` indices, the size is divided by `step`, yielding a slice element count. The length of the dynamic loop generated at the expansion locus is the minimum of each of the slice counts. This conveniences relieves us from having to over-specify ranges, as they can be cooperatively inferred.
+Slices are implicitly sized by querying the `size` member function on the container. After adjusting by the `begin` and `end` indices, the size is divided by `step`, yielding a slice element count. The length of the dynamic loop generated at the expansion locus is the minimum of each of the slice counts. This convenience relieves us from having to over-specify ranges, as they can be cooperatively inferred.
 
 When the step counter is positive, the begin index is _inclusive_ and the end index is _exclusive_. That is, `v[5:10:1]` visits elements 5 through 9, but not 10. 
 
 Negative step counters change the slice semantics in an important way. Here, the begin index is _exclusive_ and the end index is _inclusive_. This differs from the Python convention for extended slice operators, which is defective in that it provides no way to address the full range of a container using a negative step index. `v[10:0:-1]` visits elements 9 through 0 in descending order.
 
-Negative begin and end indices indicate steps from the end of the container. -1 means one past the last element in the container, which corresponds with the `.end()` accessor in STL containers. `v[0:-1:1]` visits all members in the container in forward order: -1 codes to one past the last element, and since (for positive steps) the end index is exclusive, we visit the last element, but not further.
+Negative begin and end indices indicate steps from the end of the container. -1 means one past the last element in the container, which corresponds with the `.end()` accessor in STL containers. `v[0:-1:1]` visits all members in the container in forward order: -1 codes to one past the last element, and since (for positive steps) the end index is exclusive, we visit the last element, but no further.
 
-`v[-1:0:-1]` visits all members in the container in reverse order. -1 codes to one past the the last element. When the step size is negative, the begin index is exclusive, so expansion actually starts at the last element and containers towards decreasing indices. Python has the wrong inclusive/exclusive treatment of indices for negative step sizes, creating an addressing singularity.
+`v[-1:0:-1]` visits all members in the container in reverse order. -1 codes to one past the the last element. When the step size is negative, the begin index is exclusive, so expansion actually starts at the last element and continues on towards decreasing indices. Python has the wrong inclusive/exclusive treatment of indices for negative step sizes, creating an addressing singularity.
 
-It's critical to understand that a slice by itself does not create a temporary object. The result object of a slice expression is the result object of `*v.begin()`, which is usually an lvalue expression of the container's type. You can incorporate this result object into a larger expression like you would any other entity in C++: type and value category conversions operate as expected, you can take the address of the lvalue, you can pass it to other functions, and so on. Only when you hit the expansion locus `...` does the expression get realized into code. Expansion in a fold expression reduces the range expression into a single value. Expansion in a list comprehension constructs an `std::vector`. Expansion in an expression statement converts to void (discarding the result object) and generates an implicit loop over each slice element.
-
-The slice expression `v[v.size()/2:]` indicates the second-half subset of elements in v, but by itself does not construct a vector of those elements. No dynamic memory is allocated at this point; the operation is entirely lazy. Only at expansion is storage allocated and the vector created: `[v[v.size()/2:]...]`. If the slice expression is expanded in a fold expression, no dynamic memory is allocated at all--the collection is reduced into a single item.
+It's critical to understand that a slice by itself does not create a temporary object. The result object of a slice expression is the result object of `*v.begin()`, which is usually an lvalue expression of the container's type. You can incorporate this result object into a larger expression like you would any other entity in C++: type and value category conversions operate as expected; you can take the address of the lvalue, you can pass it to other functions, and so on. Only when you hit the expansion locus `...` does the expression get realized into code. Expansion in a fold expression reduces the range expression into a single value. Expansion in a list comprehension constructs an `std::vector`. Expansion in an expression statement converts to void (discarding the result object) and generates an implicit loop over each slice element.
 
 ### b. The `@range` operator
 
@@ -447,14 +443,14 @@ The range operator uses the same `begin:end:step` syntax as slices, but as it pu
 
 ### c. For-expressions
 
-A streamlined take on the ranged _for-statement_, which may be used from list comprehensions or fold expressions. This allows us to bind a declaration to each step in a loop, add an optional filter (with an _if-clause_), and emit elements to the consumer.
+A streamlined take on the ranged _for-statement_, which may be used from list comprehensions or fold expressions. This allows us to bind a declaration to each step in a loop, add an optional filter (with an _if-clause_), and emit elements to the dynamic pack consumer.
 
 ```
 for-expression:
   for [index-name, ] [ref-qual] [decl-name | [structured-binding] ] : for-initializer [if condition] => body
 ```
 
-The _for-expression_'s syntax is rather more Pythonic than the syntax for ranged a _for-statement_. The parentheses are dropped, because they aren't needed. The type-specifier is dropped, and the placeholder type `auto` is assumed. An optional _ref-qualifier_ `&` or `&&` binds a reference to the initializer rather than an object type. A colon separates the loop declaration from its initializer. Following on the initializer's heels is an optional _filter_, introduced with the `if` keyword. The fat arrow `=>` should be read "then." That introduces the body of the _for-expression_.
+The _for-expression_'s syntax is rather more Pythonic than the syntax for ranged a _for-statement_. The parentheses are dropped, because they aren't needed. The type-specifier is dropped, and the placeholder type `auto` is assumed. An optional _ref-qualifier_ `&` or `&&` binds a reference to the initializer rather than an object type. A colon separates the loop declaration from its initializer. Following on the initializer's heels is an optional _if-filter_, introduced with the `if` keyword. The fat arrow `=>` should be read "then." That introduces the body of the _for-expression_.
 
 The _for-expression_ supports an optional index name. This corresponds exactly to the [enumerate](https://docs.python.org/3/library/functions.html#enumerate) function in Python 3. It yields the slice index along with the slice result object at each step.
 
@@ -507,9 +503,9 @@ Creating a vector of vectors:
 [ 3 3 3 ]
 [ 4 4 4 4 ]
 ```
-A list comprehension is composed of one or more _initializer-clauses_, and any of those clauses may be an expanded range expression or expanded _for-expression_. The `s2` example expands a _for-expression_ between two asterisks. The attached filter only emits the body expression if the character is lower case. In the `s3` example, a sequence modifier emits a pair of characters into the list comprehension. `s4` is constructed by emitting a sequence with both uppercase and lowercase versions of the iterated character into the list. Finally, `s5` uses an index to alternate lower and uppercase characters on even and odd steps.
+A list comprehension is composed of one or more _initializer-clauses_, and any of those clauses may be an expanded range/slice expression or expanded _for-expression_. The `s2` example expands a _for-expression_ between two asterisks. The attached filter only emits the body expression if the character is lower case. In the `s3` example, a sequence modifier emits a pair of characters into the list comprehension. `s4` is constructed by emitting a sequence with both uppercase and lowercase versions of the iterated character into the list. Finally, `s5` uses an index to alternate lower and uppercase characters on even and odd steps.
 
-As with slices, keep in mind that _for-expressions_ are lazy. The result object of the body is only evaluated from a loop generated by the compiler at the expansion locus. _for-expressions_ are more constrained than other kinds of expressions. Their expansion locus is always immediately following the loop's body, on the same level as the `for` keyword. This prevents confusing uses of _for-expressions_, like usages that appear as function arguments and expansions outside the function call. That capability is still available, but the _for-expression_ machinery to the left of the body must be coordinated with the ellipsis token on the right.
+As with slices, keep in mind that _for-expressions_ are lazy. The result object of the body is only evaluated from a loop generated by the compiler at the expansion locus. _for-expressions_ are more constrained than other kinds of expressions. Their expansion locus is always immediately following the loop's body, on the same level as the `for` keyword. This prevents confusing uses of _for-expressions_, like occurrences as function arguments, or expansions outside the function call. That capability is still available, but the _for-expression_ machinery to the left of the body must be coordinated with the ellipsis token on the right.
 
 ## 2. Dynamic pack consumers
 
@@ -629,7 +625,7 @@ int main() {
 }
 ```
 
-Expansion expressions are big time-savers. Not only do they make the loop implicit, but the contained slices perform the intricate index calculations that are a common source of errors in imperative programming. The implicit loop visits only those elements that are defined across each slice in the expression. The statement `v[1:] += v[:]...` to perform a prefix scan, for example, starts at index 1 on the left-hand side and 0 on the right-hand side. Therefore, the left-hand side slice has one fewer element, so the implicit loop count is adjusted to `v.size()-1` to prevent out-of-bounds access violations.
+Expansion expressions are real time savers. Not only do they make the loop implicit, but the contained slices perform the intricate index calculations that are a common source of errors in imperative programming. The implicit loop visits only those elements that are defined across each slice in the expression. The statement `v[1:] += v[:]...` to perform a prefix scan, for example, starts at index 1 on the left-hand side and 0 on the right-hand side. Therefore, the left-hand side slice has one fewer element, so the implicit loop count is adjusted to `v.size()-1` to prevent out-of-bounds access violations.
 
 The slices are a big improvement on ranged _for-statements_, providing begin and end indices as well as a step count and direction, for any number of containers simultaneously.
 
@@ -683,7 +679,7 @@ $ ./list_comp
 
 This example file shows how to nest multiple _for-expressions_ to generate a complex list. `v2`'s initializer uses nested loops plus a filter to select the odd elements of the input, then emit that value that many times into the list. Note the two expansion tokens: the first belongs to the inner loop, and the second to the outer loop.
 
-In `v3` the _take-clause_ `| 10` limits the length of the list. As soon as that length is hit, list comprehension is complete and both loops immediately exit. The _take-clause_ is a _modifier_ for list comprehension. The result object of list comprehension is `std::vector`, and that type has few overloaded operators, so the compiler reserves bitwise OR to specify the max list length. There is plenty of symbol space remaining for repetitions, set operations, and the like.
+In `v3` the _take-clause_ `| 10` limits the length of the list. As soon as that length is hit, list comprehension is complete and both loops immediately exit. The _take-clause_ is a _modifier_ for list comprehension. The result object of list comprehension is `std::vector`, and that type has few overloaded operators, so the compiler reserves `operator |` to specify the max list length. There is plenty of symbol space remaining for repetitions, set operations, and the like.
 
 [**locus2.cxx**](locus2.cxx)
 ```cpp
@@ -730,7 +726,7 @@ m2:
 ]
 ```
 
-The _for-expression_ includes includes own expansion locus for the expression in the body. To help nail down syntax, you are obligated to expand the _for-expression_ in the same syntactic level in which its expressed, and not in an enclosing level. This does not reduce the expressiveness of the construct. This example use _for-expressions_ in list comprehension with two different expansion loci: the first puts all five elements in the inner vector; the second creates five vectors with one element each. Since list comprehension is an ordinary expression yielding a prvalue vector, it can be used as the body of the latter _for-expression_, so that each iteration of the loop yields a single-element vector.
+The _for-expression_ prompts its own expansion locus for the expression in the body. To help nail down syntax, you are obligated to expand the _for-expression_ at the same syntactic level in which its written, and not in an enclosing level. This does not reduce the expressiveness of the construct. This example use _for-expressions_ in list comprehension with two different expansion loci: the first puts all five elements in the inner vector; the second creates five vectors with one element each. Since list comprehension is an ordinary expression yielding a prvalue vector, it can be used as the body of the latter _for-expression_, so that each iteration of the loop yields a single-element vector.
 
 ### c. Functional fold expressions
 
@@ -868,7 +864,7 @@ The fold expression is a simple inner product with between the odd constants in 
 
 ### d. For-range-initializers
 
-One surprising consumer of dynamic pack expressions (just those resulting from range/slice operators, not _for-expressions_) is range-based _for-statements_ and _for-expressions_. This usage binds the loop's declaration to the dynamic pack's result object at each step. It allows the user to _drain_ a container in an order specified by the extended slice notation. This patches a deficiency in Standard C++, where ranged _for-statements_ aren't capable of anything other than a complete left-to-right visitation of the container. Slices make it easy to start somewhere else, end somewhere else, skip elements and run backwards.
+One surprising consumer of dynamic pack expressions (just those resulting from range/slice operators, not _for-expressions_) is range-based _for-statements_ and _for-expressions_. This usage binds the loop's declaration to the dynamic pack's result object at each step. It allows the user to _drain_ a container in an order specified by the extended slice notation. This patches a deficiency in Standard C++, where ranged _for-statements_ aren't capable of anything other than a complete left-to-right visitation of the container. Slices make it easy to start somewhere specific, end somewhere specific, skip elements or run backwards.
 
 [**range_for.cxx**](range_for.cxx)
 ```cpp
@@ -920,19 +916,17 @@ $ ./range_for
 7 4 5 4 1 9 17 
 ```
 
-Slices add crucial indexing capability to ranged for loops. _for-expression_ also binds to these _for-range_initializers_. What's interesting is that we can bind not only to the lvalue returned by the slice expression, but to the the result object of any expression at all. The final example binds to the sum of consecutive elements from an array, which is a `prvalue int` result object. This prvalue initializers tha loop's declaration `x`, and it's the loop machinery associated with the dynamic pack expansion that drives the loop, not the loop machinery of the traditional ranged _for-statement_.
+Slices add crucial indexing capability to ranged for loops. _for-expression_ also binds to these _for-range_initializers_. What's interesting is that we can bind not only to the lvalue returned by the slice expression, but to the the result object of any expression at all. The final example binds to the sum of consecutive elements from an array, which is a `prvalue int` result object. This prvalue initializes that loop's declaration `x`, and it's the loop machinery associated with the dynamic pack expansion that drives the loop, not the loop machinery of the traditional ranged _for-statement_.
 
 ## 3. Modifiers
 
-Dynamic packs benefit from syntax that modifies an expansion or comprehension. The _take-clause_ in list comprehension is one example--it dynamically cuts off construction of a list after a certain length is reached. As new challenges arise, additional modifiers will be introduced to help achieve one's goals while mitigating pain of programming.
-
-The only current notable modifier is the sequence.
+Dynamic packs benefit from syntax that modifies an expansion or comprehension. The _take-clause_ in list comprehension is one simple example--it dynamically cuts off construction of a list after a certain length is reached. As new challenges arise, additional modifiers will be introduced to help achieve one's goals while mitigating pain of programming.
 
 ### a. Sequences
 
-One of the complaints against C++ ranges is that extreme cleverness is required to realize even simple goals. This [detailed blog post](https://www.fluentcpp.com/2019/09/13/the-surprising-limitations-of-c-ranges-beyond-trivial-use-cases/) recounts the author's quest to use ranges to intersperse each element in a collection with a scalar. That is, transform a collection { x0, x1, x2, x3 } into a collection { x0, q, x1, q, x2, q, x3 }. There's a really intricate discussion on this page about the internals and interfacial requirements of range-v3, which necessarily districts from allowing the programmer to simply think about a solution.
+One of the complaints against C++ ranges is that extreme cleverness is required to realize even simple goals. This [detailed blog post](https://www.fluentcpp.com/2019/09/13/the-surprising-limitations-of-c-ranges-beyond-trivial-use-cases/) recounts the author's quest to use ranges to intersperse a scalar between each element in a collection. That is, transform a collection { x0, x1, x2, x3 } into a collection { x0, q, x1, q, x2, q, x3 }. There's a really intricate discussion on this page about the internals and interfacial requirements of range-v3, which necessarily districts from allowing the programmer to simply think about a solution.
 
-The sequence is a syntactic construct that resembles an initializer list: it's a brace pair with a list of one or expressions. But it must be stated inside a list comprehension or in the body of a _for-expression_. In these contexts, it is _not_ a braced initializer for uniform initialization. The actual type of the `std::vector` that the list comprehension returns is only discovered via array type deduction, after each list comprehension element is defined. Therefore, list comprehension doesn't support braced initializers, and this syntax is interpreted instead as a sequence of elements to be inserted.
+The Circle dynamic pack _sequence_ is a syntactic construct that resembles an initializer list: it's a brace pair with a list of one or expressions. But it must be stated inside a list comprehension or in the body of a _for-expression_. In these contexts, it is _not_ a braced initializer for uniform initialization. The actual type of the `std::vector` that the list comprehension returns is only discovered via array type deduction, after each list comprehension element is defined. Therefore, list comprehension doesn't support braced initializers, and this syntax is interpreted instead as a sequence of elements to be inserted. In short, it groups together multiple elements to emit into a list comprehension.
 
 [**sequences.cxx**](sequences.cxx)
 ```cpp
@@ -987,7 +981,7 @@ HWehlalto' sw onrelwd?
 
 ## Static slice expressions
 
-After implementing slice expressions yielding dynamic types, I backported this feature to template parameter packs. The static slice operator lets us expand template parameter packs in forward or reverse order, with optional begin, end and step indices.
+After implementing slice expressions yielding dynamic types, I backported the slice operator to template parameter packs. The static slice operator lets us expand template parameter packs in forward or reverse order, with optional begin, end and step indices.
 
 [**slice2.cxx**](slice2.cxx)
 ```cpp
@@ -1092,9 +1086,9 @@ Reverse-order pack slices with ...[begin:end:step]:
 
 Circle adds capability to expand static pack expressions with `...` at the end of an expression statement. Any expression built around a reference to a template parameter or variadic function template parameter inherits that static pack bit, and carries it through until the expansion locus. This triggers template substitution, and each element is instantiated in a loop. `func1` uses an expansion expression to print the contents of a non-type parameter pack, a type parameter pack (formatting the types as strings) and variadic function template parameters.
 
-From its earliest incarnations Circle has included a `...[]` operator for subscripting template parameter packs. The @meta for loop generates compile-time indices for iteratively indexing packs.  `func2` loops in reverse order, plucking out each pack element and printing it.
+From its earliest incarnations Circle has included a `...[index]` operator for subscripting template parameter packs. The @meta for loop generates compile-time indices for iteratively indexing packs.  `func2` loops in reverse order, plucking out each pack element and printing it.
 
-`func3` is the best of both approaches. It is concise, because it uses an expansion expression instead of a for loop to visit the pack. It is flexible, because it uses the static slice operator `...[begin:end:step]` in order to specify reverse-order visitation. The static slice operator takes modifies a static pack expression and yields a static pack expression. The dynamic slice operator, by contrast, takes a non-pack expression and turns it into dynamic pack by coordinating the generation of a runtime loop over the pack's elements. The static slice operator doesn't generate a loop, but rather maps indices from a slice space to a container space, using the begin, end and step indices.
+`func3` is the best of both approaches. It is concise, because it uses an expansion expression instead of a for loop to visit the pack. It is flexible, because it uses the static slice operator `...[begin:end:step]` in order to specify reverse-order visitation. The static slice operator takes a static pack expression and yields a static pack expression. The dynamic slice operator, by contrast, takes a non-pack expression and turns it into dynamic pack by coordinating the generation of a runtime loop over the pack's elements. The static slice operator doesn't generate a loop, but rather maps indices from a slice space to a container space, using the begin, end and step indices.
 
 [**pack_decl.cxx**](pack_decl.cxx)
 ```cpp
@@ -1133,7 +1127,7 @@ reverse_tuple_t<int, char, double*>:
   int _2
 ```
 
-Circle has static expansion loci after both object and data member declarations. The type in the declaration may be a pack or non-pack type, but the name of the declaration must be a pack of dynamic name identifiers. Finishing the declaration statement with the expansion token `...` causes one instantiation per pack element to be created during template instantiation. `int...` is special value-dependent expression which yields the index of the current pack element during substitution. The dynamic name operator `@()` converts this pack index into an underscore-prefixed identifier at each step.
+Circle supports static expansion loci after both object and data member declarations. The type in the declaration may be a pack or non-pack type, but the name of the declaration must be a pack of dynamic name identifiers. Finishing the declaration statement with the expansion token `...` causes one instantiation per pack element to be created during template instantiation. `int...` is special value-dependent expression which yields the index of the current pack element during substitution. The dynamic name operator `@()` converts this pack index into an underscore-prefixed identifier at each step.
 
 The static slice operator `...[begin:end:step]` transforms the template parameter pack `types_t` in `reverse_tuple_t`. The size of the pack remains the same, but substitution through the slice reverses the order in which the pack elements are accessed.
 
@@ -1141,9 +1135,9 @@ The static slice operator `...[begin:end:step]` transforms the template paramete
 
 There is lots of overlap between the problems addressed by Circle's dynamic packs and C++ 20's [ranges](https://en.cppreference.com/w/cpp/ranges)/[range-v3](https://ericniebler.github.io/range-v3/md___users_eniebler__code_range-v3_doc_examples.html). Ranges doesn't requires any compiler modifications, and is entirely a library-based solution. 
 
-Ranges goes through huge effort to simulate lazy evaluation. As with older STL algorithms like `std::for_each`, the user is required to capture their code's data dependencies into a closure, pass that closure to a utility function where some loops are executed, then have the closure function invoked at each step in the algorithm. As the user's task becomes more complicated and its data dependencies grow, the capture cost increases, and more strain is put on the compiler backend to inline away multiple calls and captures.
+Ranges goes through huge effort to simulate lazy evaluation. As with older STL algorithms like `std::for_each`, the user is required to capture their program's data dependencies into a closure, pass that closure to a utility function in which some loops are written, then wait for the closure function to be invoked at each step in the algorithm. As the user's task becomes more complicated and its data dependencies grow, the capture cost increases, and more strain is put on the compiler backend to inline away multiple calls and captures.
 
-With Circle dynamic packs, there is no closure and no function call. Collection operations are a first-class part of the language. The only library dependency is `<vector>`, when list comprehension is used.
+With Circle dynamic packs, there is no closure and no function call. Collection operations are a first-class part of the language. The only library dependency is `<vector>`, and only when list comprehension is used.
 
 ### [Hello, Ranges!](https://ericniebler.github.io/range-v3/md___users_eniebler__code_range-v3_doc_examples.html#example-hello)
 
@@ -1553,7 +1547,7 @@ int main() {
 
 ```
 ```
-$ circle ranges/is_sorted.cxx 
+$ circle is_sorted.cxx 
 $ ./is_sorted 
 vector: true
 array:  false
@@ -1693,7 +1687,7 @@ It might be possible to write your own dynamic pack consumers by overloading `..
 
 **Can we separate dynamic pack expansion from static pack expansion?**
 
-`...` was chosen to expand dynamic packs, because it already was used to expand static packs. This may limit flexibility somewhat, in that each expansion must contain only static or dynamic packs, but not both, since we don't have a separate token to distinguish which one should get expanded. Using a `..` token to expand dynamic packs would give us finer-grained control over expansions. Unfortunately most C++ text editors freak out when encountering the `..` token, so until Circle establishes more usage, it's easier to recycle `...`, even if it is a bit worse.
+`...` was chosen to expand dynamic packs, because it already was used to expand static packs. This may limit flexibility somewhat, in that each expansion must contain only static or dynamic packs, but not both, since we don't have a separate token to distinguish which one should get expanded. Using a `..` token to expand dynamic packs would give us finer-grained control over expansions. Unfortunately most C++ text editors freak out when encountering the `..` token. I didn't think this slight increase in flexibility was worth dealing with crabby editors.
 
 **Can we have pack-aware io?**
 
