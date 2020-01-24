@@ -12,6 +12,8 @@
 1. [Modifiers](#3-modifiers)  
   a. [Sequences](#a-sequences)  
 1. [Static slice expressions](#static-slice-expressions)  
+  a. [Static slices on template parameter packs](#static-slices-on-template-parameter-packs)  
+  b. [Static slices on tuple-like objects](#static-slices-on-tuple-like-objects)  
 1. [Circle vs C++ ranges](#circle-vs-c-ranges)  
   a. [Hello, Ranges!](#hello-ranges)  
   b. [any_of, all_of, none_of](#any_of-all_of-none_of)  
@@ -981,7 +983,9 @@ HWehlalto' sw onrelwd?
 
 ## Static slice expressions
 
-After implementing slice expressions yielding dynamic types, I backported the slice operator to template parameter packs. The static slice operator lets us expand template parameter packs in forward or reverse order, with optional begin, end and step indices.
+After implementing slice expressions yielding dynamic types, I backported the slice operator to yield static packs when applied to template parameter packs or objects, members or parameters with array or tuple-like types.
+
+### Static slices on template parameter packs
 
 [**slice2.cxx**](slice2.cxx)
 ```cpp
@@ -1086,7 +1090,7 @@ Reverse-order pack slices with ...[begin:end:step]:
 
 Circle adds capability to expand static pack expressions with `...` at the end of an expression statement. Any expression built around a reference to a template parameter or variadic function template parameter inherits that static pack bit, and carries it through until the expansion locus. This triggers template substitution, and each element is instantiated in a loop. `func1` uses an expansion expression to print the contents of a non-type parameter pack, a type parameter pack (formatting the types as strings) and variadic function template parameters.
 
-From its earliest incarnations Circle has included a `...[index]` operator for subscripting template parameter packs. The @meta for loop generates compile-time indices for iteratively indexing packs.  `func2` loops in reverse order, plucking out each pack element and printing it.
+From its earliest incarnations Circle has included a `...[index]` operator for subscripting template parameter packs. The `@meta` _for-statement_ generates compile-time indices for iteratively indexing packs.  `func2` loops in reverse order, plucking out each pack element and printing it.
 
 `func3` is the best of both approaches. It is concise, because it uses an expansion expression instead of a for loop to visit the pack. It is flexible, because it uses the static slice operator `...[begin:end:step]` in order to specify reverse-order visitation. The static slice operator takes a static pack expression and yields a static pack expression. The dynamic slice operator, by contrast, takes a non-pack expression and turns it into dynamic pack by coordinating the generation of a runtime loop over the pack's elements. The static slice operator doesn't generate a loop, but rather maps indices from a slice space to a container space, using the begin, end and step indices.
 
@@ -1130,6 +1134,287 @@ reverse_tuple_t<int, char, double*>:
 Circle supports static expansion loci after both object and data member declarations. The type in the declaration may be a pack or non-pack type, but the name of the declaration must be a pack of dynamic name identifiers. Finishing the declaration statement with the expansion token `...` causes one instantiation per pack element to be created during template instantiation. `int...` is special value-dependent expression which yields the index of the current pack element during substitution. The dynamic name operator `@()` converts this pack index into an underscore-prefixed identifier at each step.
 
 The static slice operator `...[begin:end:step]` transforms the template parameter pack `types_t` in `reverse_tuple_t`. The size of the pack remains the same, but substitution through the slice reverses the order in which the pack elements are accessed.
+
+### Static slices on tuple-like objects
+
+The static slice operator `...[begin:end:step]` also works when applied to non-pack expressions with array, tuple-like or class types. It presents busts up the entity and exposes it as a _heterogeneous_ non-type static pack. The same semantic rules for fixing structured bindings to initializers is at play here:
+
+1. If the operand is an array, each element in the static parameter pack is one array element.
+1. If specializing `std::tuple_size` on the operand's type finds a partial template specialization (or technically a specialization that's not incomplete), the object is treated as "tuple-like." `std::tuple_element` breaks the object apart into elements. `std::array`, `std::pair` and `std::tuple` all provide specializations for these class templates.
+1. If the operand is another class type, the non-static public data members are exposed as a static parameter pack.
+
+In each case, only the size of the pack (or the size of the container) must be known at compile time. The data values may be known at compile time (either being meta or constexpr), or may be only known at runtime.
+
+[**slice3.cxx**](slice3.cxx)
+```cpp
+#include <utility>
+#include <tuple>
+#include <iostream>
+
+// Print comma-separated arguments.
+template<typename... types_t>
+void print_args(types_t... args) {
+  std::cout<< "[ ";
+  
+  // Use static slicing to print all but the last element, followed by
+  // a comma.
+  std::cout<< args...[:-2]<< ", "...;
+
+  // Use direct indexing to print the last element, if there is one.
+  // The static subscript ...[-1] refers to the last element.
+  // ...[-2] refers to the second-to-last element, and so on.
+  if constexpr(sizeof...(args) > 0)
+    std::cout<< args...[-1]<< " ";
+
+  std::cout<< "]\n";
+}
+
+template<int... values>
+void print_nontype() {
+  std::cout<< "[ ";
+  
+  // Print template non-type arguments the same way you print function args.
+  std::cout<< values...[:-2]<< ", "...;
+  
+  // Print the last non-type argument.
+  if constexpr(sizeof...(values) > 0)
+    std::cout<< values...[-1]<< " ";
+
+  std::cout<< "]\n";
+}
+
+int main() {
+  auto tuple = std::make_tuple('A', 1, 2.222, "Three");
+
+  // Use static indexing to turn a tuple into a parameter pack. Expand it
+  // into function arguments.
+  std::cout<< "tuple to pack in forward order:\n";
+  print_args(tuple...[:] ...);
+
+  // Or expand it in reverse order.
+  std::cout<< "\ntuple to pack in reverse order:\n";
+  print_args(tuple...[::-1] ...);
+
+  // Or send the even then the odd elements.
+  std::cout<< "\neven then odd tuple elements:\n";
+  print_args(tuple...[0::2] ..., tuple...[1::2] ...);
+
+  // Pass indices manually to a template.
+  std::cout<< "\ntemplate non-type arguments sent the old way:\n";
+  print_nontype<3, 4, 5, 6>();
+
+  // Or use static slicing to turn an array, class or tuple-like object
+  // into a parameter pack and expand that into a template-arguments-list.
+  std::cout<< "\ntemplate non-type arguments expanded from an array:\n";
+  constexpr int values[] { 7, 8, 9, 10 };
+  print_nontype<values...[:] ...>();
+}
+```
+```
+$ circle slice3.cxx && ./slice3
+tuple to pack in forward order:
+[ A, 1, 2.222, Three ]
+
+tuple to pack in reverse order:
+[ Three, 2.222, 1, A ]
+
+even then odd tuple elements:
+[ A, 2.222, 1, Three ]
+
+template non-type arguments sent the old way:
+[ 3, 4, 5, 6 ]
+
+template non-type arguments expanded from an array:
+[ 7, 8, 9, 10 ]
+```
+
+This is a pretty extraordinary example. The slice operator is used to expose an `std::tuple` as a static parameter pack and to re-arrange its elements when expanded into a function argument list. That function, `print_args` prints all elements in the variadic function parameter by using another static slice operator. 
+
+The function comma-separates elements by specifying the slice arguments `[:-2]`, which prints all elements from the first (the implicit 0 begin index) to -2, indicates two elements from the end of the variadic argument set. That is, it prints all elements except the last. An `if constexpr` clause prints the last element without a paired comma, if the argument has more than zero elements. The `...[index]` static subscript operator decodes signed indices. If the index is negative, the size of the pack is added. Therefore, -1 refers to size - 1, which is the index for the last element.
+
+[**slice4.cxx**](slice4.cxx)
+```cpp
+#include <iostream>
+
+template<typename... types_t>
+struct tuple_t {
+  types_t @(int...) ...;
+};
+
+template<typename... types_t>
+tuple_t(types_t... args) -> tuple_t<types_t...>;
+
+template<typename type_t>
+void print_object(const type_t& obj) {
+  std::cout<< @type_string(type_t)<< "\n";
+  std::cout<< "  "<< int... << ") "<< 
+    @type_string(decltype(obj...[:]))<< " : "<< 
+    obj...[:]<< "\n" ...;
+}
+
+template<typename type_t>
+void print_reverse(const type_t& obj) {
+  std::cout<< @type_string(type_t)<< "\n";
+  std::cout<< "  "<< int... << ") "<< 
+    @type_string(decltype(obj...[::-1]))<< " : "<< 
+    obj...[::-1]<< "\n" ...;
+}
+
+template<typename type_t>
+void print_odds(const type_t& obj) {
+  std::cout<< @type_string(type_t)<< "\n";
+  std::cout<< "  "<< int... << ") "<< 
+    @type_string(decltype(obj...[1::2]))<< " : "<< 
+    obj...[1::2]<< "\n" ...;
+}
+
+int main() {
+  tuple_t obj { 3.14, 100l, "Hi there", "Member 3", 'q', 19u };
+
+  std::cout<< "print_object:\n";
+  print_object(obj);
+
+  std::cout<< "\nprint_reverse:\n";
+  print_reverse(obj);
+
+  std::cout<< "\nprint_odds:\n";
+  print_odds(obj);
+}
+
+```
+```
+$ circle slice4.cxx && ./slice4
+print_object:
+tuple_t<double, long, const char*, const char*, char, unsigned>
+  0) double : 3.14
+  1) long : 100
+  2) const char* : Hi there
+  3) const char* : Member 3
+  4) char : q
+  5) unsigned : 19
+
+print_reverse:
+tuple_t<double, long, const char*, const char*, char, unsigned>
+  0) unsigned : 19
+  1) char : q
+  2) const char* : Member 3
+  3) const char* : Hi there
+  4) long : 100
+  5) double : 3.14
+
+print_odds:
+tuple_t<double, long, const char*, const char*, char, unsigned>
+  0) long : 100
+  1) const char* : Member 3
+  2) unsigned : 19
+```
+
+This example uses static slices to break tuple-like objects into packs and prints the expanded contents with annotations. During static pack expansion, the `int...` operator yields the current index of expansion as an integer. (It's a value-dependent expression.) `@type_string(decltype(obj...[:]))` renders the type of the current slice expansion into a character array. This may be different from the Circle intrinsic `@member_type_strings`. The former expression treats array types, `std::array`s, `std::pair`s and `std::tuple`s by running their contents through `std::tuple_element`. The `@member_type_strings` operator returns character arrays spelling out the type of each non-static data member of the argument type.
+
+[**slice5.cxx**](slice5.cxx)
+```cpp
+#include <vector>
+#include <array>
+#include <iostream>
+
+template<typename type_t>
+void print_dynamic(const type_t& obj) {
+  std::cout<< "[ ";
+
+  // A homogeneous print operation that uses dynamic pack expansion
+  // and generates a runtime loop. The container must implement .begin()
+  // and .end().
+  std::cout<< obj[:]<< " "...;
+
+  std::cout<< "]\n";
+}
+
+template<typename type_t>
+void print_static(const type_t& obj) {
+  std::cout<< "[ ";
+
+  // A heterogenous print operation. Uses static pack expansion. Works on
+  // member objects of class types, regular arrays, plus types implementing
+  // std::tuple_size, such as std::array, std::pair and std::tuple.
+  std::cout<< obj...[:]<< " "...;
+
+  std::cout<< "]\n";
+}
+
+int main() {
+  std::array<int, 8> array { 1, 2, 3, 4, 5, 6, 7, 8 };
+
+  // Dynamic pack indexing generates a loop.
+  array[:] *= 2 ...;
+  print_dynamic(array);
+
+  // Static pack indexing performs template substitution to unroll
+  // the operation.
+  ++array...[:] ...;
+  print_static(array);
+
+  // Use list comprehension to generate an std::vector.
+  // Expansion of dynamic slice creates a dynamic loop.
+  std::vector v1 = [ array[:] * 3... ];
+  print_dynamic(v1);
+
+  // Expansion of static slice expansion occurs during substitution.
+  // This supports using heterogeneous containers as initializers in
+  // list comprehension and uniform initializers.
+  std::vector v2 = [ array...[:] * 4... ];
+  print_dynamic(v2);
+
+  // Use static slice expansion to create an initializer list for a 
+  // builtin array. This won't work with the dynamic slice operator [:], 
+  // because the braced initializer must have a compile-time set number of 
+  // elements.
+  int array2[] { array...[:] * 5 ... };
+  print_static(array2);
+
+  // Create a braced initializer in forward then reverse order.
+  int forward_reverse[] { array...[:] ..., array...[::-1] ...};
+  print_static(forward_reverse);
+
+  // Create a braced initializer with evens then odds.
+  int parity[] { array...[0::2] ..., array...[1::2] ... };
+  print_static(parity);
+
+  // Use a compile-time loop to add up all elements of array3.
+  int static_sum = (... + array...[:]);
+  printf("static sum = %d\n", static_sum);
+
+  // Use a dynamic loop to add up all elements of array3.
+  int dynamic_sum = (... + array[:]);
+  printf("dynamic sum = %d\n", dynamic_sum);
+}
+
+```
+```
+$ circle slice5.cxx && ./slice5
+[ 2 4 6 8 10 12 14 16 ]
+[ 3 5 7 9 11 13 15 17 ]
+[ 9 15 21 27 33 39 45 51 ]
+[ 12 20 28 36 44 52 60 68 ]
+[ 15 25 35 45 55 65 75 85 ]
+[ 3 5 7 9 11 13 15 17 17 15 13 11 9 7 5 3 ]
+[ 3 7 11 15 5 9 13 17 ]
+static sum = 80
+dynamic sum = 80
+```
+
+This example shows the similar and contrasting aspects of dynamic pack and static pack expansion. Static packs may only be used on containers where the pack size is part of the type, such as builtin arrays, `std::array`, `std::pair`, `std::tuple` and other class objects, in which the non-static data members are collected.
+
+`std::tuple` is compatible with the static slice operator, but not the dynamic slice operator, because it doesn't implement `.begin()` and `.end()` accessors. `std::vector` is compatible with the dynamic slice operator, but not the static slice operator, because it doesn't implement a partial template of `std::tuple_size`. `std::array` is compatible with both, because it provides both the accessor member functions and a `std::tuple_size` partial template definition. Builtin arrays are also compatible with both, but as non-class types are handled specially by the compiler.
+
+Both static and dynamic packs (generated by static or dynamic slice operators) can be expanded inside list comprehension. This list comprehension yields a prvalue `std::vector` result object, but may also decay and serve as the backing store for an `std::initializer_list` constructor or assignment. 
+
+Only static packs may be expanded inside braced initializers. Unlike list comprehensions, the backing store for braced initializer-generated `std::initializer_list`s is allocated statically, so the dynamic packs aren't supported.
+
+Both dynamic and static packs may be expanded inside functional fold expressions. In essence, the static slice version is guaranteed to be loop unrolled by the compiler frontend. The dynamic slice version corresponds to a dynamic loop emitted as LLVM IR by the frontend, but what machine code is generated from that is up to the backend.
+
+It's important to keep in mind that static slices support _heterogeneous_ packs, while dynamic slices only support _homogeneous_ packs. All STL containers with `.begin` and `.end` accessors hold _homogeneous_ data, which is usually the type that the class template is specialized over. STL containers holding parameterized _heterogeneous_ data usually specify their contained data types with variadic class template parameters, and expose access to the contents with `std::tuple_element` partial templates.
+
+The Circle slice operators help abstract these differences, by providing similar-looking operators that are compatible with the same pack consumers.
 
 ## Circle vs C++ ranges
 

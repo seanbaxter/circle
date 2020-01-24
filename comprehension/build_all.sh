@@ -14,6 +14,9 @@ circle range_for.cxx && ./range_for
 circle sequences.cxx && ./sequences
 circle slice2.cxx && ./slice2
 circle pack_decl.cxx && ./pack_decl
+circle slice3.cxx && ./slice3
+circle slice4.cxx && ./slice4
+circle slice5.cxx && ./slice5
 circle hello.cxx && ./hello
 circle any_of.cxx && ./any_of
 circle count.cxx && ./count
