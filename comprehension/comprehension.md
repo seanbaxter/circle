@@ -738,8 +738,8 @@ C++ supports four kinds of fold operators on template parameter packs: unary lef
 
 ```
 dynamic left unary fold:
-  (... op dynamic-pack-expression [, default-init]) or
-  (... function dynamic-pack-expression [, default-init])
+  (... op dynamic-pack-expression [; default-init]) or
+  (... function dynamic-pack-expression [; default-init])
 
 dynamic left binary fold:
   (init-value op ... op dynamic-pack-expression) or
