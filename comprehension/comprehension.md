@@ -9,6 +9,9 @@
   b. [List comprehensions](#b-list-comprehensions)  
   c. [Functional fold expressions](#c-functional-fold-expressions)  
   d. [For-range-initializers](#d-for-range-initializers)  
+  e. [Braced initializers](#e-braced-initializers)  
+    i. [Resolving data-dependent expressions](#i-resolving-data-dependent-expressions)  
+    ii. [Dealing with meta object replacement](#ii-dealing-with-meta-object-replacement)  
 1. [Modifiers](#3-modifiers)  
   a. [Sequences](#a-sequences)  
 1. [Static slice expressions](#static-slice-expressions)  
@@ -513,7 +516,7 @@ As with slices, keep in mind that _for-expressions_ are lazy. The result object 
 
 Dynamic pack expressions must be expanded, and the loci of these expansions occur in _dynamic pack consumers_. The evolution plans of Circle involve adding composible dynamic pack generates and dynamic pack consumers, creating a multiplicative increase in language capability.
 
-Whenever a dynamic pack is used, the pack must be expanded with the ellipsis token. These points of expansion are called _loci_, and currently are supported by three consumers: list comprehensions, fold expressions and expansion expressions.
+Whenever a dynamic pack is used, the pack must be expanded with the ellipsis token. These points of expansion are called _loci_, and currently are supported by four consumers: list comprehensions, fold expressions, expansion expressions and braced initializers.
 
 [**locus.cxx**](locus.cxx)
 ```cpp
@@ -919,6 +922,187 @@ $ ./range_for
 ```
 
 Slices add crucial indexing capability to ranged for loops. _for-expression_ also binds to these _for-range_initializers_. What's interesting is that we can bind not only to the lvalue returned by the slice expression, but to the the result object of any expression at all. The final example binds to the sum of consecutive elements from an array, which is a `prvalue int` result object. This prvalue initializes that loop's declaration `x`, and it's the loop machinery associated with the dynamic pack expansion that drives the loop, not the loop machinery of the traditional ranged _for-statement_.
+
+### e. Braced initializers
+
+C++ and Circle support implicit conversion of constexpr or meta objects from the compile-time to the runtime domain, when that object is of [_literal type_](https://en.cppreference.com/w/cpp/named_req/LiteralType). But how can we port more complicated objects, including those using dynamic memory allocation, from the compile-time to the runtime domain? We can't perform element-wise pointer assignment, because pointers into heap memory aren't portable. At this stage in Circle's development, the most flexible approach is to use the contents of the meta object to prepare a braced initializer to initialize the non-meta instance.
+
+Braced initializers have been extended as a dynamic pack consumer, but they support expansion of slices into meta objects.
+
+[**braced1.cxx**](braced1.cxx)
+```cpp
+#include <vector>
+#include <cstdio>
+
+inline std::vector<int> find_primes(int count) {
+  std::vector<int> primes;
+  primes.reserve(count);
+
+  int cur = 2;
+  while(primes.size() < count) {
+    // Check if any element in primes divides cur.
+    bool divides = (... || (0 == cur % primes[:]));
+
+    // If cur is relatively prime against what has been computed, save it.
+    if(!divides)
+      primes.push_back(cur);
+
+    // Try the next elemnent.
+    ++cur;
+  }
+
+  return primes;
+}
+
+// Compute the primes at compile time into an std::vector.
+@meta std::vector<int> primes_vec = find_primes(47);
+
+// Transfer them into a static array for runtime access.
+// Expand 
+const int primes[] { primes_vec[:] ... };
+
+// Print the primes at compile time. Any static data member is available
+// at compile time as well as runtime, even though it was just created
+// dynamically.
+@meta for(size_t i = 0; i < std::size(primes); i += 10) {
+  @meta printf("%3d ", primes[i : i + 10])...; 
+  @meta printf("\n");
+}
+
+int main() {
+  // Print the primes at runtime.
+  for(size_t i = 0; i < std::size(primes); i += 10) { 
+    printf("%3d ", primes[i : i + 10])...; 
+    printf("\n");
+  }
+}
+```
+```
+$ circle braced1.cxx
+  2   3   5   7  11  13  17  19  23  29 
+ 31  37  41  43  47  53  59  61  67  71 
+ 73  79  83  89  97 101 103 107 109 113 
+127 131 137 139 149 151 157 163 167 173 
+179 181 191 193 197 199 211 
+
+$ ./braced1
+  2   3   5   7  11  13  17  19  23  29 
+ 31  37  41  43  47  53  59  61  67  71 
+ 73  79  83  89  97 101 103 107 109 113 
+127 131 137 139 149 151 157 163 167 173 
+179 181 191 193 197 199 211 
+```
+
+Consider calling `find_primes` in a meta statement to compute the first N primes at compile time. The result object has type `std::vector<int>`, which isn't a literal type, and can't be accessed from a non-meta statement. But we can use slice notation and dynamic pack expansion to spill all the contents of this vector into the braced initializer for a static array, which is accessible at runtime. 
+
+The dynamic pack expansion over `primes_vec` excutes an implicit dynamic loop. This functionality is integrated into Circle's braced initializer package. By restricting dynamic pack expansion inside braced initializers to slices of meta objects, the size of the expansion is known at compile time, even if it's not known statically.
+
+The contents of the static array `primes` are printed twice: once at compile time in the meta for loop, and once at runtime in `main`. Note that we print ten items per line by expanding a slice expression that ranges from `i` to `i + 10`. The operand array `primes` only has 47 elements, which isn't a multiple of 10. We rely on the dynamic pack expansion to only iterate over valid elements, even when the end index is out-of-range. 
+
+[**braced2.cxx**](braced2.cxx)
+```cpp
+#include <string>
+#include <map>
+#include <cstdio>
+
+int main() {
+
+  // Create two compile-time maps.
+  @meta std::map<std::string, int> map1 {
+    { "alpha",    5 },
+    { "gamma",   10 },
+    { "epsilon", 20 }
+  };
+
+  @meta std::map<std::string, int> map2 {
+    { "beta",    15 },
+    { "omega",    4 },
+    { "iota",    19 }
+  };
+
+  // Merge map2 into map1 at compile time.
+  @meta map1[map2[:].first] = map2[:].second ...;
+
+  // Print the merged map at compile time.
+  @meta printf("%-20s: %d\n", map1[:].first.c_str(), map1[:].second)...;
+
+  // Port this to a runtime map.
+  std::map<std::string, int> map3 {
+    std::make_pair(@string(map1[:].first), (int)map1[:].second) ...
+  };
+
+  // Print all pairs in the runtime map.
+  printf("%-20s: %d\n", map3[:].first.c_str(), map3[:].second)...;
+}
+```
+```
+$ circle braced2.cxx
+alpha               : 5
+beta                : 15
+epsilon             : 20
+gamma               : 10
+iota                : 19
+omega               : 4
+
+$ ./braced2
+alpha               : 5
+beta                : 15
+epsilon             : 20
+gamma               : 10
+iota                : 19
+omega               : 4
+```
+
+This example ports a meta `std::map<std::string, int>` that is configured at compile time to its runtime equivalent. Again, this involves creating a braced initializer holding the contents of the meta object, and using it to initialize the runtime object.
+
+The additional twist of this example is that the inner type of the map includes an `std::string`, which isn't portable either. We'll have to use the Circle extension `@string` inside the braced initializer to port the key, wrap that along with the value (which is an implicitly-portable `int` type) in a call to `std::make_pair`, and expand the whole bunch of them into the braced initializer. Separate slices are used to access the key (.first) and value (.second). The dynamic pack expansion backends in both the Circle interpreter and LLVM code-generator takes care to expand these slices simultaneously.
+
+Expansion of dynamic packs in braced initializers will prove an important ingredient for implementing future meta copy constructors and meta assignment operators. 
+
+#### Resolving data-dependent expressions
+
+There is one very surprising detail in this example that puts the notion of C++ as a strongly-typed language (or even a _statically-typed_ language) in a new light. Consider the usage of `@string` inside the braced initializer. This extension attempts to convert its argument to `std::string_view`, `const char*` or `std::string`, read the result out at compile time, and yield a constant lvalue character array (equivalent to a string literal). The result object's array bounds is dependent on the data. But in this code, the argument data is not available until dynamic pack expansion yields `map1` slices one element at a time. We have, in effect, a data-dependent construct outside of any template or static parameter pack.
+
+The first argument to `std::make_pair` is data-dependent, and the second argument is lvalue int. Overload resolution must therefore be deferred until substitution. When the compiler finally hits the expansion token `...`, it initializes the iterators to feed both `map1` slice expressions. 
+
+But rather than executing the dynamic pack expression to get the braced initializer element, the compiler invokes template substitution on the dynamic pack! This recurses down the expression tree until it hits the slice expression terminals, which use the interpreter to retrieve the data pointed at by the map iterators. These values are packaged up as AST nodes and returned back up the call stack. The data-dependent `@string` extension now has actual data (one step of the slice), so it's able to convert its argument into a string literal and return the lvalue array. Since this result object has a proper type, the call to `std::make_pair` is no longer blocked by a dependent type, and overload resolution is called, yielding a new `std::pair` object which is the element of the braced initializer. The compiler then increments the iterators for each slice expression, evaluates the slice predicates, and performs substitution again and again, until the full contents of the compile-time map have been dumped into the braced initializer.
+
+The Circle compiler is achieving a capability to form data-dependent constructs (which aren't the usual template dependencies) in the middle of expressions, with the expectation of resolving them within the same expression with a dynamic pack expansion.
+
+Note that among the dynamic pack consumers, this intermediate compile-time data dependency can only be resolved by expansion inside braced initializers. There is, however, no engineering reason why fold expressions, expansion statements and list comprehensions can't participate in this, when their contained dynamic packs are formed only of slices to meta objects, so that these data dependencies can be resolved _at compile time_.
+
+#### Dealing with meta object replacement
+
+Another thing to keep in mind is the implicit cast to `int` for the value in the braced initializer.
+
+```cpp
+  std::map<std::string, int> map3 {
+    std::make_pair(@string(map1[:].first), (int)map1[:].second) ...
+  };
+```
+
+This cast is required for the statement to work. Why? Because constant folding inside the dynamic pack expansion encounters a meta lvalue int (map1[:].second is an lvalue into the `std::pair<std::string, int>` maintained internally by the map) in a non-meta context. The compiler must copy the value referred to by this lvalue so that we have it at runtime, but that changes the value category from lvalue to prvalue.
+
+Now, we can materialize that prvalue to an xvalue, and that satisfies most binding scenarios in C++: both rvalue references and const lvalue references bind to xvalues. It's nearly universal. But not quite universal.
+
+```cpp
+template< class T1, class T2 >
+constexpr std::pair<V1,V2> make_pair( T1&& t, T2&& u )
+```
+
+`std::make_pair` uses forwarding references for its operands. If the first argument is a prvalue int, the type T1 is deduced as prvalue int, and the parameter is deduced as an rvalue reference to int. This would bind our xvalue just fine.
+
+If the first argument is an xvalue int, the type T1 is rvalue reference to int, and the formed parameter undergoes reference collapsing from `int&& &&` to `int&&`. This is also binds with our xvalue.
+
+But when the argument is a non-const lvalue, we have a problem. T1 deduced as `int&`, and reference collapsing `int& &&` yields `int&`, an lvalue reference to int, which will not bind an xvalue expression.
+
+Remember we tried to replace an lvalue int, with a prvalue int, then materialized that to an xvalue int. The `make_pair` specialization that was previously chosen during overload resolution has an `int&` parameter, which cannot bind this replaced argument.
+
+Now, the use of this forwarding reference is probably the wrong thing for `make_pair`. If it had separate overloads for const lvalue reference (to do a copy-assignment into the pair) and rvalue reference (to do a move-assignment into the pair), either of those overloads would be compatible with our xvalue (since a const lvalue reference can bind an xvalue). Fortunately we get around this curious design by inserting a cast to int, which sets a prvalue int arguments and forces argument deduction to choose a parameter with an rvalue reference.
+
+We don't have to cast the the result object of `@string(map1[:].first)` to anything. Although this is an lvalue, and it creates an lvalue reference binding, we don't have a problem because the underlying data is equivalent to a string literal, which is constexpr and already portable between compile-time and runtime uses.
+
+The compiler could certainly be modified to alleviate the need for the explicit cast. Right now, the substitution of the meta lvalue with the constant prvalue is performed during constant folding, which is executed after overload resolution on `std::make_pair` involves template argument deduction. If the meta substitution was performed before overload resolution, then argument deduction would select an rvalue reference parameter, and binding would work as expected. The downside is that the semantics of expression construction would become a lot more complicated, as an implicit "decay" from meta to non-meta yet constexpr expressions could occur almost anywhere. This is too much a burden for the developer to keep in mind, and it makes source code too sensitive to the ongoing churn in the compiler's implementation. For now, the user should expect meta->constexpr replacements to occur when explicitly requested (such as the `@string` invocation, which takes a meta `std::string` and yields a constexpr lvalue const char array) or implicitly, during constant folding.
 
 ## 3. Modifiers
 

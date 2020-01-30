@@ -11,6 +11,8 @@ circle list_comp.cxx && ./list_comp
 circle locus2.cxx && ./locus2
 circle fold.cxx && ./fold
 circle range_for.cxx && ./range_for
+circle braced1.cxx && ./braced1
+circle braced2.cxx && ./braced2
 circle sequences.cxx && ./sequences
 circle slice2.cxx && ./slice2
 circle pack_decl.cxx && ./pack_decl
