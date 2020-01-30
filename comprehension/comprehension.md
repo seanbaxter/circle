@@ -9,7 +9,7 @@
   b. [List comprehensions](#b-list-comprehensions)  
   c. [Functional fold expressions](#c-functional-fold-expressions)  
   d. [For-range-initializers](#d-for-range-initializers)  
-  e. [Braced initializers](#e-braced-initializers)  
+  e. [Braced initializers](#e-braced-initializers)   
       i. [Resolving data-dependent expressions](#i-resolving-data-dependent-expressions)  
       ii. [Dealing with meta object replacement](#ii-dealing-with-meta-object-replacement)  
 1. [Modifiers](#3-modifiers)  
@@ -1059,7 +1059,7 @@ The additional twist of this example is that the inner type of the map includes 
 
 Expansion of dynamic packs in braced initializers will prove an important ingredient for implementing future meta copy constructors and meta assignment operators. 
 
-#### Resolving data-dependent expressions
+#### i. Resolving data-dependent expressions
 
 There is one very surprising detail in this example that puts the notion of C++ as a strongly-typed language (or even a _statically-typed_ language) in a new light. Consider the usage of `@string` inside the braced initializer. This extension attempts to convert its argument to `std::string_view`, `const char*` or `std::string`, read the result out at compile time, and yield a constant lvalue character array (equivalent to a string literal). The result object's array bounds is dependent on the data. But in this code, the argument data is not available until dynamic pack expansion yields `map1` slices one element at a time. We have, in effect, a data-dependent construct outside of any template or static parameter pack.
 
@@ -1071,7 +1071,7 @@ The Circle compiler is achieving a capability to form data-dependent constructs 
 
 Note that among the dynamic pack consumers, this intermediate compile-time data dependency can only be resolved by expansion inside braced initializers. There is, however, no engineering reason why fold expressions, expansion statements and list comprehensions can't participate in this, when their contained dynamic packs are formed only of slices to meta objects, so that these data dependencies can be resolved _at compile time_.
 
-#### Dealing with meta object replacement
+#### ii. Dealing with meta object replacement
 
 Another thing to keep in mind is the implicit cast to `int` for the value in the braced initializer.
 
