@@ -1,5 +1,5 @@
 set -x
-circle pattern1.cxx && ./pattern1
+circle pattern1.cxx && ./pattern1 5
 circle pattern2.cxx && ./pattern2
 circle pattern3.cxx && ./pattern3
 circle pattern4.cxx && ./pattern4 

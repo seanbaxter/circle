@@ -45,7 +45,7 @@ struct impl_t : public model_t<typeclass> {
 
     @meta std::string func_name = @method_name(typeclass, i);
 
-    @meta bool is_valid = @sfinae(
+    static constexpr bool is_valid = @sfinae(
       std::declval<type_t>().@(func_name)(
         std::declval<@method_params(typeclass, i)>()...
       )
