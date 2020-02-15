@@ -58,15 +58,11 @@ struct type_info_t {
 
 // Define a structure from a type_info_t known at compile time. This macro
 // may inject the struct declaration into any namespace from any scope.
-@macro void define_type(const char* name, const type_info_t& type_info) {
+@mvoid define_type(const char* name, const type_info_t& type_info) {
   struct @(name) {
-    @meta for(auto& field : type_info.fields)
+    @meta for(auto& field : type_info.fields) 
       @type_id(field.field_type) @(field.field_name);
   };
-}
-
-@macro void define_csv_type(const char* name, const char* filename) {
-  @macro define_type(name, read_csv_schema(filename));
 }
 
 std::string make_ident(std::string s) {
@@ -275,7 +271,7 @@ std::vector<type_t> read_csv_file(const char* filename) {
 int main() {
   // Use type providers to define the object type from the CSV schema.
   // This happens at compile time.
-  @macro define_csv_type("obj_type_t", "schema.csv");
+  @macro define_type("obj_type_t", read_csv_schema("schema.csv"));
 
   // Print the field types and names.
   @meta std::cout<< @type_string(@member_types(obj_type_t))<< " "<< 
