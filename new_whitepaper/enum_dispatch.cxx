@@ -66,7 +66,7 @@ struct ast_call_t : ast_t {
 void visit_ast(ast_t* ast) {
 
   template<typename type_t>
-  @macro void forward_declare() {
+  @mvoid forward_declare() {
     // Forward declare visit_ast on this type.
     void visit_ast(type_t* derived);
   }

@@ -114,28 +114,28 @@ inline node_ptr_t parse(const char* text) {
   return std::move(stack.top());
 }
 
-@macro auto eval_node(const node_t* __node) {
-  @meta+ if(rpn::kind_t::var == __node->kind) {
-    @emit return @expression(__node->text);
+@mauto eval_node(const node_t* node) {
+  @meta+ if(rpn::kind_t::var == node->kind) {
+    @emit return @@expression(node->text);
 
-  } else if(rpn::kind_t::op == __node->kind) {
+  } else if(rpn::kind_t::op == node->kind) {
     @emit return @op(
-      __node->text, 
-      rpn::eval_node(__node->a.get()),
-      rpn::eval_node(__node->b.get())
+      node->text, 
+      rpn::eval_node(node->a.get()),
+      rpn::eval_node(node->b.get())
     );
 
-  } else if(rpn::kind_t::f1 == __node->kind) {
+  } else if(rpn::kind_t::f1 == node->kind) {
     // Call a unary function.
-    @emit return @(__node->text)(
-      rpn::eval_node(__node->a.get())
+    @emit return @(node->text)(
+      rpn::eval_node(node->a.get())
     );
 
-  } else if(rpn::kind_t::f2 == __node->kind) {
+  } else if(rpn::kind_t::f2 == node->kind) {
     // Call a binary function.
-    @emit return @(__node->text)(
-      rpn::eval_node(__node->a.get()),
-      rpn::eval_node(__node->b.get())
+    @emit return @(node->text)(
+      rpn::eval_node(node->a.get()),
+      rpn::eval_node(node->b.get())
     );
   }
 }
@@ -145,9 +145,9 @@ inline node_ptr_t parse(const char* text) {
 // any number of meta statements, but only one real return statement, and no
 // real declarations (because such declarations are prohibited inside
 // expressions).
-@macro auto eval(const char* __text) {
-  @meta rpn::node_ptr_t __node = rpn::parse(__text);
-  return rpn::eval_node(__node.get());
+@mauto eval(const char* text) {
+  @meta rpn::node_ptr_t node = rpn::parse(text);
+  return rpn::eval_node(node.get());
 }
 
 } // namespace rpn

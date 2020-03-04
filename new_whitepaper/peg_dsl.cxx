@@ -27,9 +27,9 @@
 @meta peg_parser.enable_ast();
 
 template<typename node_t>
-@macro auto peg_dsl_fold(const node_t* nodes, size_t count);
+@mauto peg_dsl_fold(const node_t* nodes, size_t count);
 
-@macro auto peg_dsl_eval(const peg::Ast& ast) {
+@mauto peg_dsl_eval(const peg::Ast& ast) {
   @meta if(ast.name == "NUMBER") {
     // Put @meta at the start of an expression to force stol's evaluation
     // at compile time, which is when ast->token is available. This will turn
@@ -40,7 +40,7 @@ template<typename node_t>
     // Evaluate the identifier in the context of the calling scope.
     // This will find the function parameters x and y in dsl_function and
     // yield lvalues of them.
-    return @expression(ast.token);
+    return @@expression(ast.token);
 
   } else {
     // We have a sequence of nodes that need to be folded. Because this is an
@@ -55,7 +55,7 @@ template<typename node_t>
 }
 
 template<typename node_t>
-@macro auto peg_dsl_fold(const node_t* nodes, size_t count) {
+@mauto peg_dsl_fold(const node_t* nodes, size_t count) {
   static_assert(1 & count, "expected odd number of nodes in peg_dsl_fold");
 
   // We want to left-associate a run of expressions.
@@ -86,7 +86,7 @@ template<typename node_t>
   }
 }
 
-@macro auto peg_dsl_eval(const char* text) {
+@mauto peg_dsl_eval(const char* text) {
   @meta std::shared_ptr<peg::Ast> ast;
   @meta if(peg_parser.parse(text, ast)) {
     // Generate code for the returned AST as an inline expression in the

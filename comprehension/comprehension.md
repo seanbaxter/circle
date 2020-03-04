@@ -7,6 +7,7 @@
 1. [Dynamic pack consumers](#2-dynamic-pack-consumers)  
   a. [Expansion expressions](#a-expansion-expressions)  
   b. [List comprehensions](#b-list-comprehensions)  
+      i. [Allocators and class template deduction](#i-allocators-and-class-template-deduction)  
   c. [Functional fold expressions](#c-functional-fold-expressions)  
   d. [For-range-initializers](#d-for-range-initializers)  
   e. [Braced initializers](#e-braced-initializers)   
@@ -733,6 +734,10 @@ m2:
 
 The _for-expression_ prompts its own expansion locus for the expression in the body. To help nail down syntax, you are obligated to expand the _for-expression_ at the same syntactic level in which its written, and not in an enclosing level. This does not reduce the expressiveness of the construct. This example use _for-expressions_ in list comprehension with two different expansion loci: the first puts all five elements in the inner vector; the second creates five vectors with one element each. Since list comprehension is an ordinary expression yielding a prvalue vector, it can be used as the body of the latter _for-expression_, so that each iteration of the loop yields a single-element vector.
 
+#### i. Allocators and class template deduction
+
+
+
 ### c. Functional fold expressions
 
 C++17 added fold expressions, which are so limited as to be nearly useless. Circle tremendously improves these, turning them into general-purpose reducers of dynamic data. Additionally, the syntax has been expanded to support not just binary operators, but any two-parameter function.
@@ -866,6 +871,37 @@ The next step is to compute x^i given a runtime variable x, for each odd power. 
 ```
 
 The fold expression is a simple inner product with between the odd constants in `series` and the odd variables in `powers`. The terms are multiplied element-wise from their slice expressions, then reduced using additive fold. Better performance would be achieved by inlining the `pow` call from the preceding list comprehension directly into the fold expression (where `powers[:]` is now), but I split the operations in two for clarity.
+
+[**palindrome.cxx**](palindrome.cxx)
+```cpp
+#include <vector>
+#include <string>
+#include <iostream>
+
+template<typename vec_t>
+void print_vec(const vec_t& vec) {
+  std::cout<< "[ ";
+  std::cout<< vec[:-2]<< ", " ...;
+  if(vec.size())
+    std::cout<< vec.back()<< " ";
+  std::cout<< "]\n";
+}
+
+// Use a fold expression to confirm it reads the same forward and backward.
+bool is_palindrome(int i) {
+  std::string s = std::to_string(i);
+  return (... && (s[:] == s[::-1]));
+}
+
+int main() {
+  // Select the first 50 numbers greater than 10000 where they are read like 
+  // palindromes in base 10.
+  auto vec = [for i : @range(10000:)... if is_palindrome(i) => i ...] | 50;
+  print_vec(vec);
+}
+```
+
+Consider the flexibility of fold expressions. This example uses a compact fold expression to test if an integer, when printed as a base-10 string, is a palindrome. That is, if it reads the same wise forwards and backwards. In fold expressions, as in all dynamic pack consumers, multiple simultaneous dynamic packs are supported. `s[:]` is a dynamic pack that travels forwards through the string. `s[::-1]` is a dynamic pack that travels backwards through the same string. Comparing their values at each step tests for the palindrome property. Additionally, if at any point the characters do not match, the fold expression uses the short-circuit operator &&, so the dynamic loop exists immediately, so as not to waste compute time.
 
 ### d. For-range-initializers
 

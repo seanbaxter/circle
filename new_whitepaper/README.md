@@ -58,7 +58,6 @@ Compile-time control flow changes the execution of source translation, allowing 
 * [Introspection on enums](#introspection-on-enums)
 * [Matching enums with functions](#matching-enums-with-functions)
 * [Reflection - inject functions from the contents of a JSON](#reflection---inject-functions-from-the-contents-of-a-json)
-* [Organizing injection with Circle macros](#organizing-injection-with-circle-macros)
 * [Typed enums - a first-class type list](#typed-enums---a-first-class-type-list)
 * [Typed enums 2 - type list operations](#typed-enums-2---type-list-operations)
 * [Typed enums 3 - join and unique](#typed-enums-3---join-and-unique)
@@ -456,56 +455,6 @@ unity(.3) = 1
 
 Circle's interpreter gives unrestricted access to the host environment. We use iostreams and a JSON parsing library to load a JSON file at compile time. Compile-time control flow lets us traverse the JSON tables. Reflection lets us declare a C++ function for each JSON item. The `@expression` keyword converts the contained text to C++ code, which is returned as part of the function definition.
 
-## Organizing injection with Circle macros
-
-[**inject2.cxx**](inject2.cxx)
-```cpp
-#include "json.hpp"
-#include <fstream>
-#include <iostream>
-#include <cmath>
-
-@macro void inject_function(std::string name, std::string text) {
-  @meta std::cout<< "Injecting "<< name<< " = "<< text<< "\n";
-
-  // Expand this function definition into the scope from which the macro
-  // is called. It could be namespace or class scope.
-  double @(name)(double x) {
-    return @expression(text);
-  }
-}
-
-@macro void inject_from_json(std::string filename) {
-  // Load a JSON file at compile time. These objects have automatic storage
-  // duration at compile time. They'll destruct when the end of the macro
-  // is hit.
-  @meta std::ifstream inject_file(filename);
-  @meta nlohmann::json inject_json;
-  @meta inject_file>> inject_json;
-
-  // Loop over each item in the file and inject a function.
-  @meta for(auto& item : inject_json.items()) {
-    @meta std::string key = item.key();
-    @meta std::string value = item.value();
-
-    // Expand the inject_function 
-    @macro inject_function(key, value);
-  }  
-}
-
-int main() {
-  // Expand this macro into the injected namespace. This creates the namespace
-  // if it isn't already created.
-  @macro namespace(injected) inject_from_json("inject.json");
-
-  std::cout<< "unity(.3) = "<< injected::unity(.3)<< "\n";
-
-  return 0;
-}
-```
-
-Circle macros allow you to modularize your metapogramming. They compose like normal functions, but when called, expand directly into the calling scope. You can even expand them into specific namespaces from any kind of scope.
-
 ## Typed enums - a first-class type list
 
 [**typed_enums.cxx**](typed_enums.cxx)
@@ -822,7 +771,7 @@ struct ast_call_t : ast_t {
 void visit_ast(ast_t* ast) {
 
   template<typename type_t>
-  @macro void forward_declare() {
+  @mvoid forward_declare() {
     // Forward declare visit_ast on this type.
     void visit_ast(type_t* derived);
   }
@@ -922,7 +871,7 @@ inline void transform_format(const char* fmt, std::string& fmt2,
   fmt2 = std::string(text.begin(), text.end());
 }
 
-@macro auto eprintf(const char* fmt) {
+@mauto eprintf(const char* fmt) {
   // Process the input specifier. Remove {name} and replace with %s.
   // Store the names in the array.
   @meta std::vector<std::string> exprs;
@@ -933,10 +882,9 @@ inline void transform_format(const char* fmt, std::string& fmt2,
   // Pass to sprintf via format.
   return printf(
     @string(fmt2.c_str()), 
-    std::to_string(@expression(@pack_nontype(exprs))).c_str()...
+    std::to_string(@@expression(@pack_nontype(exprs))).c_str()...
   );
 }
-
 
 int main() {
   double x = 5;
@@ -960,11 +908,11 @@ The `eprintf` is an unhygienic kind of printf. Rather than separately annotating
 
 The eprintf implementation will actually execute the three braced expressions from the scope in which it's called. This requires some real metaprogramming.
 
-First, implement `eprintf` as an _expression macro_ rather than a normal function. We indicate this by having it return `auto`. (Statement macros return void.) The macro will be expanded from the scope of its call, which is critical, because `x` would not be found by name lookup otherwise.
+First, implement `eprintf` as an _expression macro_ rather than a normal function. We indicate this by having it return `@mauto`. (Statement macros return `@mvoid`.) The macro will be expanded from the scope of its call, which is critical, because `x` would not be found by name lookup otherwise.
 
-Since Circle allows execution of arbitrary code at compile time, we implement a `transform_format` function that scans for the braces in the format specifier, moves the contents into a vector of strings, and replaces the braces by `%s` printf escapes. We then use `@expression` to inject each of these strings as expressions, and pass the result objects to `std::to_string` to turn into strings. This operation is done simultaneously for all escapes in the format specifier by way of a parameter pack expansion.
+Since Circle allows execution of arbitrary code at compile time, we implement a `transform_format` function that scans for the braces in the format specifier, moves the contents into a vector of strings, and replaces the braces by `%s` printf escapes. We then use `@@expression` to inject each of these strings as expressions, and pass the result objects to `std::to_string` to turn into strings. This operation is done simultaneously for all escapes in the format specifier by way of a parameter pack expansion.
 
-While eprintf may seem a bit gratuitous, consider the format specifier as a domain-specific language. Expression macros and `@expression` code injection are critical features for integrating DSLs with the surrounding C++ code.
+While eprintf may seem a bit gratuitous, consider the format specifier as a domain-specific language. Expression macros and `@expression/@@expression` code injection are critical features for integrating DSLs with the surrounding C++ code.
 
 ## Embedded domain-specific languages
 
@@ -977,9 +925,9 @@ While eprintf may seem a bit gratuitous, consider the format specifier as a doma
 // The parser:
 // https://github.com/yhirose/cpp-peglib
 
-#include "peglib.h"
 #include <cstdio>
 #include <stdexcept>
+#include "peglib.h"
 
 // Define a simple grammar to do a 5-function integer calculation.
 @meta peg::parser peg_parser(R"(
@@ -998,7 +946,10 @@ While eprintf may seem a bit gratuitous, consider the format specifier as a doma
 // peg-cpplib attaches semantic actions to each rule to construct an AST.
 @meta peg_parser.enable_ast();
 
-@macro auto peg_dsl_eval(const peg::Ast& ast) {
+template<typename node_t>
+@mauto peg_dsl_fold(const node_t* nodes, size_t count);
+
+@mauto peg_dsl_eval(const peg::Ast& ast) {
   @meta if(ast.name == "NUMBER") {
     // Put @meta at the start of an expression to force stol's evaluation
     // at compile time, which is when ast->token is available. This will turn
@@ -1009,7 +960,7 @@ While eprintf may seem a bit gratuitous, consider the format specifier as a doma
     // Evaluate the identifier in the context of the calling scope.
     // This will find the function parameters x and y in dsl_function and
     // yield lvalues of them.
-    return @expression(ast.token);
+    return @@expression(ast.token);
 
   } else {
     // We have a sequence of nodes that need to be folded. Because this is an
@@ -1024,7 +975,7 @@ While eprintf may seem a bit gratuitous, consider the format specifier as a doma
 }
 
 template<typename node_t>
-@macro auto peg_dsl_fold(const node_t* nodes, size_t count) {
+@mauto peg_dsl_fold(const node_t* nodes, size_t count) {
   static_assert(1 & count, "expected odd number of nodes in peg_dsl_fold");
 
   // We want to left-associate a run of expressions.
@@ -1055,7 +1006,7 @@ template<typename node_t>
   }
 }
 
-@macro auto peg_dsl_eval(const char* text) {
+@mauto peg_dsl_eval(const char* text) {
   @meta std::shared_ptr<peg::Ast> ast;
   @meta if(peg_parser.parse(text, ast)) {
     // Generate code for the returned AST as an inline expression in the
@@ -1222,28 +1173,28 @@ inline node_ptr_t parse(const char* text) {
   return std::move(stack.top());
 }
 
-@macro auto eval_node(const node_t* __node) {
-  @meta+ if(rpn::kind_t::var == __node->kind) {
-    @emit return @expression(__node->text);
+@mauto eval_node(const node_t* node) {
+  @meta+ if(rpn::kind_t::var == node->kind) {
+    @emit return @@expression(node->text);
 
-  } else if(rpn::kind_t::op == __node->kind) {
+  } else if(rpn::kind_t::op == node->kind) {
     @emit return @op(
-      __node->text, 
-      rpn::eval_node(__node->a.get()),
-      rpn::eval_node(__node->b.get())
+      node->text, 
+      rpn::eval_node(node->a.get()),
+      rpn::eval_node(node->b.get())
     );
 
-  } else if(rpn::kind_t::f1 == __node->kind) {
+  } else if(rpn::kind_t::f1 == node->kind) {
     // Call a unary function.
-    @emit return @(__node->text)(
-      rpn::eval_node(__node->a.get())
+    @emit return @(node->text)(
+      rpn::eval_node(node->a.get())
     );
 
-  } else if(rpn::kind_t::f2 == __node->kind) {
+  } else if(rpn::kind_t::f2 == node->kind) {
     // Call a binary function.
-    @emit return @(__node->text)(
-      rpn::eval_node(__node->a.get()),
-      rpn::eval_node(__node->b.get())
+    @emit return @(node->text)(
+      rpn::eval_node(node->a.get()),
+      rpn::eval_node(node->b.get())
     );
   }
 }
@@ -1253,9 +1204,9 @@ inline node_ptr_t parse(const char* text) {
 // any number of meta statements, but only one real return statement, and no
 // real declarations (because such declarations are prohibited inside
 // expressions).
-@macro auto eval(const char* __text) {
-  @meta rpn::node_ptr_t __node = rpn::parse(__text);
-  return rpn::eval_node(__node.get());
+@mauto eval(const char* text) {
+  @meta rpn::node_ptr_t node = rpn::parse(text);
+  return rpn::eval_node(node.get());
 }
 
 } // namespace rpn
