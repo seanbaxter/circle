@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstdarg>
+#include <cstring>
 #include <array>
 #include <list>
 #include <map>
