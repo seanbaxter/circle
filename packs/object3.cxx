@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cmath>
 
 template<typename type1_t, typename type2_t>
 auto dot_product(const type1_t& left, const type2_t& right) {

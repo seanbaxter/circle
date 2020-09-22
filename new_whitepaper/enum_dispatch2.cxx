@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <cassert>
 #include <stdexcept>

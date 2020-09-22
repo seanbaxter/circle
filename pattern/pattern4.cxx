@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 
 int sq(int x) {
   return x * x;

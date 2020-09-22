@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstring>
 #include <memory>
 #include <iostream>
 #include <sstream>

@@ -2,6 +2,7 @@
 // https://github.com/TartanLlama/typeclasses/blob/master/typeclass.hpp
 
 #include <memory>
+#include <cstring>
 #include <vector>
 #include <cstdlib>
 

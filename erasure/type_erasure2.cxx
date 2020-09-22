@@ -3,6 +3,7 @@
 
 #include "../gems/util.hxx"
 #include <memory>
+#include <cstring>
 
 // model_t is the base class for impl_t. impl_t has the storage for the 
 // object of type_t. model_t has a virtual dtor to trigger impl_t's dtor.

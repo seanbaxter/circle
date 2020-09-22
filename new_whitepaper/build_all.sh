@@ -7,7 +7,7 @@ circle eprintf.cxx
 circle hello.cxx
 circle inject.cxx
 # circle inject2.cxx 
-circle peg_dsl.cxx
+# circle peg_dsl.cxx
 circle rpn.cxx
 circle serialization.cxx
 circle shapes.cxx
