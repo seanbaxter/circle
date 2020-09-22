@@ -1,6 +1,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdio>
+#include <cmath>
 
 inline int fact(int x) {
   // Use a fold expression to compute factorials. This evaluates the product

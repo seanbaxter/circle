@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <cmath>
 
 int sq(int x) { return x * x; }
 
