@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cassert>
+#include <stdexcept>
 
 // https://fmt.dev/latest/syntax.html
 

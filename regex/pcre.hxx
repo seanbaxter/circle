@@ -3,6 +3,9 @@
 #include <memory>
 #include <vector>
 #include <cstring>
+#include <cctype>
+#include <string>
+#include <stdexcept>
 
 namespace pcre {
 
