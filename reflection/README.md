@@ -191,7 +191,6 @@ User attributes are key/value pairs stored on a per-declaration, not per-instanc
 * **@attribute**(_decl_, _attrib-name_)
 * **@has_attribute**(_decl_, _attrib-name_)
 * **@attribute_list**(_decl_)
-
 * **@enum_attribute**(_enum-expression_, _attrib-name_)
 * **@enum_attribute**(_enum-type_, _ordinal_, _attrib-name_)
 * **@enum_attributes**(_enum-type_, _attrib-name_)
@@ -199,7 +198,6 @@ User attributes are key/value pairs stored on a per-declaration, not per-instanc
 * **@enum_has_attribute**(_enum-type_, _ordinal_, _attrib-name_)
 * **@enum_attribute_list**(_enum-expression_)
 * **@enum_attribute_list**(_enum-type_, _ordinal_)
-
 * **@member_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
 * **@member_attributes**(_class-type_, _attrib-name_ [, access-flags_])
 * **@member_has_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
