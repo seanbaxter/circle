@@ -122,8 +122,8 @@ Parameter packs are usually more concise and expressive than loops, but you can'
 
 * **@type_string**(_type_) - Create a string from a type.
 * **@decl_string**(_type_, _decl-name_) - Create decl string from a type and a decl name.
-* **@dynamic_type**(_type) - Box a type into an `@mtype`.
-* **@static_type**(_@mtype-expression_) - boxes a type into an `@mtype` object
+* **@dynamic_type**(_type_) - Box a type into an `@mtype`.
+* **@static_type**(_@mtype-expression_) - Unboxes an `@mtype` object to yield a type.
 
 ### Enumerations introspection
 
