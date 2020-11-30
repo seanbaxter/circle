@@ -21,8 +21,10 @@
     * [Queries into typed enums](#queries-into-typed-enums)
 1. [Dynamic name](#dynamic-names)
 1. [AoS to SoA](#aos-to-soa)
-1. [Loading JSON into C++](#loading-json-into-c++)
+1. [Loading JSON into C++](#loading-json-into-c)
 1. [Defining types from JSON](#defining-types-from-json)
+
+## Reflection
 
 Circle defines dozens of extension keywords that provide introspection information into user-defined types. You can currently query enumerators within an enumeration and base classes and non-static data members within a class object. Work is ongoing to provide similar introspection into virtual member functions. 
 
