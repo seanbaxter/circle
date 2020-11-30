@@ -1,4 +1,4 @@
-g# Circle reflection and typed enums
+# Circle reflection and typed enums
 
 1. [Reflection](#reflection)
 1. [Introspection reference](#introspection-reference)
