@@ -19,7 +19,7 @@
     * [Joining typed enums](#joining-typed-enums)
     * [Sorting typed enums](#sorting-typed-enums)
     * [Queries into typed enums](#queries-into-typed-enums)
-1. [Dynamic name](#dynamic-names)
+1. [Dynamic names](#dynamic-names)
 1. [AoS to SoA](#aos-to-soa)
 1. [Loading JSON into C++](#loading-json-into-c)
 1. [Defining types from JSON](#defining-types-from-json)
