@@ -9,7 +9,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 
 The best samples:
 
-**NEW** [Circle reflection](reflection/README.md)  
+**NEW** [Circle reflection and typed enums](reflection/README.md)  
 **NEW** [Circle C++ for shaders](https://www.github.com/seanbaxter/shaders)  
 [List comprehensions, slices, ranges, for-expressions, functional folds and expansion expressions](comprehension/comprehension.md)  
 [Pattern-matching expressions and enhanced structured bindings](pattern/pattern.md)  
