@@ -1,0 +1,38 @@
+{
+  "types" : [
+    {
+      "name" : "address_t",
+      "members" : [
+        {
+          "name" : "street",
+          "type" : "std::string"
+        },
+        { 
+          "name" : "zip",
+          "type" : "int"
+        },
+        {
+          "name" : "state",
+          "type" : "char[2]"
+        }
+      ]
+    },
+    {
+      "name" : "person_t",
+      "members" : [
+        {
+          "name" : "first",
+          "type" : "std::string"
+        },
+        {
+          "name" : "last",
+          "type" : "std::string"
+        },
+        {
+          "name" : "address",
+          "type" : "address_t"
+        }
+      ]
+    }
+  ]
+}

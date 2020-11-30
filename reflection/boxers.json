@@ -1,0 +1,36 @@
+{
+  "boxers" : [
+    {
+      "name" : "Tyson Fury",
+      "weight" : "heavyweight",
+      "height" : 206,
+      "reach" : 216,
+      "stance" : "orthodox"
+    },
+    {
+      "name" : "Artur Beterbiev",
+      "weight" : "light-heavyweight",
+      "height" : 183,
+      "reach" : 185
+    },
+    {
+      "name" : "Demetrius Andrade",
+      "weight" : "middleweight",
+      "height" : 185,
+      "reach" : 187
+    },
+    {
+      "name" : "Sergio Martinez",
+      "weight" : "welterweight",
+      "height" : 178,
+      "reach" : 185,
+      "stance" : "southpaw"
+    },
+    {
+      "name" : "Devin Haney",
+      "weight" : "lightweight",
+      "height" : 173,
+      "reach" : 180
+    }
+  ]
+}

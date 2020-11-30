@@ -8,20 +8,21 @@
     * [Non-static data members introspection](#non-static-data-members-introspection)
     * [Virtual functions introspection](#virtual-functions-introspection)
     * [User attributes introspection](#user-attributes-introspection)
+    * [Enum attribute overloads](#enum-attribute-overloads)
     * [Access flags](#access-flags)
 1. [Reflection on enums](#reflection-on-enums)
-2. [Reflection on bases and members](#reflection-on-bases-and-members)
-3. [User attributes](#user-attributes)
-4. [Type strings and decl strings](#type-strings-and-decl-strings)
-5. [Typed enums](#typed-enums)
+1. [Reflection on bases and members](#reflection-on-bases-and-members)
+1. [User attributes](#user-attributes)
+1. [Type strings and decl strings](#type-strings-and-decl-strings)
+1. [Typed enums](#typed-enums)
     * [Reflection on typed enums](#reflection-on-typed-enums)
     * [Joining typed enums](#joining-typed-enums)
     * [Sorting typed enums](#sorting-typed-enums)
     * [Queries into typed enums](#queries-into-typed-enums)
 1. [Dynamic name](#dynamic-names)
-2. [AoS to SoA](#aos-to-soa)
-
-## Reflection
+1. [AoS to SoA](#aos-to-soa)
+1. [Loading JSON into C++](#loading-json-into-c++)
+1. [Defining types from JSON](#defining-types-from-json)
 
 Circle defines dozens of extension keywords that provide introspection information into user-defined types. You can currently query enumerators within an enumeration and base classes and non-static data members within a class object. Work is ongoing to provide similar introspection into virtual member functions. 
 
@@ -187,15 +188,115 @@ Under construction.
 
 ### User attributes introspection
 
-User attributes are key/value pairs stored on a per-declaration, not per-instance, basis. Accordingly, they don't fit into the core C++ language, but rather the introspection and reflection extension.
+User attributes are key/value pairs stored on a per-declaration, not per-instance, basis. Accordingly, they don't fit into the core C++ language, but rather the introspection and reflection extension. For convenience, enum- and data member-centric extensions are included to directly iterate over attributes associated with those declarations.
 
 * **@attribute**(_decl_, _attrib-name_)
 * **@has_attribute**(_decl_, _attrib-name_)
+* **@attribute_list**(_decl_)
+
+* **@enum_attribute**(_enum-expression_, _attrib-name_)
+* **@enum_attribute**(_enum-type_, _ordinal_, _attrib-name_)
+* **@enum_attributes**(_enum-type_, _attrib-name_)
+* **@enum_has_attribute**(_enum-expression_, _attrib-name_)
+* **@enum_has_attribute**(_enum-type_, _ordinal_, _attrib-name_)
+* **@enum_attribute_list**(_enum-expression_)
+* **@enum_attribute_list**(_enum-type_, _ordinal_)
+
 * **@member_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
 * **@member_attributes**(_class-type_, _attrib-name_ [, access-flags_])
 * **@member_has_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
-* **@attribute_list**(_decl_)
 * **@member_attribute_list**(_class-type_, _ordinal_ [, _access-flags_])
+
+### Enum attribute overloads
+
+The three enum attribute extensions that take enumerator arguments have two overloads: one takes an enumeration-valued expression, and the other an enumeration type/ordinal pair. The expression overloads closely resemble their non-enum counterparts, but they are more specified with respect to which declarations they reflect.
+
+[**enum_attrib.cxx**](enum_attrib.cxx)
+```cpp
+#include <cstdio>
+
+using name [[attribute]] = const char*;
+using width [[attribute]] = int;
+
+template<typename type_t>
+void func() {
+
+  // This works fine.
+  printf("@enum_has_attribute:\n");
+  @meta for(int i = 0; i < @enum_count(type_t); ++i){ 
+    if constexpr(@enum_has_attribute(type_t, i, name)) {
+      printf("  %s : %s\n", @enum_name(type_t, i),
+        @enum_attribute(type_t, i, name));
+    }
+  }
+
+  // This always misses the attributes on the enumerators of type_t.
+  // Why? Because we're literally asking for attributes on the loop object 
+  // e, which is a different declaration from the underlying enumerator it
+  // gets set to each step.
+  printf("Loop with @has_attribute:\n");
+  @meta for enum(type_t e : type_t) {
+    if constexpr(@has_attribute(e, name)) {
+      printf("  %s : %s\n", @enum_name(e), @attribute(e, name));
+    }
+  }
+
+  // This works fine, because @enum_attribute and @enum_has_attribute
+  // reflects on attributes of the enumerator with the provided value, rather
+  // than reflecting on the provided declaration.
+  printf("Loop with @enum_has_attribute:\n");
+  @meta for enum(type_t e : type_t) {
+    if constexpr(@enum_has_attribute(e, name)) {
+      printf("  %s : %s\n", @enum_name(e), @enum_attribute(e, name));
+    }
+  }
+}
+
+enum my_enum_t {
+  a [[.name="Foo", .width=100]],
+  b [[.name="Bub"]],
+  c,
+};
+
+int main() {
+  func<my_enum_t>();
+}
+```
+```
+$ circle enum_attrib.cxx && ./enum_attrib
+@enum_has_attribute:
+  a : Foo
+  b : Bub
+Loop with @has_attribute:
+Loop with @enum_has_attribute:
+  a : Foo
+  b : Bub
+```
+
+Circle provides the _for-enum_ control flow statement to loop over enumerators in an enumeration. But using `@has_attribute` to query attributes on the step index `e` literally looks for attributes on the object `e`, not on the enumerator with that value. The _enum_-prefixed attribute extensions will evaluate an expression and extract the enumerator declaration given its integral value.
+
+[**enum_attrib2.cxx**](enum_attrib2.cxx)
+```cpp
+#include <cstdio>
+
+using name [[attribute]] = const char*;
+
+enum [[.name="an enumeration"]] foo_t {
+  a [[.name="an enumerator"]]
+};
+
+[[.name="an object"]] const foo_t x = a;  
+
+int main() {
+  puts(@attribute(foo_t, name));         // prints "an enumeration"
+  puts(@attribute(a, name));             // prints "an enumerator"
+  puts(@attribute(x, name));             // prints "an object"
+  puts(@attribute(decltype(x), name));   // prints "an enumeration"
+  puts(@enum_attribute(x, name));        // prints "an enumerator"
+}
+```
+
+Always keep in mind that types, objects, functions, members, enumerators and aliases are all declarations. Feeding one of these to `@attribute` will return the attributes _on that declaration_. Use the `@enum_attribute` family of extensions to load the value out of an object and return attributes on the enumerator stored there.
 
 ### Access flags
 
@@ -491,6 +592,12 @@ Uncomment the private and pointer-to-function data members to see these errors.
 ## User attributes
 
 User attributes are documented in [this section](https://github.com/seanbaxter/shaders/blob/master/README.md#user-attributes) of the Circle C++ Shaders doc.
+
+Be aware the inconsistent placement of attributes in the [C++ grammar](http://eel.is/c++draft/#gram). 
+* Attributes on member declarations go _before_ the declaration.
+* Attributes on alias declarations go _after_ the identifier.
+* Attributes on enumerator declarations go _after_ the identifier.
+* Attributes on enumerator declarations in typed enums go _just before_ the type.
 
 ## Type strings and decl strings
 
@@ -1016,6 +1123,285 @@ The transformation itself involves two pack expansion expressions. The first cal
 
 Printing the contents of an `std::vector` is done concisely with a Python-style [extended slice](https://github.com/seanbaxter/circle/blob/master/comprehension/comprehension.md#a-slice-expressions). `oss<< ", "<< vec[1:]...` prints all vector elements, starting from index 1, prepended by a comma delimiter.
 
-## Loading C++ objects from JSON
+## Loading JSON into C++
+
+[**json1.cxx**](json1.cxx)
+```cpp
+using alt_name [[attribute]] = const char*;
+
+enum class weightclass_t {
+  featherweight,
+  lightweight,
+  welterweight,
+  middleweight,
+  heavyweight,
+
+  // We can't use a hyphen in a c++ identifier, but we can in a JSON key.
+  // Associate this alternate name using an attribute.
+  lheavyweight [[.alt_name="light-heavyweight"]],
+};
+
+enum class stance_t {
+  orthodox,
+  southpaw,
+};
+
+struct boxer_t {
+  std::string name;
+  weightclass_t weight;
+  int height;
+  int reach;
+
+  // By providing a default here, we don't error if the JSON doesn't have one.
+  stance_t stance = stance_t::orthodox;
+};
+```
+
+Consider using Circle reflection to generate a function that reads a JSON object into the `boxer_t` type. Protocol for decoding is embedded in the C++ declarations. Enumeration members must have JSON values that match enumerator names. To provide a more natural interface with JSON tools, an alternate name can be attached to enumerators using the _alt_name_ user attribute. Data members with default member initializers decome optional in the JSON representation.
+
+[**json1.cxx**](json1.cxx)
+```cpp
+template<typename enum_t>
+std::optional<enum_t> string_to_enum(const char* s) {
+  @meta for enum(enum_t e : enum_t) {
+
+    if constexpr(@enum_has_attribute(e, alt_name)) {
+      if(0 == strcmp(@enum_attribute(e, alt_name), s))
+        return e;
+    }
+
+    if(0 == strcmp(@enum_name(e), s))
+      return e;
+  }
+  return { };
+}
+```
+
+First let's extend `string_to_enum` to reflect both on enumerator names and _alt\_name_ attributes. Just use the _for-enum_ statement to loop over all enumerators and check for _alt\_name_ with `@enum_has_attribute`. This needs to be used in an _if-constexpr_ statement, because trying to access an attribute that doesn't exist will generate a compiler error; the _if-constexpr_ prevents the compiler's template machinery from substituting the untaken branch.
+
+[**json1.cxx**](json1.cxx)
+```cpp
+#define ERROR(pattern, ...) \
+  { fprintf(stderr, pattern, __VA_ARGS__); exit(1); }
 
 
+template<typename type_t>
+type_t load_from_json(json& j) {
+  type_t obj { };
+
+  if constexpr(std::is_same_v<std::string, type_t>) {
+    obj = j.get<std::string>();
+
+  } else if constexpr(std::is_class_v<type_t>) {
+
+    // Don't support classes with non-public members.
+    static_assert(
+      !@member_count(type_t, protected private),
+      "cannot stream type \""s + @type_string(type_t) + 
+        "\" with non-public member objects"
+    );
+
+    // Don't support classes with bases.
+    static_assert(
+      !@base_count(type_t, all),
+      "cannot stream type \""s + @type_string(type_t) + "\" with base classes"
+    );
+
+    // Loop over data members.
+    @meta for(int i = 0; i < @member_count(type_t); ++i) {
+      // Look up a value.
+      json& j2 = j[@member_name(type_t, i)];
+
+      // Error if it's not available and with no defaulted.
+      if(!j2.is_null()) {
+        obj.@member_value(i) = load_from_json<@member_type(type_t, i)>(j2);
+
+      } else if constexpr(!@member_has_default(type_t, i))
+        ERROR("JSON missing member %s\n", @member_name(type_t, i));
+    }
+
+  } else if constexpr(std::is_array_v<type_t>) {
+    typedef std::remove_extent_t<type_t> inner_t;
+    size_t i = 0;
+    for(json& j2 : j) 
+      obj[i++] = load_from_json<inner_t>(j2);
+
+  } else if constexpr(std::is_enum_v<type_t>) {
+    if(auto e = string_to_enum<type_t>(j.get<std::string>().c_str())) {
+      obj = *e;
+
+    } else {
+      ERROR("%s is not a %s enumerator\n", j.get<std::string>().c_str(), 
+        @type_name(type_t));
+    }
+
+  } else if constexpr(std::is_same_v<bool, type_t>) {
+    obj = j.get<bool>();
+
+  } else {
+    static_assert(std::is_arithmetic_v<type_t>);
+    obj = j.get<type_t>();
+  }
+
+  return obj;
+}
+```
+
+The logic for decoding a JSON object into a C++ struct models the `print_object` logic from [reflect.cxx](reflect.cxx). A series of _if-constexpr_ statements help specify decoding behaviors for specific types or categories of types. As with `print_object` we reflect over the structure of the C++ class, because that structure is known at compile time, whereas the schema implied by the JSON is known at runtime--too late for code generation.
+
+Of interest is the code for optionally supporting data members with default member initializers, such as `boxer_t::stance`. `@member_has_default` indicates that the member has a default initializer, and it permits us to skip raising an error when the JSON lacks the corresponding member. We don't care _what_ the default initializer actually is, because it's applied when constructing the return variable at the top of `load_from_json`. (FYU, `@member_default` gives you the default member initializer.)
+
+[**boxers.json**](boxers.json)
+```json
+{
+  "boxers" : [
+    {
+      "name" : "Tyson Fury",
+      "weight" : "heavyweight",
+      "height" : 206,
+      "reach" : 216,
+      "stance" : "orthodox"
+    },
+    {
+      "name" : "Artur Beterbiev",
+      "weight" : "light-heavyweight",
+      "height" : 183,
+      "reach" : 185
+    },
+    {
+      "name" : "Demetrius Andrade",
+      "weight" : "middleweight",
+      "height" : 185,
+      "reach" : 187
+    },
+    {
+      "name" : "Sergio Martinez",
+      "weight" : "welterweight",
+      "height" : 178,
+      "reach" : 185,
+      "stance" : "southpaw"
+    },
+    {
+      "name" : "Devin Haney",
+      "weight" : "lightweight",
+      "height" : 173,
+      "reach" : 180
+    }
+  ]
+}
+```
+
+No additional tooling is needed to decode this JSON file into `boxer_t` C++ objects. Alternative spellings for the weightclass are supported due to the user attribute on the enumerator declarations. `stance` is an optional field thanks to a default member initializer.
+
+## Defining types from JSON
+
+The [primitives ray marcher](https://github.com/seanbaxter/shaders/#configuring-a-shader-from-json) C++ shaders sample generates actual C++ types from a JSON file that is loaded and parsed _at compile time_. This can be very useful when paired with algorithms that use reflection to scrape data members to operate on.
+
+[**types.json**](types.json)
+```json
+{
+  "types" : [
+    {
+      "name" : "address_t",
+      "members" : [
+        {
+          "name" : "street",
+          "type" : "std::string"
+        },
+        { 
+          "name" : "zip",
+          "type" : "int"
+        },
+        {
+          "name" : "state",
+          "type" : "char[2]"
+        }
+      ]
+    },
+    {
+      "name" : "person_t",
+      "members" : [
+        {
+          "name" : "first",
+          "type" : "std::string"
+        },
+        {
+          "name" : "last",
+          "type" : "std::string"
+        },
+        {
+          "name" : "address",
+          "type" : "address_t"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Circle can reflect on its introspection data, because that's known at compile time. It can also reflect on external data assets that can be loaded at compile time. By using _json.hpp_ to iterate over a configuration file like _types.json_, we can emit new C++ types conform to this external schema. By making the "types" value an array, we ensure that the elements are visited in order, so that each successive type use the previously-defined types in its definition, as is the case with `person_t` including an `address_t` data member.
+
+[**json2.cxx**](json2.cxx)
+```cpp
+#include "json.hpp"
+#include <fstream>
+
+using namespace nlohmann;
+
+// Load types.json at compile time. All meta statements are executed at 
+// compile time.
+@meta std::ifstream file("types.json");
+@meta json j;
+@meta file>> j;
+
+@meta for(json& types : j["types"]) {
+
+  // Use a dynamic name to turn the JSON "name" value into an identifier.
+  struct @(types["name"]) {
+
+    // Loop over the JSON "members" array.
+    @meta for(json& members : types["members"]) {
+      // Emit each member. The inner-most enclosing non-meta scope is the
+      // class-specifier, so this statement is a member-specifier.
+      @type_id(members["type"]) @(members["name"]);
+    }
+  };
+}
+
+// Make a typed enum to keep a record of the types we injected.
+enum typename new_types_t {
+  @meta for(json& types : j["types"])
+    @type_id(types["name"]);
+};
+
+int main() {
+  @meta for enum(new_types_t e : new_types_t) {
+    printf("struct %s {\n", @enum_type_string(e));
+    printf("  %s;\n", @member_decl_strings(@enum_type(e)))...;
+    printf("};\n");
+  }
+}
+```
+```
+$ circle json2.cxx && ./json2
+struct address_t {
+  std::string street;
+  int zip;
+  char state[2];
+};
+struct person_t {
+  std::string first;
+  std::string last;
+  address_t address;
+};
+```
+
+The heart of this reflection sample is a member specifier powered by a `@type_id` and a dynamic name, both fed with JSON string values, inside a meta _for-statement_, inside a _class-specifier_, inside another meta _for-statement_. Types and other non-meta declarations fall through meta scopes and embed in the innermost enclosing non-meta scope, so the injected structs all sit in the global namespace, and the injected members belong to the structs.
+
+The `file` and `j` objects which hold the JSON data are _only available at compile time_. When the Circle parser finishes the translation unit, the objects fall out of scope and are destroyed. The `types.json` does not need to accompany the executable.
+
+To bridge the compile-time/runtime boundary, a typed enum `new_types_t` is defined which holds the types we just injected. Typed enums are clean, iterable, closed collections of types, whereas the global namespace is a place of rank pollution. The typed enum is defined by traversing the JSON data and emitting enumerators at compile time, and it is used at runtime to print the injected types and their data members to the terminal. 
+
+![spheres](https://github.com/seanbaxter/shaders/blob/master/images/spheres_many_sizes.png)
+
+Is this capability useful? I think it can be. The algorithms that operate on these schema-defined types must be reflection-enabled to operate generically on them. The signed distance functions in the [Shadertoy sample](https://github.com/seanbaxter/shaders/blob/master/README.md#configuring-a-shader-from-json) are specified from a set of C++-defined SDF primitives. The JSON could be edited by a modeling tool and fed back into C++ for shader generation.
