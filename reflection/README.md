@@ -1,4 +1,4 @@
-# Circle reflection and typed enums
+g# Circle reflection and typed enums
 
 1. [Reflection](#reflection)
 1. [Introspection reference](#introspection-reference)
@@ -122,8 +122,6 @@ Parameter packs are usually more concise and expressive than loops, but you can'
 * **@decl_string**(_type_, _decl-name_) - Create decl string from a type and a decl name.
 * **@dynamic_type**(_type) - Box a type into an `@mtype`.
 * **@static_type**(_@mtype-expression_) - boxes a type into an `@mtype` object
-
-`@pack_type` pointer/count pair, std::vector or std::array of `@mtype`.
 
 ### Enumerations introspection
 
