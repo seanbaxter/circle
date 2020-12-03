@@ -124,6 +124,7 @@ Parameter packs are usually more concise and expressive than loops, but you can'
 * **@decl_string**(_type_, _decl-name_) - Create decl string from a type and a decl name.
 * **@dynamic_type**(_type_) - Box a type into an `@mtype`.
 * **@static_type**(_@mtype-expression_) - Unboxes an `@mtype` object to yield a type.
+* **@string**(_string-expression_) - Converts a compile-time `const char*` or `std::string` to a constant character array. This interfaces a compile-time variable with an AST constant.
 
 ### Enumerations introspection
 
