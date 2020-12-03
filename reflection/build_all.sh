@@ -14,3 +14,4 @@ circle typed_enum3.cxx && ./typed_enum3
 circle typed_enum4.cxx && ./typed_enum4
 circle json1.cxx && ./json1
 circle json2.cxx && ./json2
+circle commit.cxx && ./commit

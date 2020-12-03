@@ -23,6 +23,7 @@
 1. [AoS to SoA](#aos-to-soa)
 1. [Loading JSON into C++](#loading-json-into-c)
 1. [Defining types from JSON](#defining-types-from-json)
+1. [Querying the system](#querying-the-system)
 
 ## Reflection
 
@@ -1404,3 +1405,76 @@ To bridge the compile-time/runtime boundary, a typed enum `new_types_t` is defin
 ![spheres](https://github.com/seanbaxter/shaders/blob/master/images/spheres_many_sizes.png)
 
 Is this capability useful? I think it can be. The algorithms that operate on these schema-defined types must be reflection-enabled to operate generically on them. The signed distance functions in the [Shadertoy sample](https://github.com/seanbaxter/shaders/blob/master/README.md#configuring-a-shader-from-json) are specified from a set of C++-defined SDF primitives. The JSON could be edited by a modeling tool and fed back into C++ for shader generation.
+
+## Querying the system
+
+[**commit.cxx**](commit.cxx)
+```cpp
+#include <cstdlib>
+#include <cstdio>
+#include <ctime>
+
+// Use popen to make a system call and capture the output in a file handle.
+// Make it inline to prevent it from being output by the backend.
+inline int capture_call(const char* cmd, char* text, int len) {
+  FILE* f = popen(cmd, "r");
+  len = f ? fread(text, 1, len, f) : 0;
+  pclose(f);
+}
+
+// Every time print_version is compiled, it runs "git rev-parse HEAD" to
+// get the current commit hash.
+void print_version() {
+  // Make a format specifier to print the first 10 digits of the git hash.
+  @meta const char* fmt =
+    "  Circle compiler\n"
+    "  Written by Sean Baxter\n"
+    "  Compiled %s"
+    "  Build %d\n"
+    "  Hash: %.10s\n";
+
+  // Get the time of compilation.
+  @meta time_t t = time(0);
+  @meta const char* time = asctime(gmtime(&t));
+
+  // Retrieve the current commit hash. The hash is 40 digits long, and we
+  // include space for null.
+  @meta char hash[41];
+  @meta int len = capture_call("git rev-parse HEAD", hash, 41);
+
+  // Substitute into the format specifier.
+  @meta char text[120];
+  @meta sprintf(text, fmt, time, __circle_build__, hash);
+  
+  // The text array has automatic storage duration at *compile time*. The
+  // array will expire when the end of the function is reached, so it will be
+  // inaccessible at runtime, which is when we want to print the message.
+  // Use @string to convert the compile-time data to a string literal which 
+  // is available at runtime.
+  puts(@string(text));
+}
+
+int main() {
+  print_version();
+  return 0;
+}
+```
+```
+$ circle commit.cxx
+$ ./commit 
+  Circle compiler
+  Written by Sean Baxter
+  Thu Dec  3 15:46:17 2020
+  Build 107
+  Hash: 46be0966c9
+```
+
+Even without any specific build-system capabilities, Circle does allow the programmer to query the build environment. Let's use the integrated interpreter to define a useful build tool. Software is the subject of constant revisions, and it's useful to mark a distributable with the exact version of the source-control archive it was built with.
+
+The git command `rev-parse HEAD` prints the 40-digit commit hash of the current repository. We'll use Circle's integrated interpreter to run the git command using the POSIX API  [popen](https://man7.org/linux/man-pages/man3/popen.3.html). This executes a shell command and pipes the terminal output to a new file handle. We'll wrap the popen call in a helper function capture_call. This function is marked inline, so it'll only be emitted to the binary if it's actually called (ODR-used) by non-meta code.
+
+print_version is an ordinary function with external linkage. We want it to print version info for the program, and while it's being defined, call `capture_call` with "git rev-parse HEAD" to retrieve the repository's commit hash. At compile time, `sprintf` is called to insert the first 10 hash digits into the format specifier.
+
+The text array has automatic storage duration at compile time. When the compiler is done defining `print_version`, it'll release that variable. We can't use it directly from a real expression statement, but we can use the Circle extension `@string` to copy the null-terminated string in text into a string literal and print that to the terminal at runtime.
+
+What's the lesson here? We took an ordinary C++ function, `capture_call`, and employed it in a novel context. We didn't have to spend time learning obscure features of our build system. We wrote normal code that does what we want, and entered the `@meta` context to do it at compile time.
