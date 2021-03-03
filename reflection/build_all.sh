@@ -12,6 +12,7 @@ circle typed_enum1.cxx && ./typed_enum1
 circle typed_enum2.cxx && ./typed_enum2
 circle typed_enum3.cxx && ./typed_enum3
 circle typed_enum4.cxx && ./typed_enum4
+circle for_typename.cxx && ./for_typename
 circle json1.cxx && ./json1
 circle json2.cxx && ./json2
 circle commit.cxx && ./commit

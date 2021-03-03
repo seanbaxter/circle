@@ -19,6 +19,7 @@
     * [Joining typed enums](#joining-typed-enums)
     * [Sorting typed enums](#sorting-typed-enums)
     * [Queries into typed enums](#queries-into-typed-enums)
+1. [for-typename loops](#for-typename-loops)
 1. [Dynamic names](#dynamic-names)
 1. [AoS to SoA](#aos-to-soa)
 1. [Loading JSON into C++](#loading-json-into-c)
@@ -305,7 +306,7 @@ All base class and data member introspection extensions take an optional _access
 * 1 - `public`
 * 2 - `protected`
 * 4 - `private`
-* 7 - `any`
+* 7 - `all`
 
 For example, the access flags `public protected` will retrieve only public or protected bases and members. Equivalently you can pass a an integral mask: 3 also retrieves the public and protected members.
 
@@ -1002,6 +1003,48 @@ constexpr size_t find_first_in_list_v = std::min({
 ```
 
 We do an element-wise type comparison of the type we're searching for, `type_t` with the associated types of the enum. If they match, `std::is_same_v` is true, and the `int...` Circle extension returns the current index of the pack expansion. If they don't match, `@enum_count` yields the end index. This pack expansion is expanded into an initializer list, and that is passed to the reduction min. All this occurs at compile time; the result of the function call is a constant.
+
+## for-typename loops
+
+The _for-enum_ construct is one way to loop over types, but it's not that generic. Circle provides a _for-typename_ construct to loop over all types inside a braced list. You can put any types in this list, including type-yielding pack expansions.
+
+[**for_typename.cxx**](for_typename.cxx)
+```cpp
+void func1() {
+  printf("func1:\n");
+  @meta for typename(type_t : { char, double, long[3], char(short) })
+    printf("  %s\n", @type_string(type_t));
+}
+```
+
+Like _for-enum_, _for-typename_ is necessarily a compile-time loop, so it must be prefixed with the `@meta` token. The body of the loop will embed in the inner-most enclosing non-meta context, so this construct can be used to declare new data members in a class, enumerators in an enum, or just normal statements in a function, as shown above.
+
+```cpp
+template<typename... types_t>
+void func2() {
+  // Loop over parameter pack using for-typename.
+  printf("func2:\n");
+  @meta for typename(type_t : { types_t... })
+    printf("  %s\n", @type_string(type_t));
+}
+```
+
+To loop over the types in a parameter pack, including those pack-yielding Circle introspection extensions, just expand the pack into the braced list. You can insert additional comma-separated types around the pack expansion to augment your list.
+
+```cpp
+template<typename list_t>
+void func5() {
+  static_assert(__is_typed_enum(list_t));
+
+  // Alternatively, ditch the braces and use the 'enum' keyword to 
+  // specify we want iteration over all types in the typed enum.
+  printf("func5:\n");
+  @meta for typename(type_t : enum list_t)
+    printf("  %s\n", @type_string(type_t));
+}
+```
+
+If you have a typed enum, you can loop over the associated types by introducing the typed enum with the `enum` keyword. This is similar but different from _for-enum_, which loops over enumerators. This mechanism loops over the types associated with enumertors.
 
 ## Dynamic names
 
