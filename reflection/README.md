@@ -12,7 +12,9 @@
     * [Access flags](#access-flags)
 1. [Reflection on enums](#reflection-on-enums)
 1. [Reflection on bases and members](#reflection-on-bases-and-members)
+    * [Shader reflection](#shader-reflection)
 1. [User attributes](#user-attributes)
+    * [Type attributes and defaults](#type-attributes-and-defaults)
 1. [Type strings and decl strings](#type-strings-and-decl-strings)
 1. [Typed enums](#typed-enums)
     * [Reflection on typed enums](#reflection-on-typed-enums)
@@ -122,8 +124,8 @@ Parameter packs are usually more concise and expressive than loops, but you can'
 
 ### Utilities
 
-* **@type_string**(_type_) - Create a string from a type.
-* **@decl_string**(_type_, _decl-name_) - Create decl string from a type and a decl name.
+* **@type_string**(_type_ [, _canonical_]) - Create a string from a type. If _canonical_ is provided and is `true`, the canonical name is printed. A canonical name is stripped of its typedefs.
+* **@decl_string**(_type_, _decl-name_ [, _canonical_ ]) - Create decl string from a type and a decl name.
 * **@dynamic_type**(_type_) - Box a type into an `@mtype`.
 * **@static_type**(_@mtype-expression_) - Unboxes an `@mtype` object to yield a type.
 * **@string**(_string-expression_) - Converts a compile-time `const char*` or `std::string` to a constant character array. This interfaces a compile-time variable with an AST constant.
@@ -193,20 +195,45 @@ Under construction.
 
 User attributes are key/value pairs stored on a per-declaration, not per-instance, basis. Accordingly, they don't fit into the core C++ language, but rather the introspection and reflection extension. For convenience, enum- and data member-centric extensions are included to directly iterate over attributes associated with those declarations.
 
-* **@attribute**(_decl_, _attrib-name_)
-* **@has_attribute**(_decl_, _attrib-name_)
-* **@attribute_list**(_decl_)
-* **@enum_attribute**(_enum-expression_, _attrib-name_)
-* **@enum_attribute**(_enum-type_, _ordinal_, _attrib-name_)
-* **@enum_attributes**(_enum-type_, _attrib-name_)
-* **@enum_has_attribute**(_enum-expression_, _attrib-name_)
-* **@enum_has_attribute**(_enum-type_, _ordinal_, _attrib-name_)
-* **@enum_attribute_list**(_enum-expression_)
-* **@enum_attribute_list**(_enum-type_, _ordinal_)
-* **@member_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
-* **@member_attributes**(_class-type_, _attrib-name_ [, access-flags_])
-* **@member_has_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_])
-* **@member_attribute_list**(_class-type_, _ordinal_ [, _access-flags_])
+#### Check for the existence of an attribute
+
+These five extensions check if a non-type or type attribute exists on a declaration, on an enum, or a class member. The two-parameter enum and member variants are more specific than the **@has_attribute** mechanism, which yields data about a top-level declaration. **@enum_has_attribute** and **@member_has_attribute** evaluate the operand expression, pull out the enumerator or pointer-to-member value inside, and return information on that. That is, **@has_attribute** returns attributes on a container, and the enum and member variants return attributes on the enum or member inside that container.
+
+* **@has_attribute**(_decl_, _attrib-name_) - True if _decl_ has an attribute _attrib-name_.
+* **@enum_has_attribute**(_enum-expression_, _attrib-name_) - True if the enumerator value has an attribute _attrib-name_.
+* **@enum_has_attribute**(_enum-type_, _ordinal_, _attrib-name_) - True if the _ordinal_ enumerator in _enum-type_ has an attribute _attrib-name_.
+* **@member_has_attribute**(_pointer-to-member-expression_, _attrib-name_) - True if the member in the pointer-to-member constant expression has an attribute _attrib-name_.
+* **@member_has_attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_]) - True if the _ordinal_ member with _access-flags_ access has an attribute _attrib-name_.
+
+#### Attribute kind checks
+
+Circle includes three type trait intrinsics to check if a type is an attribute alias, or specifically a non-type or type attribute alias.
+
+* **__is_attribute**(_type_) - True if the type is an alias marked with `[[attribute]]`
+* **__is_nontype_attribute**(_type_) - True if the type is a non-type attribute alias.
+* **__is_type_attribute**(_type_) - True if the type is a type attribute alias.
+* **__attribute_has_default**(_type_) - True if the attribute has a default value or type.
+
+#### Querying attributes
+
+C++ requires syntax elements to always convey when a construct yields an expression (i.e. a type and value category) versus yielding a type. This is why the `typename` and `template` keywords are sometimes required for syntax disambiguation. To satsify this requirement, there are two parallel sets of extensions for accessing attributes. Attributes yielding a value, non-type attributes, are accessed with **_attribute** extensions. Those yielding a type, type-attributes, are accessed with **_tattribute** extensions. This specificity is not needed when checking the existence of an attribute, since those extensions always return a bool value.
+
+* **@[t]attribute**(_decl_, _attrib-name_) - Yield the value/type of the attribute on the declaration.
+* **@[t]attribute_list**(_decl_) - Yield a type parameter pack of all non-type/type attributes on the declaration.
+* **@enum_[t]attribute**(_enum-expression_, _attrib-name_) - Yield the value/type of the non-type/type attribute on the enumerator.
+* **@enum_[t]attribute**(_enum-type_, _ordinal_, _attrib-name_) - Yield the value/type of the non-type/type attribute on the ordinal'th enumerator in _enum-type_.
+* **@enum_[t]attributes**(_enum-expression_) - Yield a parameter pack of non-type/type attribute values/types on the specified enumerator.
+* **@enum_[t]attributes**(_enum-type_, _ordinal_) - Yield a parameter pack of non-type/type attribute values/types on the ordinal'th enumerator in _enum-type_.
+* **@enum_[t]attributes**(_enum-type_, _attrib-name_) - Yield a parameter pack of non-type/type attribute values/types, one for each enumerator in _enum-type_. If any enumerator doesn't have this attribute, it is an error.
+* **@enum_[t]attribute_list**(_enum-expression_) - Yield a type parameter pack of all non-type/type attributes on the enumerator.
+* **@enum_[t]attribute_list**(_enum-type_, _ordinal_) - Yield a type parameter pack of all non-type/type attributes on the ordinal'th enumerator in _enum-type_.
+* **@member_[t]attribute**(_pointer-to-member-expression_, _attrib-name_) - Yield the value/type of the non-type/type attribute on the member associated with the pointer-to-member expression. May be a data member or member function.
+* **@member_[t]attribute**(_class-type_, _ordinal_, _attrib-name_ [, _access-flags_]) - Yield the value/type of the non-type/type attribute on the ordinal'th data member with the specified flag. By default, public access is used.
+* **@member_[t]attributes**(_pointer-to-member-expression_) - Yield a parameter pack of non-type/type attribute values/types for each attribute on the member associated with the pointer-to-member expression.
+* **@member_[t]attributes**(_class-type_, _ordinal_ [, _access-flags_]) - Yield a parameter pack of non-type/type attribute values/types for each attribute on the ordinal'th data member in _class_name_.
+* **@member_[t]attributes**(_class-type_, _attrib-name_ [, _access-flags_]) - Yield a parameter pack of non-type/type attribute values/types, one for each data member in _class-type_. If any member doesn't have this attribute, it is an error.
+* **@member_[t]attribute_list**(_pointer-to-member-expression_) - Yield a type parameter pack of all non-type/type attributes on the member associated with the pointer-to-member expression. May be a data member of member function.
+* **@member_[t]attribute_list**(_class-type_, _ordinal_ [, _access-flags_]) - Yield a type parameter pack of all non-type/type attributes on the ordinal'th data member in _class-type_.
 
 ### Enum attribute overloads
 
@@ -590,9 +617,113 @@ Since Circle implements compile-time execution of any code (not just constexpr-t
 
 Uncomment the private and pointer-to-function data members to see these errors.
 
+### Shader reflection
+
+[**shuffle.cxx**](shuffle.cxx)
+```cpp
+#include <type_traits>
+#include <tuple>
+
+// We can't return arrays by value, so take the argument by reference.
+template<typename type_t>
+void subgroupShuffle(type_t& x, uint id) {
+  if constexpr(
+    std::is_array_v<type_t> || 
+    __is_vector(type_t) || 
+    __is_matrix(type_t) || 
+    requires { typename std::tuple_size<type_t>::type; }) {
+
+    // Shuffle elements of arrays, vectors, matrices and tuples.
+    subgroupShuffle(x...[:], id)...;
+
+  } else if constexpr(std::is_class_v<type_t>) {
+    // Shuffle all public base classes and data members of class objects.
+    subgroupShuffle(x.@base_values(), id)...;
+    subgroupShuffle(x.@member_values(), id)...;
+
+  } else {
+    // Plain shuffle scalars.
+    x = gl_subgroupShuffle(x, id);
+  }
+}
+
+// Overload the SPIR-V declaration gl_subgroupShuffle.
+template<typename type_t>
+type_t gl_subgroupShuffle(type_t x, uint id) {
+  subgroupShuffle(x, id);
+  return x;
+}
+
+// Create a complex test case with inheritance, arrays and a tuple.
+struct base_t {
+  double d[2];
+};
+
+struct box_t {
+  vec3 min, max;
+};
+
+struct foo_t : base_t {
+  mat4 m;
+  vec4 v[2];
+  std::tuple<int, float, int> tuple;
+  box_t box;
+};
+
+[[spirv::buffer(0)]]
+foo_t foos[];
+
+extern "C" [[spirv::comp, spirv::local_size(128)]]
+void comp() {
+  int gid = glcomp_GlobalInvocationID.x;
+
+  // Each thread loads a foo.
+  foo_t foo = foos[gid];
+
+  // Broadcast lane 3's foo.
+  foo = gl_subgroupShuffle(foo, 3);
+
+  // Store back to mem.
+  foos[gid] = foo;
+}
+```
+
+Consider using base and member reflection to write functions that generically disaggregates types. A good example is extending GLSL instructions to complex data types. The `gl_subgroupShuffle` function shuffles a scalar or vector type between lanes in a subgroup. This instruction helps implement high-throughput prefix sum algorithms, but to make the prefix sum totally generic, you need to be able to shuffle arbitrary types, and not just scalars.
+
+The `subgroupShuffle` function templates takes a reference to an object or array and shuffles it in-place. If the type is tuple-like, meaning it's a vector, matrix, array or type that provides specializations for `std::tuple_size`, it is recursively disaggregated with the `...[:]` static slice mechanism. This yields a non-type parameter pack holding lvalues for each operand component, which is fed back into `subgroupShuffle` and expanded. If the type is any other class, the `@base_values()` and `@member_values()` accessors yield non-type parameters for the base and data member lvalues, which are passed to the next `subgroupShuffle` level. Finally, scalars are passed to the GLSL function `gl_subgroupShuffle` which terminates recursion.
+
 ## User attributes
 
-User attributes are documented in [this section](https://github.com/seanbaxter/shaders/blob/master/README.md#user-attributes) of the Circle C++ Shaders doc.
+User attributes are also documented in [this section](https://github.com/seanbaxter/shaders/blob/master/README.md#user-attributes) of the Circle C++ Shaders doc.
+
+Circle implements both non-type attributes (those yielding a value) and type attributes (those yielding a value). Additionally, attributes may have defaults, so that queries on a declaration still yield a result, even when the attribute is missing from the declaration. This is especially useful when using pack-yielding attribute intrinsics.
+
+To declare a non-type user-defined attribute, use this syntax:
+
+```cpp
+using attrib-name [[attribute]] = attrib-type;
+```
+
+The attribute must be declared in namespace scope. The _attrib-type_ may be any non-placeholder [_literal_ type](https://en.cppreference.com/w/cpp/named_req/LiteralType). `void` types are also supported; these attributes have no value, but their presence can be checked with `@has_attribute`, making them good flag attributes.
+
+To declare a type user-defined attribute, use this syntax:
+
+```cpp
+using attrib-name [[attribute]] = typename;
+``` 
+
+Type attributes have an associated type rather than associated value. The specifically named `tattribute` intrinsics always parse as types rather than expressions, which is critical for translation when the operand attribute is a dependent type.
+
+Both non-type and type attributes permit default values/types at the point of definition:
+
+```cpp
+using adjustment [[attribute(.1f)]] = float;
+using string_kind [[attribute(const char*)]] = typename;
+```
+
+For both attribute kinds, write the default argument in parentheses as part of the `[[attribute]]` construct. For non-type attributes, the default expression is used to copy-initialize an instance of the attribute type.
+
+To annotate a declaration with an attribute, name the attribute in a C++11 attribute sequence, after the `.` token. This syntax suggests that an attribute is a member of a declaration. You can also name a class or enum type to attach a non-type attribute without having to declare an attribute alias.
 
 Be aware the inconsistent placement of attributes in the [C++ grammar](http://eel.is/c++draft/#gram). 
 * Attributes on member declarations go _before_ the declaration.
@@ -600,13 +731,183 @@ Be aware the inconsistent placement of attributes in the [C++ grammar](http://ee
 * Attributes on enumerator declarations go _after_ the identifier.
 * Attributes on enumerator declarations in typed enums go _just before_ the type.
 
+[**attrib.cxx**](attrib.cxx)
+```cpp
+#include <cstdio>
+
+using alt_name [[attribute]] = const char*;
+
+template<typename enum_t>
+const char* enum_to_string(enum_t e) {
+  switch(e) {
+    @meta for enum(enum_t e2 : enum_t) {
+      case e2:
+        if constexpr(@enum_has_attribute(e2, alt_name))
+          return @enum_attribute(e2, alt_name);
+        else
+          return @enum_name(e2);
+    }
+
+    default:
+      return "unknown";
+  }
+}
+
+enum class shapes_t {
+  circle,
+  ellipse [[.alt_name="A squishy circle"]],
+  square,
+  rectangle [[.alt_name="A pancaked square"]],
+};
+
+int main() {
+  printf("%s\n", enum_to_string(@enum_values(shapes_t)))...;
+}
+```
+
+The standard Circle [`enum_to_string`](#reflection-on-enums) is augmented with alternative names, which are assigned as attributes. In the case-generating loop, we use `@enum_has_attribute` to check if `alt_name` is defined on the enum, and if it is, return the attribute with `@enum_attribute`. The use of the `enum_`-prefixed intrinsics makes the query more specific than using `@has_attribute` and `@attribute`. The former operations would return attributes on the declaration `e2`, which is just a temporary value, not the enum value itself. The `enum_`- intrinsics read the value in the temporary storage, which must be known at compile time, and retrieve attributes on the corresponding enumerator declarations.
+
+### Type attributes and default
+
+[**attrib2.cxx**](attrib2.cxx)
+```cpp
+typedef uint GLuint;
+
+using type    [[attribute]]    = typename;
+using binding [[attribute]]    = int;
+using set     [[attribute(0)]] = int;
+
+enum class storage_class_t {
+  uniform,
+  buffer, 
+  readonly
+};
+
+// shader_decl is the primary variable template for coining shader 
+// interface variables from attributes.
+template<auto x>
+void shader_decl;
+
+// Partial template for all three storage classes. Use a requires-clause
+// to constrain each partial template to one storage class.
+template<auto x>
+requires(storage_class_t::uniform == @attribute(x, storage_class_t))
+[[spirv::uniform(@attribute(x, binding), @attribute(x, set))]]
+@tattribute(x, type) shader_decl<x>;
+
+template<auto x>
+requires(storage_class_t::buffer == @attribute(x, storage_class_t))
+[[spirv::buffer(@attribute(x, binding), @attribute(x, set))]]
+@tattribute(x, type) shader_decl<x>;
+
+template<auto x>
+requires(storage_class_t::readonly == @attribute(x, storage_class_t))
+[[using spirv: buffer(@attribute(x, binding), @attribute(x, set)), readonly]]
+@tattribute(x, type) shader_decl<x>;
+
+// Write a shader that takes its data as a template parameter.
+template<typename data_t>
+[[spirv::vert]] 
+void vert_shader() {
+  // Use the attributes on data_t::vertices to declare a shader variable,
+  // then load from that and copy to vertex output.
+  glvert_Output.Position = shader_decl<&data_t::vertices>[glvert_VertexID];
+}
+
+// Imagine your pipeline's data fitting in these variables:
+struct simple_pipeline_t {
+  [[.storage_class_t=uniform, .type=sampler2D, .binding=3, .set=1]]
+  GLuint texture0;
+
+  [[.storage_class_t=readonly, .type=vec4[], .binding=1 /*default set is 0*/]]
+  GLuint vertices;
+};
+
+// Generate a shader for simple_pipeline_t.
+template void vert_shader<simple_pipeline_t>() asm("vert");
+```
+
+This sample uses non-type attributes, type attributes and attribute defaults to drive generation of SPIR-V shader interface variables. SPIR-V and DXIL interface variables have types, storage classes, bindings/registers and sets/spaces. We can annotate ordinary struct members with these four attributes, and use the struct member as a key from which specialize a variable template which results in the implicit declaration of a shader interface variable with the desired attributes.
+
+The basic storage classes are "uniform," which includes both uniform/constant buffers and opaque handles like images, samplers and textures; "buffer" which is a read-write shader-stage buffer object, or a UAV in DXIL lingo; and "readonly", a non-writable shader-stage buffer object, or SRV in DXIL. The storage class is represented with an enumerator, which is set directly from the C++ attribute sequence, no attribute alias is used for that.
+
+The type of the shader interface variable is coded with the `type` attribute. This may be a runtime-length array like `vec4[]`, an opaque type like `sampler2D` or a record type when coding a uniform/constant buffer.
+
+The binding/register and set/space attributes are integers. The `set` defaults to 0, which is a convenient choice since many applications don't use descriptors outside of the first set.
+
+The trickiness here comes in choosing a SPIR-V attribute that matches the storage class of the declaration that is used to specialize the variable `shader_decl`. We can't just write a partial specialization that matches the `storage_class_t` attribute directly, as user-defined attributes are [non-deduced contexts])(https://en.cppreference.com/w/cpp/language/template_argument_deduction#Non-deduced_contexts). We can, however, use a [C++20 constraint](https://en.cppreference.com/w/cpp/language/constraints) that disqualifies partial variable templates based on the storage class.
+
+```cpp
+template<auto x>
+requires(storage_class_t::uniform == @attribute(x, storage_class_t))
+[[spirv::uniform(@attribute(x, binding), @attribute(x, set))]]
+@tattribute(x, type) shader_decl<x>;
+```
+
+Only declarations with a `storage_class_t` attribute value of `uniform` will satisfy this constraint, allowing us to tag the variable template with the `spirv::uniform` attribute, setting its shader storage class.
+
+The shader attributes `[[spirv::uniform]]` and `[[spirv::buffer]]` take optional binding/register and set/space operands, which are filled unconditionally with the corresponding user-defined attributes of the template parameter. `set` doesn't have to be specified on the argument declaration; if it's unspecified, the default value 0 is used.
+
+Finally, the type of the variable template is accessed with the `@tattribute` intrinsic from the type attribute `type`.
+
+Specializing `shader_decl` on `&simple_pipeline_t::texture0` in the sample above generates this declaration:
+
+```cpp
+[[spirv::uniform(3, 1)]]
+sampler2D shader_decl;
+```
+
+The strength of this approach is that the descriptor data is totally abstracted from the shader definition, and attached at a single-point of definition to the actual data structure that manages the shader resource. Conventional shader compilation involves setting macro values to indicate descriptor set parameters, as macros are the only reliable mechanism of communication from the C++ source language to the domain-specific shader language compiler. With single-source C++ shaders, the programmer can annotate descriptor set parameters on any declaration, then pass those declarations through template parameters and recover them during variable specialization with the Circle attribute intrinsics.
+
+Examining the shader disassembly for `vert` confirms that descriptor parameters were properly set:
+
+```
+               OpDecorate %_Z11shader_declIXadL_ZN17simple_pipeline_t8verticesEEEE Binding 1
+               OpDecorate %_Z11shader_declIXadL_ZN17simple_pipeline_t8verticesEEEE DescriptorSet 0
+%_Z11shader_declIXadL_ZN17simple_pipeline_t8verticesEEEE = OpVariable %_ptr_StorageBuffer__struct_11 StorageBuffer  
+```
+
 ## Type strings and decl strings
 
-The C++ grammar is not good. Writing object declarations requires study of the [Clockwise/Spiral Rule](http://c-faq.com/decl/spiral.anderson.html). This is an occult art. You may think that a declaration is written with a type on the left and a name on the right, but this breaks down as soon as you hit arrays:
+The C++ grammar is not easy to parse. Circle provides both `@type_string` and `@decl_string` families of keywords. Use `@type_string` when you want to represent a type as a string. Use `@decl_string` when you want to incorporate a name into the string.
 
-`int array[10];`
+```cpp
+#include <type_traits>
+#include <cstdio>
+#include <string>
 
-Functions are worse. But pointers to members are where it really gets bad. Since the rules are so complicated, Circle provides both `@type_string` and `@decl_string` families of keywords. Use `@type_string` when you want to represent a type. Use `@decl_string` when you want to incorporate a name.
+int main() {
+  int array[4];
+
+  // Turn a type into a type string.
+  printf("@type_string = %s\n", @type_string(decltype(array)));
+
+  // Turn a type and string into a decl string.
+  printf("@decl_string = %s\n", @decl_string(decltype(array), "array"));
+
+  // Turn a string into a type.
+  @type_id("int[5]") array2;
+  printf("decltype(array2) = %s\n", @type_string(decltype(array2)));
+
+  // Construct a meta string.
+  @meta std::string s = "double";
+  static_assert(std::is_same_v<double, @type_id(s)>);
+
+  // Append function parameters to the string.
+  @meta s += "(int, const char*)";
+  static_assert(std::is_same_v<double(int, const char*), @type_id(s)>);
+}
+```
+```
+$ circle type_name.cxx && ./type_name 
+@type_string = int[4]
+@decl_string = int array[4]
+decltype(array2) = int[5]
+```
+
+These are compile-time only features. However, in the case of `@type_id`, the string argument can come from any source; it needn't be a string literal. This sample creates a meta `std::string`, sets it to "double" and converts that to a type with `@type_id`. It then appends function parameters to the string, and converts that to a function type.
+
+These keywords help bridge the gap between the compiler's type system and the compile-time environment.
 
 ## Typed enums
 

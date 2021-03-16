@@ -46,5 +46,8 @@ int main() {
   typename unique_tuple_t<int, double, char*, double, char*, float>::type_t 
     tuple { };
 
+  // Prints tuple_t<int, double, char*, float>
+  std::cout<< @type_string(decltype(tuple), true)<< "\n";
+
   return 0;
 }
