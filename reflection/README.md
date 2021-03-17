@@ -694,6 +694,7 @@ The `subgroupShuffle` function templates takes a reference to an object or array
 
 ## User attributes
 
+The user attributes intrinsics are listed [here](#user-attributes-introspection).
 User attributes are also documented in [this section](https://github.com/seanbaxter/shaders/blob/master/README.md#user-attributes) of the Circle C++ Shaders doc.
 
 Circle implements both non-type attributes (those yielding a value) and type attributes (those yielding a value). Additionally, attributes may have defaults, so that queries on a declaration still yield a result, even when the attribute is missing from the declaration. This is especially useful when using pack-yielding attribute intrinsics.
