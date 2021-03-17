@@ -768,7 +768,7 @@ int main() {
 
 The standard Circle [`enum_to_string`](#reflection-on-enums) is augmented with alternative names, which are assigned as attributes. In the case-generating loop, we use `@enum_has_attribute` to check if `alt_name` is defined on the enum, and if it is, return the attribute with `@enum_attribute`. The use of the `enum_`-prefixed intrinsics makes the query more specific than using `@has_attribute` and `@attribute`. The former operations would return attributes on the declaration `e2`, which is just a temporary value, not the enum value itself. The `enum_`- intrinsics read the value in the temporary storage, which must be known at compile time, and retrieve attributes on the corresponding enumerator declarations.
 
-### Type attributes and default
+### Type attributes and defaults
 
 [**attrib2.cxx**](attrib2.cxx)
 ```cpp
