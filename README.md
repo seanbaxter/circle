@@ -1,6 +1,6 @@
 # Circle
 The C++ Automation Language  
-2020 
+2021
 Sean Baxter
 
 Download [here](https://www.circle-lang.org/)
@@ -9,6 +9,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 
 The best samples:
 
+**NEW** [Universal member access](universal/README.md)  
 **NEW** [Circle reflection and typed enums](reflection/README.md)  
 **NEW** [Circle C++ for shaders](https://www.github.com/seanbaxter/shaders)  
 [List comprehensions, slices, ranges, for-expressions, functional folds and expansion expressions](comprehension/comprehension.md)  
