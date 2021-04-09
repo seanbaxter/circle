@@ -17,12 +17,12 @@ struct foo_t {
 
 int main() {
   // Expand array into a function argument list.
-  constexpr int data1[] { 1, 2, 3 };
+  int data1[] { 1, 2, 3 };
   func(0, data1..., 4);
 
   // Expand a normal array into an std::array.
   // Expand std::array into a function argument list.
-  constexpr std::array data2 { data1..., 4, 5, 6 };
+  std::array data2 { data1..., 4, 5, 6 };
   func(data2..., 7);
 
   // Expand a tuple into a funtion argument list.
