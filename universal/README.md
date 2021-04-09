@@ -170,6 +170,92 @@ This sample generically prints the members of a pair, tuple, std::array, array a
 3. `print_object3` formats the elements into a comma-separated list enclosed in braces. The first element is written with a subscript. All subsequent elements are written, comma-prefixed, with a slice expansion. The `...[1:]` slice operation returns a pack of members starting at 1 and continuing to the end of the container.
 4. `print_object4` adds a compile-time check, that tests if the object is a structured binding type. `__is_structured_type` returns true for tuple-like types (those with `std::tuple_size` specializations), arrays, matrices, vectors and non-union classes. This more generic function prints scalar types without requiring an overload.
 
+## Implicit slices
+
+Static slices are a powerful mechanism, but look syntactically busy at times.
+
+```cpp
+auto tuple = make_tuple('a', 2, 3.0);
+func(tuple...[:]...);
+```
+
+In contexts like this, you can expand the argument object directly, without explicitly slicing it.
+
+```cpp
+auto tuple = make_tuple('a', 2, 3.0);
+func(tuple...);
+```
+
+You can expand an object operand in these contexts:
+* Function argument list
+* Template argument list
+* Braced initializer list
+* Unary fold expression
+
+[**implicit.cxx**]
+```cpp
+#include <iostream>
+#include <functional>
+#include <tuple>
+#include <array>
+
+void func(auto... args) {
+  std::cout<< args<< " "...;
+  std::cout<< "\n";
+}
+
+template<auto... args>
+struct foo_t { 
+  foo_t() {
+    std::cout<< @type_string(foo_t)<< "\n";
+  }
+};
+
+int main() {
+  // Expand array into a function argument list.
+  constexpr int data1[] { 1, 2, 3 };
+  func(0, data1..., 4);
+
+  // Expand a normal array into an std::array.
+  // Expand std::array into a function argument list.
+  constexpr std::array data2 { data1..., 4, 5, 6 };
+  func(data2..., 7);
+
+  // Expand a tuple into a funtion argument list.
+  auto tuple = std::make_tuple('a', 2u, 300ll);
+  func(tuple...);
+
+  // Use in a unary fold expression.
+  int max = (... std::max data1);
+  std::cout<< "max = "<< max<< "\n";
+
+  int product = (... * data2);
+  std::cout<< "product = "<< product<< "\n";
+
+  // Specialize a template over compile-time data.
+  // It can be constexpr.
+  constexpr int data[] { 10, 20, 30 };
+  foo_t<data...> obj1;
+
+  // Or it can be meta.
+  struct bar_t {
+    int a;
+    long b;
+    char32_t c;
+  };
+  @meta bar_t bar { 100, 200, U'A' };
+
+  // meta objects are mutable.
+  @meta bar.b++;
+
+  foo_t<bar...> obj2;
+}
+```
+
+To be implicitly promoted to a static slice, the expression must be an object or parameter, of a tuple-like class, array, matrix, vector or any non-union class object. Universal member access implicitly splits it into its parts and inserts these into the function argument list, template argument list, initializer list or unary fold expression.
+
+Note that objects must be constexpr or meta to be valid template arguments.
+
 ## Object lengths
 
 [**length.cxx**](length.cxx)
