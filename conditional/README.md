@@ -8,7 +8,7 @@ Circle supplements Standard C++ by adding three more conditional operators:
 
 ## Constexpr conditional `?? :`
 
-Constexpr conditionals are the expression equivalent of `if-constexpr/else` constructs. During substitution of the expression `a ?? b : c`, `a` is evaluated in a constexpr context; it's value must be resolved at compile time. Then, either `b` or `c` is substituted. The branch not taken is dismissed. None of the type conversion semantics of [expr.cord](http://eel.is/c++draft/expr.cond) are applied here; the `b` or `c` branch is substituted and returned without adjustment.
+Constexpr conditionals are the expression equivalent of `if-constexpr/else` constructs. During substitution of the expression `a ?? b : c`, `a` is evaluated in a constexpr context; it's value must be resolved at compile time. Then, either `b` or `c` is substituted. The branch not taken is dismissed. None of the type conversion semantics of [[expr.cond]](http://eel.is/c++draft/expr.cond) are applied here; the `b` or `c` branch is substituted and returned without adjustment.
 
 [**call1.cxx**](call1.cxx)
 ```cpp
@@ -87,7 +87,7 @@ With the availability of multi conditional, we can generate equivalent code insi
 
 Because the `b` expression in `a ...? b : c` is a parameter pack, we can use its size to infer the size of the integer pack `int...` in the `a` condition. `int... == index` is a pack of expressions, `0 == index`, `1 == index` and so on. This generates a test of the incoming index against each tuple element index. When there's a match, the corresponding function call subexpression is evaluated.
 
-Assume the index is always valid. ALthough one of function call subexpressions will always be taken, but we're still obligated to terminate the multi condition operator with a `c` expression. In this case, we call into `__builtin_unreachable()`. This informs the compiler of undefined behavior. It makes the code equivalent to a switch statement with all valid cases covered, but without a default target. The semantics of [expr.cord](http://eel.is/c++draft/expr.cond) were modified to accommodate `[[noreturn]]` expressions like `__builtin_unreachable` in addition to _throw-expressions_. This was independently proposed by [Ternary Right Fold Expression P1012R1](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1012r1.pdf) by Frank Zingsheim.
+Assume the index is always valid. ALthough one of function call subexpressions will always be taken, but we're still obligated to terminate the multi condition operator with a `c` expression. In this case, we call into `__builtin_unreachable()`. This informs the compiler of undefined behavior. It makes the code equivalent to a switch statement with all valid cases covered, but without a default target. The semantics of [[expr.cond]](http://eel.is/c++draft/expr.cond) were modified to accommodate `[[noreturn]]` expressions like `__builtin_unreachable` in addition to _throw-expressions_. This was independently proposed by [Ternary Right Fold Expression P1012R1](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1012r1.pdf) by Frank Zingsheim.
 
 [[*call3.cxx*]](call3.cxx)
 ```cpp
@@ -303,4 +303,4 @@ auto visit2(const std::variant<types_t...>& variant, auto&&... fs) {
 
 `visit2` programmatically builds a switch. I like this solution because it doesn't involve any external functions, so we don't have to fuss with the `std::forward` mechanism, which is easy to mess up. Each switch case corresponds to a variant member, and uses constexpr multi conditional to invoke the first admissible function call.
 
-`visit1` and `visit2` aren't strictly the same. The former uses [expr.cord](http://eel.is/c++draft/expr.cond) to convert each conditional subexpression's result object to a common type and returns that. `visit2` uses [return type placeholder deduction](https://eel.is/c++draft/dcl.spec.auto#general-8). Each of the non-discarded return statements must return the same type, or the program is ill-formed.
+`visit1` and `visit2` aren't strictly the same. The former uses [[expr.cond]](http://eel.is/c++draft/expr.cond) to convert each conditional subexpression's result object to a common type and returns that. `visit2` uses [return type placeholder deduction](https://eel.is/c++draft/dcl.spec.auto#general-8). Each of the non-discarded return statements must return the same type, or the program is ill-formed.
