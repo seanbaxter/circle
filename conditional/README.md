@@ -89,7 +89,7 @@ Because the `b` expression in `a ...? b : c` is a parameter pack, we can use its
 
 Assume the index is always valid. ALthough one of function call subexpressions will always be taken, but we're still obligated to terminate the multi condition operator with a `c` expression. In this case, we call into `__builtin_unreachable()`. This informs the compiler of undefined behavior. It makes the code equivalent to a switch statement with all valid cases covered, but without a default target. The semantics of [[expr.cond]](http://eel.is/c++draft/expr.cond) were modified to accommodate `[[noreturn]]` expressions like `__builtin_unreachable` in addition to _throw-expressions_. This was independently proposed by [Ternary Right Fold Expression P1012R1](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1012r1.pdf) by Frank Zingsheim.
 
-[[*call3.cxx*]](call3.cxx)
+[**call3.cxx**](call3.cxx)
 ```cpp
 template<int x> int func();
 
