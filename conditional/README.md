@@ -8,7 +8,7 @@ Circle supplements Standard C++ by adding three more conditional operators:
 
 ## Constexpr conditional `?? :`
 
-Constexpr conditionals are the expression equivalent of `if-constexpr/else` constructs. During substitution of the expression `a ?? b : c`, `a` is evaluated in a constexpr context; it's value must be resolved at compile time. Then, either `b` or `c` is substituted. The branch not taken is dismissed. None of the type conversion semantics of [[expr.cond]](http://eel.is/c++draft/expr.cond) are applied here; the `b` or `c` branch is substituted and returned without adjustment.
+Constexpr conditionals are the expression equivalent of `if-constexpr/else` constructs. During substitution of the expression `a ?? b : c`, `a` is evaluated in a constexpr context; its value must be resolved at compile time. Then, either `b` or `c` is substituted. The branch not taken is dismissed. None of the type conversion semantics of [[expr.cond]](http://eel.is/c++draft/expr.cond) are applied here; the `b` or `c` branch is substituted and returned without adjustment.
 
 [**call1.cxx**](call1.cxx)
 ```cpp
