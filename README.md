@@ -9,6 +9,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 
 The best samples:
 
+**NEW** [CUDA](cuda/README.md)
 **NEW** [Member traits](member-traits/README.md)  
 **NEW** [Circle conditionals](conditional/README.md)  
 **NEW** [Universal member access](universal/README.md)  
