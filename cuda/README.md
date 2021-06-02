@@ -459,7 +459,7 @@ template<int x, int... y>
 constexpr int upper_bound = x < y ...?? int... : sizeof...y;
 ```
 
-The `upper_bound` variable template is a one-liner that exploits the [constexpr mulli-conditional operator ...??](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---), which is unique to Circle. It computes the upper bound given a compile-time key (`arch`) and a sorted list of compile-time values (`@enum_values(tuning_t)`).
+The `upper_bound` variable template is a one-liner that exploits the [constexpr multi-conditional operator ...??](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---), which is unique to Circle. It computes the upper bound given a compile-time key (`arch`) and a sorted list of compile-time values (`@enum_values(tuning_t)`).
 
 After selecting the best tuning given the backend's `__nvvm_arch` value, we call the `__nvvm_maxntidx` and `__nvvm_minctasm` compiler intrinsics to set the kernel's launch bounds. The `__launch_bounds__` CUDA is not compatible with _if-target_ based kernel generation, because it marks the kernel's declaration, which would require the user to specialize the kernel template over a particular tuning and result in a quadratic generation of PTX code, with many unreachable instances in the fatbin. By exposing the launch bounds functionality with intrinsics invoked inside the definition, we can guard the launch bounds inside the _if-target_ switch.
 
