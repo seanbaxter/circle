@@ -4,7 +4,7 @@ Circle's [CUDA](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 
 Circle is a single-pass heteregeneous compiler. It already targets [single-source shaders](https://github.com/seanbaxter/shaders/blob/master/README.md) using the SPIR-V and DXIL intermediate representations with a single translation pass. CUDA support adds a new PTX and SASS target.
 
-While the `__host__` and `__device__` tags are still supported in part, they you aren't required to tag functions to call them from kernels. This makes Standard Library code available for execution on the GPU.
+While the `__host__` and `__device__` tags are still supported, you aren't required to tag functions to call them from kernels. This makes Standard Library code available for execution on the GPU.
 
 ## Usage
 
