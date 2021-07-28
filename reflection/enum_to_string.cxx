@@ -7,7 +7,7 @@ std::optional<const char*> enum_to_string(enum_t e) {
   switch(e) {
     @meta for enum(enum_t e2 : enum_t) {
       case e2:
-        return @enum_name(e2);
+        return e2.string;
     }
 
     default:
@@ -18,7 +18,7 @@ std::optional<const char*> enum_to_string(enum_t e) {
 template<typename enum_t>
 std::optional<enum_t> string_to_enum(const char* s) {
   @meta for enum(enum_t e : enum_t) {
-    if(0 == strcmp(@enum_name(e), s))
+    if(0 == strcmp(e.string, s))
       return e;
   }
   return { };

@@ -5,13 +5,13 @@ void func0() {
   // Loop over parameter packs using sizeof... and ...[].
   printf("func0:\n");
   @meta for(int i = 0; i < sizeof...(types_t); ++i)
-    printf("  %s\n", @type_string(types_t...[i]));
+    printf("  %s\n", types_t...[i].string);
 }
 
 void func1() {
   printf("func1:\n");
   @meta for typename(type_t : { char, double, long[3], char(short) })
-    printf("  %s\n", @type_string(type_t));
+    printf("  %s\n", type_t.string);
 }
 
 template<typename... types_t>
@@ -19,7 +19,7 @@ void func2() {
   // Loop over parameter pack using for-typename.
   printf("func2:\n");
   @meta for typename(type_t : { types_t... })
-    printf("  %s\n", @type_string(type_t));
+    printf("  %s\n", type_t.string);
 }
 
 template<typename... types_t>
@@ -29,7 +29,7 @@ void func3() {
   // a char[1].
   printf("func3:\n");
   @meta for typename(type_t : { int, types_t...[::2] ..., char[1]})
-    printf("  %s\n", @type_string(type_t));
+    printf("  %s\n", type_t.string);
 }
 
 enum typename my_types_t {
@@ -42,7 +42,7 @@ void func4() {
   // Expand a typed enum into your for typename braces.
   printf("func4:\n");
   @meta for typename(type_t : { long, @enum_types(list_t)..., char16_t })
-    printf("  %s\n", @type_string(type_t));
+    printf("  %s\n", type_t.string);
 }
 
 template<typename list_t>
@@ -53,7 +53,7 @@ void func5() {
   // specify we want iteration over all types in the typed enum.
   printf("func5:\n");
   @meta for typename(type_t : enum list_t)
-    printf("  %s\n", @type_string(type_t));
+    printf("  %s\n", type_t.string);
 }
 
 int main() {

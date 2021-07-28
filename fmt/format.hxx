@@ -996,20 +996,20 @@ auto stream_generic(fmt_t fmt, const type_t& obj, std::string& s) {
     }
 
   } else if constexpr(std::is_array_v<type_t> || 
-    @is_class_template(type_t, std::vector) ||
-    @is_class_template(type_t, std::array) ||
-    @is_class_template(type_t, std::list) ||
-    @is_class_template(type_t, std::set) ||
-    @is_class_template(type_t, std::multiset)) {
+    type_t.template == std::vector ||
+    type_t.template == std::array ||
+    type_t.template == std::list ||
+    type_t.template == std::set ||
+    type_t.template == std::multiset) {
 
     std::string s2 = make_array_string(fmt, obj);
     s += s2;
 
-  } else if constexpr(@is_class_template(type_t, std::map)) {
+  } else if constexpr(type_t.template == std::map) {
     std::string s2 = make_map_string(obj);
     stream_text(fmt, '<', s2.c_str(), s2.size(), s);
 
-  } else if constexpr(@is_class_template(type_t, std::optional)) {
+  } else if constexpr(type_t.template == std::optional) {
     if(obj) {
       // Recurse on the value.
       stream_generic(fmt, *obj, s);
@@ -1124,11 +1124,11 @@ auto stream_arg(arg_t<fmt_type, index, type_t> arg, std::string& s) {
 
   @meta if((std::is_array_v<type_t> && 
       !requires { static_cast<const char*>(arg.obj); }) || 
-    @is_class_template(type_t, std::array) ||
-    @is_class_template(type_t, std::vector) ||
-    @is_class_template(type_t, std::list) ||
-    @is_class_template(type_t, std::set) ||
-    @is_class_template(type_t, std::multiset)) {
+    type_t.template == std::array ||
+    type_t.template == std::vector ||
+    type_t.template == std::list ||
+    type_t.template == std::set ||
+    type_t.template == std::multiset) {
 
     // Reserve 16 bytes per data member.
     s.reserve(s.capacity() + 16 * std::size(arg.obj));

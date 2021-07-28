@@ -15,7 +15,7 @@ std::optional<enum_t> string_to_enum(const char* s) {
         return e;
     }
 
-    if(0 == strcmp(@enum_name(e), s))
+    if(0 == strcmp(e.string, s))
       return e;
   }
   return { };
@@ -29,7 +29,7 @@ template<typename type_t>
 type_t load_from_json(json& j) {
   type_t obj { };
 
-  if constexpr(std::is_same_v<std::string, type_t>) {
+  if constexpr(std::string == type_t) {
     obj = j.get<std::string>();
 
   } else if constexpr(std::is_class_v<type_t>) {
@@ -37,14 +37,14 @@ type_t load_from_json(json& j) {
     // Don't support classes with non-public members.
     static_assert(
       !@member_count(type_t, protected private),
-      "cannot stream type \""s + @type_string(type_t) + 
+      "cannot stream type \"" + type_t.string + 
         "\" with non-public member objects"
     );
 
     // Don't support classes with bases.
     static_assert(
       !@base_count(type_t, all),
-      "cannot stream type \""s + @type_string(type_t) + "\" with base classes"
+      "cannot stream type \""s + type_t.string + "\" with base classes"
     );
 
     // Loop over data members.
@@ -75,7 +75,7 @@ type_t load_from_json(json& j) {
         @type_name(type_t));
     }
 
-  } else if constexpr(std::is_same_v<bool, type_t>) {
+  } else if constexpr(bool == type_t) {
     obj = j.get<bool>();
 
   } else {

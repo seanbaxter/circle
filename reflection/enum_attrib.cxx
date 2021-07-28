@@ -22,7 +22,7 @@ void func() {
   printf("Loop with @has_attribute:\n");
   @meta for enum(type_t e : type_t) {
     if constexpr(@has_attribute(e, name)) {
-      printf("  %s : %s\n", @enum_name(e), @attribute(e, name));
+      printf("  %s : %s\n", e.string, @attribute(e, name));
     }
   }
 
@@ -32,7 +32,7 @@ void func() {
   printf("Loop with @enum_has_attribute:\n");
   @meta for enum(type_t e : type_t) {
     if constexpr(@enum_has_attribute(e, name)) {
-      printf("  %s : %s\n", @enum_name(e), @enum_attribute(e, name));
+      printf("  %s : %s\n", e.string, @enum_attribute(e, name));
     }
   }
 }

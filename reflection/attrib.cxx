@@ -10,7 +10,7 @@ const char* enum_to_string(enum_t e) {
         if constexpr(@enum_has_attribute(e2, alt_name))
           return @enum_attribute(e2, alt_name);
         else
-          return @enum_name(e2);
+          return e2.string;
     }
 
     default:

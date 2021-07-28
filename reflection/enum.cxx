@@ -145,7 +145,7 @@ constexpr bool all_trait_in_list_v =
   @dynamic_type(void(int))
 };
 @meta printf("type_vector:\n");
-@meta printf("  %s\n", @type_string(@pack_type(type_vector))) ...;
+@meta printf("  %s\n", @pack_type(type_vector).string) ...;
 
 // Now re-insert these types but as pointers to them. This uses the obscure
 // std::vector insert overload
@@ -155,7 +155,7 @@ constexpr bool all_trait_in_list_v =
   { @dynamic_type(@pack_type(type_vector)*) ... }
 );
 @meta printf("type_vector (2):\n");
-@meta printf("  %s\n", @type_string(@pack_type(type_vector))) ...;
+@meta printf("  %s\n", @pack_type(type_vector).string) ...;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Transform between tuples and enums.

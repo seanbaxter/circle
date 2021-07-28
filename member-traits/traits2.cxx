@@ -2,7 +2,7 @@
 #include <limits>
 
 #define PRINT_TRAIT(type, limit) \
-  std::cout<< @string(@type_string(type), "." #limit " = ")<< type.limit<< "\n";
+  std::cout<< type.string + "." #limit + " = "<< type.limit<< "\n";
 
 template<typename type_t>
 void print_type_traits() {
