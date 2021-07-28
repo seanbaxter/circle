@@ -4,7 +4,7 @@ Circle's [CUDA](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 
 Circle is a single-pass heteregeneous compiler. It already targets [single-source shaders](https://github.com/seanbaxter/shaders/blob/master/README.md) using the SPIR-V and DXIL intermediate representations with a single translation pass. CUDA support adds a new PTX and SASS target.
 
-While the `__host__` and `__device__` tags are still supported in part, they you aren't required to tag functions to call them from kernels. This makes Standard Library code available for execution on the GPU.
+While the `__host__` and `__device__` tags are still supported, you aren't required to tag functions to call them from kernels. This makes Standard Library code available for execution on the GPU.
 
 ## Usage
 
@@ -459,7 +459,7 @@ template<int x, int... y>
 constexpr int upper_bound = x < y ...?? int... : sizeof...y;
 ```
 
-The `upper_bound` variable template is a one-liner that exploits the [constexpr mulli-conditional operator ...??](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---), which is unique to Circle. It computes the upper bound given a compile-time key (`arch`) and a sorted list of compile-time values (`@enum_values(tuning_t)`).
+The `upper_bound` variable template is a one-liner that exploits the [constexpr multi-conditional operator ...??](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---), which is unique to Circle. It computes the upper bound given a compile-time key (`arch`) and a sorted list of compile-time values (`@enum_values(tuning_t)`).
 
 After selecting the best tuning given the backend's `__nvvm_arch` value, we call the `__nvvm_maxntidx` and `__nvvm_minctasm` compiler intrinsics to set the kernel's launch bounds. The `__launch_bounds__` CUDA is not compatible with _if-target_ based kernel generation, because it marks the kernel's declaration, which would require the user to specialize the kernel template over a particular tuning and result in a quadratic generation of PTX code, with many unreachable instances in the fatbin. By exposing the launch bounds functionality with intrinsics invoked inside the definition, we can guard the launch bounds inside the _if-target_ switch.
 
