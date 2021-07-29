@@ -2,7 +2,7 @@
 
 ## Intro
 
-[**intro.cxx**](intro.cxx)
+[**intro.cxx**](intro.cxx) [(Compiler Explorer)](https://godbolt.org/z/6T1so3e7Y)
 ```cpp
 #include <tuple>
 
@@ -65,7 +65,7 @@ Javascript and Python are popular _productivity languages_. The CIA extensions a
 
 Compile-time programming can be hard. Compiler errors are opaque and diagnostics don't really exist. However, Circle allows access to the C and C++ standard libraries _at compile time_! Use compile-time `cout`, `printf` and `puts` liberally to understand your program.
 
-[**info.cxx**](info.cxx)
+[**info.cxx**](info.cxx) [(Compiler Explorer)](https://godbolt.org/z/ejMY6PMdc)
 ```cpp
 #include <iostream>
 #include <tuple>
@@ -96,7 +96,7 @@ Template metaprogramming (TMP) is bad. However, templates are central to almost 
 
 To get a feel of what we _don't_ want, consider a TMP approach to get the I'th argument of a template specialization.
 
-[**get_args.cxx**](get_args.cxx)
+[**get_args.cxx**](get_args.cxx) [(Compiler Explorer)](https://godbolt.org/z/MdcKMvqa4)
 ```cpp
 #include <tuple>
 #include <type_traits>
@@ -143,7 +143,7 @@ The alias template `get_arg_t` provides the type of a specialization's argument 
 
 This is a lot of work just to access a template argument by index. We must use recursion to implement _direct subscript_ on packs. C++ has a reputation as an arcane, unlearnable language, and I think the reputation is merited. There has got to be a better way.
 
-[**get_args_cia.cxx**](get_args_cia.cxx)
+[**get_args_cia.cxx**](get_args_cia.cxx) [(Compiler Explorer)](https://godbolt.org/z/WxefGherG)
 ```cpp
 #include <tuple>
 
@@ -188,7 +188,7 @@ Circle already exploits a type's member namespace to support dozens of numeric_t
 
 ### print
 
-[**print.cxx**](print.cxx)
+[**print.cxx**](print.cxx) [(Compiler Explorer)](https://godbolt.org/z/7v1s4Wj3G)
 ```cpp
 #include <tuple>
 #include <iostream>
@@ -218,7 +218,7 @@ This example imperatively accesses the string name of a type, of a type's templa
 
 ### rebind
 
-[**rebind.cxx**](rebind.cxx)
+[**rebind.cxx**](rebind.cxx) [(Compiler Explorer)](https://godbolt.org/z/eWc9ffeMe)
 ```cpp
 #include <tuple>
 #include <variant>
@@ -241,7 +241,7 @@ The alias template `Rebind` specializes the template of the specialization `T1` 
 
 ### rotate
 
-[**rotate.cxx**](rotate.cxx)
+[**rotate.cxx**](rotate.cxx) [(Compiler Explorer)](https://godbolt.org/z/az8Y9Pnoc)
 ```cpp
 #include <tuple>
 
@@ -257,7 +257,7 @@ static_assert(std::tuple<int, long, long long, char, short> == Rotate<2, T1>);
 
 Circle makes argument transformations trivial. To rotate the arguments within a class specialization, expand two [static slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) into the new argument list. The first, `...[N:]` starts at the rotation location `N` and extends to the end of the pack. The second, `...[:N]`, runs from the start of the pack and extends to `N`. 
 
-[**rotate2.cxx**](rotate.cxx)
+[**rotate2.cxx**](rotate.cxx) [(Compiler Explorer)](https://godbolt.org/z/d5o3osd8d)
 ```cpp
 #include <tuple>
 
@@ -277,7 +277,7 @@ An innovation of CIA is that you rarely have to use parameter pack metaprogrammi
 
 ### is_specialization
 
-[**is_specialization.cxx**](is_specialization.cxx)
+[**is_specialization.cxx**](is_specialization.cxx) [(Compiler Explorer)](https://godbolt.org/z/Txa95KoTb)
 ```cpp
 #include <tuple>
 
@@ -299,7 +299,7 @@ static_assert(!is_specialization_v<T2, std::tuple>);
 
 Resorting to argument deduction to solve a problem means C++ failed to provide an imperative mechanism for solving the problem directly.
 
-[**is_specialization2.cxx**](is_specialization2.cxx)
+[**is_specialization2.cxx**](is_specialization2.cxx) [(Compiler Explorer)](https://godbolt.org/z/o6KaKsnKv)
 ```cpp
 #include <tuple>
 
@@ -316,7 +316,7 @@ Circle Imperative Arguments gets right to the point. `T1.template` yields the te
 
 TMP's control flow support is its biggest failure. Any kind of control flow ultimately comes down to argument deduction choosing between two or more partial templates. A trivial example is [std::conditional_t](url-here), which yields one of two type arguments given a boolean argument. The technology becomes very challenging when you want to _amplify_ or _filter_ arguments in a template argument list. Standard C++ doesn't have constructs that directly yield parameter packs, so to insert a variable number of elements to an argument list requires top-tier argument deduction skills.
 
-[**forward.cxx**](forward.cxx)
+[**forward.cxx**](forward.cxx) [(Compiler Explorer)](https://godbolt.org/z/v11voGxvE)
 ```cpp
 #include <type_traits>
 #include <utility>
@@ -377,7 +377,7 @@ This function argument is a pack expression, because `Ts` in the predicate is a 
 
 _argument-for_ is a _generic-argument_ construct. It loops over types, non-types, templates, a counter or a multi-dimensional set of counters, from inside an argument list. Circle hasn't yet added syntax for nested pack expansion; it's possible, but complicated. _argument-for_ is the tool for effecting this same thing:
 
-[**pairs.cxx**](pairs.cxx)
+[**pairs.cxx**](pairs.cxx) [(Compiler Explorer)](https://godbolt.org/z/jd1ETffzq)
 ```cpp
 #include <map>
 #include <array>
@@ -432,7 +432,7 @@ ISO C++ doesn't define a mechanism for expanding nested packs, nor a way to yiel
 
 The _integer-count_ form of _argument-for_ declares a step variable _decl_ with type `int`. Loop sizes between 0 and 65,536 steps are supported. The _step-decl_ declaration is also type `int`.
 
-[**step.cxx**](step.cxx)
+[**step.cxx**](step.cxx) [(Compiler Explorer)](https://godbolt.org/z/YTYYbhYPr)
 ```cpp
 #include <map>
 #include <cstdio>
@@ -454,7 +454,7 @@ static_assert(index_and_arg<L> == list<
 
 _argument-for_ is the most developed CIA feature, with nine forms of syntax. Each form takes an optional _step-decl_, the name of an `int` declaration that holds the index of the current loop step. Even though we're dealing with a pack, `T.universal_args`, there is no pack expansion logic: _argument-for_ manages iteration in a simpler way.
 
-[**step2.cxx**](step2.cxx)
+[**step2.cxx**](step2.cxx) [(Compiler Explorer)](https://godbolt.org/z/qM4h5584W)
 ```cpp
 #include <map>
 
@@ -476,7 +476,7 @@ In this case, we don't _need_ the _argument-for_. Circle's pack index [`int...`]
 
 ### Power set
 
-[**power.cxx**](power.cxx)
+[**power.cxx**](power.cxx) [(Compiler Explorer)](https://godbolt.org/z/fcEf1rbKM)
 ```cpp
 #include <cstdio>
 
@@ -507,7 +507,7 @@ https://www.boost.org/doc/libs/develop/libs/mp11/doc/html/mp11.html#mp_power_set
 
 The CIA implementation is about as easy as one can imagine. Since there are 2^N sets, we use _argument-for_ to loop over 2^N output subsets. [_argument-let_](#argument-let) declares a non-type value `N` which holds the parameter pack size; this doesn't change computation, it simply improves readability. For each output subset `i`, we loop over all _bits_ in the counter `i`. If a bit is set, the corresponding input element in the pack `Xs` is emitted to the subset.
 
-[**power2.cxx**](power2.cxx)
+[**power2.cxx**](power2.cxx) [(Compiler Explorer)](https://godbolt.org/z/16eMfrTxW)
 ```cpp
 template<template auto... Xs>
 using power_set = list<
@@ -523,7 +523,7 @@ If you aren't comfortable using the pack index operator `int...`, that's fine, y
 
 ### Cartesian product
 
-[**product.cxx**](product.cxx)
+[**product.cxx**](product.cxx) [(Compiler Explorer)](https://godbolt.org/z/K1q3xa4P4)
 ```cpp
 template<typename... Ts>
 struct list;
@@ -605,7 +605,7 @@ Just as normal C++ has _compound-statement_ to group statements within a control
 
 Note the dot `.` before the brace `{`. We have to distinguish an _argument-group_ from a _braced-init-list_. While `{ }` is not allowed in a _template-argument_, it is a valid argument in an _initializer-list_ or function argument list. 
 
-[**group.cxx**](group.cxx)
+[**group.cxx**](group.cxx) [(Compiler Explorer)](https://godbolt.org/z/a9hW65WYG)
 ```cpp
 #include <type_traits>
 
@@ -631,7 +631,7 @@ static_assert(L2 == list<
   1, char[1], 
   2, char[2], char[2], 
   3, char[3], char[3], char[3]
->;
+>);
 ```
 
 This sample shows how _argument-group_ is like a _compound-statement_ for argument lists.
@@ -640,7 +640,7 @@ This sample shows how _argument-group_ is like a _compound-statement_ for argume
 
 `for i : N => .{ i + 1, for j : i + 1 => char[i + 1] }` uses _argument-group_ in a different way. Here, the group contains a non-type argument `i + 1` and an _argument-for_ construct as elements. This lets us emit arguments in a similar way to executing expression statements using _for-statement_ with _compound-statement_.
 
-[**repeat.cxx**](repeat.cxx)
+[**repeat.cxx**](repeat.cxx) [(Compiler Explorer)](https://godbolt.org/z/MdPjThTxf)
 ```cpp
 template<template auto... Ts> struct list;
 
@@ -690,7 +690,7 @@ _argument-let_ injects a new type, non-type or template declaration into the sco
 
 ### Conway's Game of Life
 
-[**life.cxx**](life.cxx)
+[**life.cxx**](life.cxx) [(Compiler Explorer)](https://godbolt.org/z/nGEW9dEPe)
 ```cpp
 #include <cstdio>
 
@@ -823,7 +823,7 @@ After initializing the board with starting cell values designed to produce an in
 
 ### Sorting with CIA
 
-[**sort.cxx**](sort.cxx)
+[**sort.cxx**](sort.cxx) [(Compiler Explorer)](https://godbolt.org/z/48nxGb331)
 ```cpp
 #include <cstdio>
 
@@ -889,7 +889,7 @@ _argument-let_ serves a crucial role. In the [life.cxx](life.cxx) sample, the ne
 
 ## Sort and filter
 
-[**sort2.cxx**](sort2.cxx)
+[**sort2.cxx**](sort2.cxx) [(Compiler Explorer)](https://godbolt.org/z/j5xvM6sKh)
 ```cpp
 #include <type_traits>
 #include <cstdio>
@@ -956,7 +956,7 @@ using sort_and_filter = list<
 
 ### search
 
-[**search.cxx**](search.cxx)
+[**search.cxx**](search.cxx) [(Compiler Explorer)](https://godbolt.org/z/7b9E3YKM5)
 ```cpp
 #include <array>
 
@@ -983,7 +983,7 @@ The `FindFirst` variable templates yield the index of the first template argumen
 
 We can do more than test for equivalence. We can test for member traits just as easily.
 
-[**search_traits.cxx**](search_traits.cxx)
+[**search_traits.cxx**](search_traits.cxx) [(Compiler Explorer)](https://godbolt.org/z/YvqTGsox1)
 ```cpp
 #include <type_traits>
 
@@ -1011,7 +1011,7 @@ We can apply [member traits](https://github.com/seanbaxter/circle/blob/master/me
 
 ### variant
 
-[**variant.cxx**](variant.cxx)
+[**variant.cxx**](variant.cxx) [(Compiler Explorer)](https://godbolt.org/z/EMe46KhMM)
 ```cpp
 #include <variant>
 #include <iostream>
@@ -1051,7 +1051,7 @@ There is a wide-open namespace for metafunctions. In the first CIA release, Circ
 
 ### `.sort` metafunction
 
-[**sort3.cxx**](sort3.cxx)
+[**sort3.cxx**](sort3.cxx) [(Compiler Explorer)](https://godbolt.org/z/GrfvaPv9a)
 ```cpp
 #include <cstdio>
 #include <memory>
@@ -1130,7 +1130,7 @@ Substitution is slow, but still a lot faster faster than specializing a class te
 
 ### `.filter` metafunction
 
-[**sort4.cxx**](sort4.cxx)
+[**sort4.cxx**](sort4.cxx) [(Compiler Explorer)](https://godbolt.org/z/5da8sKxEh)
 ```cpp
 #include <type_traits>
 #include <cstdio>
@@ -1184,7 +1184,7 @@ The `.filter` metafunction declares a dependent type declaration `_0`. Because f
 
 ### `.unique` metafunction
 
-[**unique.cxx**](unique.cxx)
+[**unique.cxx**](unique.cxx) [(Compiler Explorer)](https://godbolt.org/z/YqqKsTs35)
 ```cpp
 #include <cstdio>
 #include <memory>
