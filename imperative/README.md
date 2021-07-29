@@ -25,7 +25,7 @@ using T2 = T.template<T.type_args.sort(_0.string < _1.string)...>;
 ```
 
 * `T.template` yields the class template of the specialization `T`. If the type isn't a class specialization, requesting its template is a substitution error.
-* `T.type_args` yields a pack with all the template arguments of the specialization `T`. In this case, it yields a pack with types `<char, int, void*, const char*, float*, int[5]>`.
+* `T.type_args` yields a pack with all the template arguments of the specialization `T`. In this case, it yields a pack with types `<char, int, void*, const char*, float, int[5]>`.
 * `.sort(_0.string < _1.string)` sorts the elements in the pack. The sort logic is implemented by the compiler frontend. The user submits a boolean predicate expression to compare two elements, `_0` and `_1`, which are parsed as dependent types.
 * `_0.string` yields a string literal (technically a constant character array) with the spelling of the type on the left. The type `char` is spelled "char", `const char*` is "const char\*" and so on. Circle has a bunch of type introspection features, and this is one of them. Be aware that you can also use `.string` to get the spelling of an enum constant.
 * `_0.string < _1.string` Circle implements lexicographical comparison for string literals of any character width, using the six standard comparison operators.
