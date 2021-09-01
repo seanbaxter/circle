@@ -1,29 +1,29 @@
+#include <string>
 #include <iostream>
 
-struct Player { std::string name; int hitpoints; int coins; };
+struct Player { 
+  std::string name;
+  int hitpoints;
+  int coins; 
+};
 
 void get_hint(const Player& p) {
-  @match(p) {
-    [.hitpoints: 1] => std::cout << "You're almost destroyed. Give up!\n";
-    [.hitpoints: 10, .coins: 10] => std::cout << "I need the hints from you!\n";
-    [.coins: 10] => std::cout << "Get more hitpoints!\n";
-    [.hitpoints: 10] => std::cout << "Get more ammo!\n";
-    [.name: _n] => {
-      if (_n != "The Bruce Dickenson") {
-        std::cout << "Get more hitpoints and ammo!\n";
-      } else {
-        std::cout << "More cowbell!\n";
-      }
+  std::cout<< p.name<< " -- ";
+  inspect(p) {
+    is [hitpoints: 1]               => std::cout<< "You're almost destroyed.\n";
+    is [hitpoints: 10, coins: 10]   => std::cout<< "I need the hints from you!\n";
+    is [coins: 10]                  => std::cout<< "Get more coins!\n";
+    is [hitpoints: 10]              => std::cout<< "Get more hitpoints!\n";
+    [name: n] {
+      if n != "The Bruce Dickenson" => std::cout<< "Get hitpoints and ammo!\n";
+      is _                          => std::cout<< "More cowbell!\n";
     }
-  };
+    is _                            => std::cout<< "You're doing fine.\n";
+  }
 }
 
 int main() {
-  get_hint(Player { "Batman", 10, 15 });
-  get_hint(Player { "Spider-man", 5, 10 });
-  get_hint(Player { "Aquaman", 10, 10 });
-  get_hint(Player { "Iron Man", 5, 3 });
-   
-  return 0;
-
+  get_hint({ "George Washington", 1000, 500 });
+  get_hint({ "Julius Caesar", 1, 1000 });
+  get_hint({ "Oliver Twist", 100, 10 });
 }

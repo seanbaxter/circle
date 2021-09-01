@@ -1,13 +1,14 @@
-set -x
-circle pattern1.cxx && ./pattern1 5
-circle pattern2.cxx && ./pattern2
-circle pattern3.cxx && ./pattern3
-circle pattern4.cxx && ./pattern4 
-circle pattern4_1.cxx && ./pattern4_1
-circle pattern5.cxx && ./pattern5
-circle pattern6.cxx && ./pattern6
-circle pattern7.cxx && ./pattern7
-circle pattern8.cxx && ./pattern8
-circle pattern9.cxx && ./pattern9
-circle pattern10.cxx && ./pattern10
-circle pattern11.cxx && ./pattern11
+set -x 
+circle inspect1.cxx -std=c++20
+circle constraint.cxx -std=c++20
+circle string.cxx -std=c++20
+circle string2.cxx -std=c++20
+circle inspect2.cxx -std=c++20
+circle inspect3.cxx -std=c++20
+circle lambda.cxx -std=c++20
+circle pattern.cxx -std=c++20
+circle pattern2.cxx -std=c++20
+circle as.cxx -std=c++20
+circle reflection.cxx -c -std=c++20
+circle meta.cxx -std=c++20
+circle modulo.cxx -c -std=c++20
