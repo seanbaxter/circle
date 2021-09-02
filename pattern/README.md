@@ -33,7 +33,7 @@ This proposal is big. There's a lot of new syntax. There's a lot of new function
 4. Patterns.
 5. `inspect` statements and expressions.
 
-[**inspect1.cxx**](inspect1.cxx)
+[**inspect1.cxx**](inspect1.cxx) [(Compiler Explorer)](https://godbolt.org/z/Eb18zfbnT)
 ```cpp
 #include <concepts>
 #include <string_view>
@@ -160,7 +160,7 @@ The right-hand operand of the _is-expression_ is an overload set containing the 
 
 The use of C++20 constraints (or the older `std::enable_if`-style constraints) is _esssential_ for generic pattern matching programming. Consider what happens without the constraint:
 
-[**constraint.cxx**](constraint.cxx)
+[**constraint.cxx**](constraint.cxx) [(Compiler Explorer)](https://godbolt.org/z/vhs3GPPEr)
 ```cpp
 #include <iostream>
 
@@ -214,7 +214,7 @@ We call `f` and pass `10` as an argument. That's fine, no problem. Now we call `
 
 Generic pattern matching programming requires an extra level of vigilance with respect to constraining interfaces. 
 
-[**string.cxx**](string.cxx)
+[**string.cxx**](string.cxx) [(Compiler Explorer)](https://godbolt.org/z/5PE3Maj7o)
 ```cpp
 #include <iostream>
 
@@ -256,7 +256,7 @@ Astonishingly, `std::string` has no constructor that takes a `std::nullptr_t`. N
 
 In the [string.cxx](string.cxx) sample, you can uncomment the `is nullptr` clause to guard null-valued initializers. 
 
-[**string2.cxx**](string2.cxx)
+[**string2.cxx**](string2.cxx) [(Compiler Explorer)](https://godbolt.org/z/jKK6xE5zM)
 ```cpp
 #include <iostream>
 
@@ -307,7 +307,7 @@ The indexed form of `operator as` has to be guarded by constraints: use a _requi
 
 Generic pattern matching is _extra generic_, and will require more attention to constraints than ever before: it's important that errors occur on function declarations (like the type declarators or _requires-clauses_) and not in the function definition.
 
-[**inspect2.cxx**](inspect2.cxx)
+[**inspect2.cxx**](inspect2.cxx) [(Compiler Explorer)](https://godbolt.org/z/T7aKqod63)
 ```cpp
 #include <iostream>
 #include <concepts>
@@ -465,7 +465,7 @@ The story for `std::any` is worse. There's no way to figure out what an `any` ho
 
 ### Simpler overloads
 
-[**inspect3.cxx**](inspect3.cxx)
+[**inspect3.cxx**](inspect3.cxx) [(Compiler Explorer)](https://godbolt.org/z/8jzYafbK8)
 ```cpp
 #include <iostream>
 #include <concepts>
@@ -582,7 +582,7 @@ C++ practice increasingly delegates logic to lambdas, rather than writing it out
 
 A problem is that, for generic types `x`, the lambda as written does not work. If `x` is, for instance, a string, `min <= x` will fail during instantiation, leaving the program ill-formed. It's crucial that we fully constrain these helper functions at the declaration, so that they always fail in a SFINAE context, and never during instantiation of the definition.
 
-[**lambda.cxx**](lambda.cxx)
+[**lambda.cxx**](lambda.cxx) [(Compiler Explorer)](https://godbolt.org/z/To5774z8a)
 ```cpp
 #include <iostream>
 #include <utility>
@@ -659,7 +659,7 @@ Bindings and patterns may be recursively constructured. They differ in their ter
 
 Additionally, the last token each element of a structured pattern (but not of a structured binding) may be `...`, which causes pack expansion of that pattern element. This is different from a leading `...`, which denotes a multi-element or multi-wildcard.
 
-[**pattern.cxx**](pattern.cxx)
+[**pattern.cxx**](pattern.cxx) [(Compiler Explorer)](https://godbolt.org/z/W13nao4zE)
 ```cpp
 #include <concepts>
 #include <iostream>
@@ -743,7 +743,7 @@ The `[...pack]` binding serves as a backstop for all structured initializer type
 
 ### Designated bindings and patterns
 
-[**pattern2.cxx**](pattern2.cxx)
+[**pattern2.cxx**](pattern2.cxx) [(Compiler Explorer)](https://godbolt.org/z/G8re9ah7c)
 ```cpp
 #include <string>
 #include <iostream>
@@ -816,7 +816,7 @@ However, constructing an _as-pattern_ result object with `std::make_tuple` does 
 
 ### Dereference pattern
 
-[**as.cxx**](as.cxx)
+[**as.cxx**](as.cxx) [(Compiler Explorer)](https://godbolt.org/z/x94Mhfxzb)
 ```cpp
 #include <cstdio>
 #include <iostream>
@@ -890,7 +890,7 @@ The Circle pattern matching implementation adds a special braced form left-hand 
 
 The _is-pattern_ on the right must be a destructure pattern, not a designated pattern. This operator performs element-wise _is-expression_, and reduces the element-wise results to a single true or false.
 
-[**reflection.cxx**](reflection.cxx)
+[**reflection.cxx**](reflection.cxx) [(Compiler Explorer)](https://godbolt.org/z/hvvGK6sY3)
 ```cpp
 #include <iostream>
 #include <concepts>
@@ -940,7 +940,7 @@ The braced-set syntax provides positional pattern matching that supports wildcar
 
 ### Metaprogramming
 
-[**meta.cxx**](meta.cxx)
+[**meta.cxx**](meta.cxx) [(Compiler Explorer)](https://godbolt.org/z/xdrzs464K)
 ```cpp
 #include <type_traits>
 #include <iostream>
@@ -1071,7 +1071,7 @@ This is a useful behavior that makes pattern matching programming less defensive
 
 Circle has extended the expression grammar to support multi-token type names.
 
-[**modulo.cxx**](modulo.cxx)
+[**modulo.cxx**](modulo.cxx) [(Compiler Explorer)](https://godbolt.org/z/553YefGbK)
 ```cpp
 #include <type_traits>
 
