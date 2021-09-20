@@ -1,9 +1,10 @@
 #include <cuda_runtime.h>
+#include <cstdio>
 #include <algorithm>     // for std::upper_bound
 
 template<nvvm_arch_t arch>
 __global__ void kernel() {
-  printf("Launched kernel<%s>().\n", @enum_name(arch));
+  printf("Launched kernel<%s>().\n", arch.string);
 }
 
 int main() {
@@ -14,7 +15,7 @@ int main() {
 
   // Query the PTX of all targets being generated.
   const int targets[] { 
-    (int)@enum_values(nvvm_arch_t)...
+    (int)nvvm_arch_t.enum_values ...
   };
 
   // Use upper_bound - 1 to find the largest PTX target not greater

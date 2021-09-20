@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cstdio>
 
 __global__ void kernel() { 
   printf("Hello kernel, sm_%d.\n", __nvvm_arch);

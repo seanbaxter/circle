@@ -4,7 +4,7 @@
 __global__ void kernel() {
   @meta for enum(nvvm_arch_t arch : nvvm_arch_t) {
     if target(arch == __nvvm_arch)
-      printf("Compiling kernel for %s\n", @enum_name(arch));
+      printf("Compiling kernel for %s\n", arch.string);
   }
 }
 

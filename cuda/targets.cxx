@@ -2,7 +2,7 @@
 
 int main() {
   // Print all PTX targets.
-  std::cout<< @enum_names(nvvm_arch_t)<< " = "
-    << (int)@enum_values(nvvm_arch_t)<< "\n" ...;
+  std::cout<< nvvm_arch_t.enum_names<< " = "
+    << (int)nvvm_arch_t.enum_values<< "\n" ...;
 }
 

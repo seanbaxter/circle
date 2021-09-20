@@ -1,7 +1,7 @@
 #include <cstdio>
 
 template<auto x, typename type_t>
-constexpr bool is_value_in_enum = (... || (@enum_values(type_t) == (type_t)x));
+constexpr bool is_value_in_enum = (... || (type_t.enum_values == (type_t)x));
 
 // Set of device architectures. Will be part of CUDA Toolkit.
 enum class sm_selector : unsigned long long {
@@ -32,20 +32,20 @@ enum class tuning_t {
 
 // Test that each tuning corresponds to an actual device architecture.
 static_assert(
-  is_value_in_enum<@enum_values(tuning_t), sm_selector>,
-  @string(@enum_names(tuning_t), " (", (int)@enum_values(tuning_t), ") is invalid")
+  is_value_in_enum<tuning_t.enum_values, sm_selector>,
+  tuning_t.enum_names + " (" + ((int)tuning_t.enum_values).string + ") is invalid)"
 )...;
 
 int main() { 
   // Print the tunings using a loop.
   printf("With a loop:\n");
   @meta for enum(tuning_t tuning : tuning_t) {
-    printf("%-10s: %3dx%2d\n", @enum_name(tuning),
+    printf("%-10s: %3dx%2d\n", tuning.string, 
       @enum_attribute(tuning, nt), @enum_attribute(tuning, vt));
   }
 
   // Print the tunings using pack expansion.
   printf("\nWith a pack expansion:\n");
-  printf("%-10s: %3dx%2d\n", @enum_names(tuning_t), 
+  printf("%-10s: %3dx%2d\n", tuning_t.enum_names,
     @enum_attributes(tuning_t, nt), @enum_attributes(tuning_t, vt)) ...;
 }

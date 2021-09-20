@@ -34,17 +34,17 @@ __global__ void launch_tuning_k(func_t func) {
     if target(arch == __nvvm_arch) {
       
       // Search for the best tuning for this architecture.
-      constexpr int ub = upper_bound<arch, @enum_values(tuning_t)...>;
+      constexpr int ub = upper_bound<arch, tuning_t.enum_values...>;
 
       // There must be a viable tuning.
-      static_assert(ub, @string("No viable tuning for ", @enum_name(arch)));
+      static_assert(ub, "No viable tuning for " + arch.string);
 
       // Pluck out the best one.
       constexpr tuning_t tuning = @enum_value(tuning_t, ub - 1);
 
       // Report what we've chosen.
-      @meta printf("Selecting tuning \"%s\" for arch %s\n", @enum_name(tuning),
-        @enum_name(arch));
+      @meta printf("Selecting tuning \"%s\" for arch %s\n", tuning.string, 
+        arch.string);
 
       // Set the __launch_bounds__.
       __nvvm_maxntidx(@enum_attribute(tuning, nt));
@@ -61,8 +61,8 @@ void launch_tuning(const func_t& func, size_t count) {
 
   // Verify every tuning is supported in sm_selector.
   static_assert(
-    is_value_in_enum<@enum_values(tuning_t), sm_selector>,
-    @string(@enum_names(tuning_t), " (", (int)@enum_values(tuning_t), ") is invalid")
+    is_value_in_enum<tuning_t.enum_values, sm_selector>,
+    tuning_t.enum_names + " (" + ((int)tuning_t.enum_values).string + ") is invalid"
   )...;
 
   // Retrieve the kernel's arch version.
@@ -72,13 +72,13 @@ void launch_tuning(const func_t& func, size_t count) {
   printf("Launching with PTX = sm_%d\n", attr.ptxVersion);
 
   // Get the best tuning for this arch.
-  int index = attr.ptxVersion < (int)@enum_values(tuning_t) ...?
-    int... - 1 : @enum_count(tuning_t) - 1;
+  int index = attr.ptxVersion < (int)tuning_t.enum_values ...?
+    int... - 1 : tuning_t.enum_count - 1;
 
   // Num values per block.
   int nt = 0, vt = 0;
   switch(index) {
-    @meta for(int i : @enum_count(tuning_t)) {
+    @meta for(int i : tuning_t.enum_count) {
       case i: // Use this tuning.
         nt = @enum_attribute(tuning_t, i, ::nt);
         vt = @enum_attribute(tuning_t, i, ::vt);
@@ -111,7 +111,7 @@ void radix_sort(key_t* data, size_t count) {
 
     if(!cta && !tid) {
       // Let thread 0 print its tuning.
-      printf("%s: sm_%d has %3dx%2d", @enum_name(tuning), 
+      printf("%s: sm_%d has %3dx%2d", tuning.string, 
         __builtin_current_device_sm(), nt, vt);
       if constexpr(@has_attribute(tuning, occ))
         printf(" occ=%d", @attribute(tuning, occ));
