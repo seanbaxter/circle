@@ -19,7 +19,7 @@ While the `__host__` and `__device__` tags are still supported, you aren't requi
     * [Convert stings to numbers](#convert-strings-to-numbers)
     * [Dynamic memory](#dynamic-memory)
     * [Algorithms](#algorithms)
-* [Programming using the Standard Library](#programming-using-the-standard-library)\
+* [Programming using the Standard Library](#programming-using-the-standard-library)
   * [Unique values](#unique-values)
   * [Library callbacks](#library-callbacks)
   * [RTTI and `dynamic_cast`](#rtti-and-dynamic-cast)
