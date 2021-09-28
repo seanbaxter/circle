@@ -724,7 +724,7 @@ These contents of these objects are initialized elsewhere by placement new. This
 
 Sometimes, in a CUDA program, we'd like to declare objects but defer their initialization. CUDA doesn't support dynamic initialization of device objects, so you generally need to manually initialize `__device__` globals with a preliminary kernel launch. Likewise, `__shared__` objects can't have non-trivial constructors, and need to be initialized manually.
 
-You can wrap objects inside unions to defer initialization, but then they have a different type than what you really want. This problem occurs so often that a new Circle feature was added to address this head on: the `\[\[storage_only\]\]` object attribute.
+You can wrap objects inside unions to defer initialization, but then they have a different type than what you really want. This problem occurs so often that a new Circle feature was added to address this head on: the `[[storage_only]]` object attribute.
 
 [**storage_only.cxx**](storage_only.cxx)
 ```cpp
