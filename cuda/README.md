@@ -871,7 +871,7 @@ All Circle translation units have access to five _codegen-time_ definitions:
     };
 ```
 
-As of build 141, Circle also supports the C++23 feature [_if-consteval_](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1938r3.html). _if-consteval_ and _if-target_ are very similar mechanisms: they are control flow statements that are evaluated not during definition or template instantiation, but during _lowering_, when the compiler's internal data structure is traversed to generate IR like LLVM or SPIR-V. At this point in translation, the compiler knows the backend being targeted, and can share that information with the user's source code.
+As of build 141, Circle also supports the C++23 feature [_if-consteval_](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1938r3.html). _if-consteval_ and _if-target_ are very similar mechanisms: they are control flow statements that are evaluated not during definition or template instantiation, but during _lowering_, when the compiler's internal data structure is traversed to generate IR (LLVM or SPIR-V), or during _constant evaluation_, when the constexpr interpreter executes AST to initialize some other constant. At this point in translation, the compiler knows the backend being targeted, and can share that information with the program text.
 
 ```cpp
 if consteval {
@@ -889,7 +889,7 @@ if consteval {
 
 To write fully generic code, use _if-consteval_ at the top of an if-cascade to handle the _constant-evaluated_ environment. When the code is entered during a constexpr call at definition or template instantiation, _if-consteval_ evaluates true, and its true branch is taken, and the others discarded. You may also use the syntax `if not consteval { }` to only specify a branch when the code is _not_ being constant evaluated.
 
-If the code isn't being constant evaluated, it must be targeting the host module, or a special target like shaders or CUDA. In that case, use _if-target_ on one of Circle's codegen variables. `if target(__is_host_target)` guarantees that the function has access to x86-64 capabilities. `if target(__nvvm_current_device_sm)` guarantees that the function has access to PTX capabilities, and you can further test the value of `__nvvm_current_device_sm` to determine which architecture version is being targeted.
+If the code isn't being constant evaluated, the compiler must be targeting the host module, or a special target like shaders or CUDA. In that case, use _if-target_ on one of Circle's codegen variables. `if target(__is_host_target)` guarantees that the function has access to x86-64 capabilities. `if target(__nvvm_current_device_sm)` guarantees that the function has access to PTX capabilities, and you can further test the value of `__nvvm_current_device_sm` to determine which architecture version is being targeted.
 
 ### Reflection on nvvm_arch_t
 
