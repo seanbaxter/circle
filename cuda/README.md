@@ -2,7 +2,7 @@
 
 Circle's [CUDA](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html) support is a work in progress. The compiler is being modified to track changes to the thrust, CUB and CUDA Toolkit libraries as they appear.
 
-Circle is a single-pass heteregeneous compiler. It already targets [single-source shaders](https://github.com/seanbaxter/shaders/blob/master/README.md) using the SPIR-V and DXIL intermediate representations with a single translation pass. CUDA support adds a new PTX and SASS target.
+Circle is a single-pass heterogeneous compiler. It already targets [single-source shaders](https://github.com/seanbaxter/shaders/blob/master/README.md) using the SPIR-V and DXIL intermediate representations with a single translation pass. CUDA support adds a new PTX and SASS target.
 
 While the `__host__` and `__device__` tags are still supported, you aren't required to tag functions to call them from kernels. This makes Standard Library code available for execution on the GPU.
 
@@ -723,7 +723,7 @@ These contents of these objects are initialized elsewhere by placement new. This
 
 Sometimes, in a CUDA program, we'd like to declare objects but defer their initialization. CUDA doesn't support dynamic initialization of device objects, so you generally need to manually initialize `__device__` globals with a preliminary kernel launch. Likewise, `__shared__` objects can't have non-trivial constructors, and need to be initialized manually.
 
-You can wrap objects inside unions to defer initialization, but then they have a different type than what you really want. This problem occurs so often that a new Circle feature was added to address this head on: the `\[\[storage_only\]\]` object attribute.
+You can wrap objects inside unions to defer initialization, but then they have a different type than what you really want. This problem occurs so often that a new Circle feature was added to address this head on: the `[[storage_only]]` object attribute.
 
 [**storage_only.cxx**](storage_only.cxx)
 ```cpp
