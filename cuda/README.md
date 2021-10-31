@@ -878,7 +878,7 @@ if consteval {
   // constexpr stuff here
 } else if target(__is_host_target) {
   // x86-64 code here
-} else if target(__nnvm_current_device_sm) {
+} else if target(__nvvm_current_device_sm) {
   // PTXAS
 } else if target(__is_spirv_target) {
    // Vulkan and OpenGL
