@@ -26,6 +26,7 @@ While the `__host__` and `__device__` tags are still supported, you aren't requi
   * [RTTI, `std::any` and pattern matching](#rtti-stdany-and-pattern-matching)
   * [`[[storage_only]]` attribute](#storage_only-attribute)
 * [Reflection and _if-target_](#reflection-and-if-target)
+  * [Reflection on nvvm_arch_t](#reflection-on-nvvm_arch_t)
   * [PTX launch chevrons](#ptx-launch-chevrons)
   * [User attributes for tuning](#user-attributes-for-tuning)
   * [Powering _if-target_ kernels with user attributes](#powering-if-target-kernels-with-user-attributes)
@@ -845,7 +846,54 @@ All STL types can be used on the GPU, either within a thread, or in `__shared__`
 
 ## Reflection and _if-target_
 
-Circle implicitly defines an enumeration `nvvm_arch_t` populated with the PTX architectures specified on the command line.
+All Circle translation units have access to five _codegen-time_ definitions:
+
+* `bool __is_host_target` - true when the code is lowered to the primary module that runs on CPU.
+* `bool __is_spirv_target` - true when the code is lowered to SPIR-V for Vulkan/OpenGL.
+* `bool __is_dxil_target` - true when the code is lowered to DXIL for Direct3D 12.
+* `int __nvvm_current_device_sm` - the 2-digit PTX code of the current NVVM lowering. Eg, 35, 37, 50, 52, etc.
+* `unsigned long long __nvvm_arch_mask` - a bitfield with one bit set for the current PTX device. This bitfield matches the sm_XX_bit values in the CUDA Toolkit's `/include/nv/target` file. When the code is not lowered to a PTX target, the value of this mask is set to 1.
+```cpp
+    enum nvvm_bits_t : unsigned long long {
+      sm_35_bit = 1 << 1,
+      sm_37_bit = 1 << 2,
+      sm_50_bit = 1 << 3,
+      sm_52_bit = 1 << 4,
+      sm_53_bit = 1 << 5,
+      sm_60_bit = 1 << 6,
+      sm_61_bit = 1 << 7,
+      sm_62_bit = 1 << 8,
+      sm_70_bit = 1 << 9,
+      sm_72_bit = 1 << 10,
+      sm_75_bit = 1 << 11,
+      sm_80_bit = 1 << 12,
+      sm_86_bit = 1 << 13,
+    };
+```
+
+As of build 141, Circle also supports the C++23 feature [_if-consteval_](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1938r3.html). _if-consteval_ and _if-target_ are very similar mechanisms: they are control flow statements that are evaluated not during definition or template instantiation, but during _lowering_, when the compiler's internal data structure is traversed to generate IR like LLVM or SPIR-V. At this point in translation, the compiler knows the backend being targeted, and can share that information with the user's source code.
+
+```cpp
+if consteval {
+  // constexpr stuff here
+} else if target(__is_host_target) {
+  // x86-64 code here
+} else if target(__nnvm_current_device_sm) {
+  // PTXAS
+} else if target(__is_spirv_target) {
+   // Vulkan and OpenGL
+} else if target(__is_dxil_target) {
+  // Direct3D 12
+}
+```
+
+To write fully generic code, use _if-consteval_ at the top of an if-cascade to handle the _constant-evaluated_ environment. When the code is entered during a constexpr call at definition or template instantiation, _if-consteval_ evaluates true, and its true branch is taken, and the others discarded. You may also use the syntax `if not consteval { }` to only specify a branch when the code is _not_ being constant evaluated.
+
+If the code isn't being constant evaluated, it must be targeting the host module, or a special target like shaders or CUDA. In that case, use _if-target_ on one of Circle's codegen variables. `if target(__is_host_target)` guarantees that the function has access to x86-64 capabilities. `if target(__nvvm_current_device_sm)` guarantees that the function has access to PTX capabilities, and you can further test the value of `__nvvm_current_device_sm` to determine which architecture version is being targeted.
+
+### Reflection on nvvm_arch_t
+
+Additionally, Circle implicitly defines an enumeration `nvvm_arch_t` populated with the PTX architectures specified on the command line.
 
 [**targets.cxx**](targets.cxx)
 ```cpp
