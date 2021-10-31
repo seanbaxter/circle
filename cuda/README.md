@@ -38,7 +38,6 @@ To compile for CUDA, use these command-line options:
 * `-gpu` - An optional argument to indicate that a .ll or .bc output (LLVM IR and bitcode) should relate to the GPU code and not the host code. For binary outputs, where fatbinary is implicitly included into the executable, this flag may not be used.
 * `-G` - Enable debug information on device targets.
 * `-OG0`, `-OG1`, `-OG2`, `-OG3` - Set optimization level for device code.
-* `-lcudart` - When building an executable or shared object, link with `libcudart.so`.
 
 [**hello.cu**](hello.cu)
 ```cpp
@@ -56,7 +55,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 -sm_75 hello.cu -lcudart -o hello
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 -sm_75 hello.cu -o hello
 $ ./hello
 Hello CUDA 0.
 Hello CUDA 1.
@@ -68,7 +67,7 @@ Hello CUDA 6.
 Hello CUDA 7.
 ```
 
-Be sure to specify `-lcudart` to link with the CUDA Runtime library `libcudart.so`.
+All CUDA executables and shared objects must be linked with `libcudart.so`. If you do not specify `-lcudart`, the Circle compiler will implicitly link it for you.
 
 As with the `nvcc` compiler, Circle locates the compiled kernel modules in the `.nv_fatbin` data section. This allows CUDA tooling like `cuobjdump` to locate and print the kernels:
 
@@ -352,7 +351,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 roman.cxx -lcudart 
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 roman.cxx 
 ptxas warning : Stack size for entry function '_Z11test_vectori' cannot be statically determined
 $ ./roman
  727 - DCCXXVII
@@ -417,7 +416,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 unique.cxx -lcudart -o unique && ./unique
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 unique.cxx -o unique && ./unique
 ptxas warning : Stack size for entry function '_Z6kernelii' cannot be statically determined
 7 unique values generated:
  0:   1
@@ -476,7 +475,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 qsort.cxx -lcudart -o qsort
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 qsort.cxx -o qsort
 ptxas warning : Stack size for entry function '_Z6kerneli' cannot be statically determined
 sean@sean-red:~/projects/circle/cuda$ ./qsort
  0:  0
@@ -573,7 +572,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 virtual.cxx -lcudart -o virtual
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 virtual.cxx -o virtual
 ptxas warning : Stack size for entry function '_Z7kernelsv' cannot be statically determined
 $ ./virtual
 Hello
@@ -688,7 +687,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 any.cxx -lcudart -o any
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 any.cxx -o any
 ./ptxas warning : Stack size for entry function '_Z6kernelv' cannot be statically determined
 $ ./any
 Pattern matching on std::any:
@@ -822,7 +821,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 vec.cxx -lcudart -o vec
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_52 vec.cxx -o vec
 $ ./vec
   0:   0
   1:   1
@@ -886,7 +885,7 @@ int main() {
 }
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 if_target.cxx -lcudart && ./if_target 
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 if_target.cxx && ./if_target 
 Compiling kernel for sm_75
 ```
 
@@ -953,7 +952,7 @@ int main() {
 } 
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 launch.cxx -lcudart  && ./launch
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 launch.cxx  && ./launch
 Selecting PTX target sm_75.
 Launched kernel<sm_75>().
 ```
@@ -1011,7 +1010,7 @@ int main() {
 } 
 ```
 ```
-$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 bad_launch.cxx -lcudart -g && ./bad_launch
+$ circle --cuda-path=/opt/nvidia/hpc_sdk/Linux_x86_64/21.3/cuda/11.2/ -sm_35 -sm_52 -sm_61 -sm_75 bad_launch.cxx -g && ./bad_launch
 Hello kernel, sm_75.
 bad_launch: /home/sean/projects/circle/cuda/bad_launch.cxx:13: int main(): Assertion `contract violation launching CUDA kernel: PTX version 35 does not match device architecture.' failed.
 Aborted (core dumped)
@@ -1215,7 +1214,7 @@ __global__ void launch_tuning_k(func_t func) {
     if target(arch == __nvvm_arch) {
       
       // Search for the best tuning for this architecture.
-      constexpr int ub = upper_bound<arch, tuning_t.enum_values...>;
+      constexpr int ub = upper_bound<(int)arch, tuning_t.enum_values...>;
 
       // There must be a viable tuning.
       static_assert(ub, "No viable tuning for " + arch.string);

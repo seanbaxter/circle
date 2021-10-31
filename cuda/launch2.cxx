@@ -34,7 +34,7 @@ __global__ void launch_tuning_k(func_t func) {
     if target(arch == __nvvm_arch) {
       
       // Search for the best tuning for this architecture.
-      constexpr int ub = upper_bound<arch, tuning_t.enum_values...>;
+      constexpr int ub = upper_bound<(int)arch, tuning_t.enum_values...>;
 
       // There must be a viable tuning.
       static_assert(ub, "No viable tuning for " + arch.string);
