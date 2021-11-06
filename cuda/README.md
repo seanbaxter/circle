@@ -167,7 +167,7 @@ https://github.com/seanbaxter/mgpu-shaders) library provides a high-performance 
 
 For CUDA, the [CUB](https://github.com/NVIDIA/cub/) radix sort is used. This is generally the fastest radix sort available for NVIDIA devices.
 
-To compile CUB and [thrust](https://github.com/NVIDIA/thrust/) for Circle, we need to use a special branch. The _if\_target_ branches of [https://github.com/allisonvacanti/cub/tree/if_target](cub) and [thrust](https://github.com/allisonvacanti/thrust/tree/if_target) represent the leading edge CUDA libraries. They're intended for compilation with the newer `nvc++` compiler rather than the aging `nvcc`. 
+To compile CUB and [thrust](https://github.com/NVIDIA/thrust/) for Circle, we need to use a special branch. The _if\_target_ branches of [cub](https://github.com/allisonvacanti/cub/tree/if_target) and [thrust](https://github.com/allisonvacanti/thrust/tree/if_target) represent the leading edge CUDA libraries. They're intended for compilation with the newer `nvc++` compiler rather than the aging `nvcc`. 
 
 Since the `__CUDA_ARCH__` macro is not allowed in Circle and `nvc++`, a different mechanism is needed for targeting specific PTX architectures, one that's compatible with these compilers' single-pass translation model. That different mechanism is [_if-target_](#reflection-and-if-target), a new form of control flow and twist on _if-constexpr_, where the condition is evaluated as constant during code generation rather than during template substitution.
 
