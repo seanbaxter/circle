@@ -725,7 +725,7 @@ define i32 @main() local_unnamed_addr #0 {
 
 attributes #0 = { nounwind }
 ```
-A glance at the program's IR shows a string hard-coded with the commit hash from when the translation unit was compiled. There's no reference to `capute_call`, because it wasn't used from the code generator. Likewise, there's no reference to `popen` or its command string. Circle isn't sanitizing these outputs, because these symbols never even make it to the code generator.
+A glance at the program's IR shows a string hard-coded with the commit hash from when the translation unit was compiled. There's no reference to `capture_call`, because it wasn't used from the code generator. Likewise, there's no reference to `popen` or its command string. Circle isn't sanitizing these outputs, because these symbols never even make it to the code generator.
 
 ### Same-language reflection
 
@@ -2553,7 +2553,7 @@ The story gets better. Recall same-language reflection as the mechanism for [dyn
 
 ## GPU programming
 
-Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html)/[NVPTX](https://llvm.org/docs/NVPTXUsage.html) backend. Circle's frontend design makes three major enhacements compared to the `nvvc` and `clang++` compilers:
+Circle implements CUDA by targeting the [NVVM](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html)/[NVPTX](https://llvm.org/docs/NVPTXUsage.html) backend. Circle's frontend design makes three major enhacements compared to the `nvcc` and `clang++` compilers:
 
 How does Circle differ from NVIDIA's `nvcc` compiler? 
 
