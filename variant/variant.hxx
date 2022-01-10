@@ -422,7 +422,7 @@ public:
         // lhs active variant member.
         variant a_temp = std::move(*this);
         *this = std::move(rhs);
-        rhs = a_temp; //std::move(a_temp);
+        rhs = std::move(a_temp);
       }
     }
   }
