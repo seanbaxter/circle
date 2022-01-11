@@ -9,7 +9,7 @@ The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/mas
 This new variant is a simple transliteration from standardese. It leverages a bunch of existing Circle features:
 
 * [Data member pack declarations](https://github.com/seanbaxter/mdspan#data-member-pack-declarations)
-* [Pack subscript operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) `...[]`
+* [Pack subscript operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) `...[I]`
 * [Pack index operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-indices) `int...` and integer pack generator `int...(N)`
 * [Multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`
 * [Constexpr conditiontal operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--) `??:`
@@ -58,7 +58,7 @@ public:
 
 Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to declare a pack of variant members. We no longer have to use inheritance to implement `std::variant` -- it's all one self-contained class.
 
-Since we have an unnamed union with potentially non-trivially constructible members, we should specify a subobject initializer for the first variant member in the variant class's default constructor. Circle features a pack subscript operator `...[N]`, which is used to specify:
+Since we have an unnamed union with potentially non-trivially constructible members, we should specify a subobject initializer for the first variant member in the variant class's default constructor. Circle features a pack subscript operator `...[I]`, which is used to specify:
 * The _noexcept-specifier_ for construction of the first variant member,
 * The _requires-clause_ constraint that deactivates the constructor if the first variant member isn't default constructible, and
 * Subobject access to the first variant member in the unnamed unions.
@@ -177,19 +177,30 @@ The Standard challenges us with a wall of text for the converting constructor. B
     m...[j](std::forward<T>(arg)), _index(j) { }
 ```
 
+The converting constructor takes an argument and finds the best variant alternative to initialize with it. This is what the long first paragraph in the Standard describes. However, with ISO C++, this pattern is annoying to implement and very slow to compile. Circle has a new feature `__preferred_copy_init` which finds the best viable type to initialize as a builtin:
+
+`__preferred_copy_init`_(argument-type, candidate-types)_
+* _argument-type_ - The type of the argument we want on the rhs of the initialization. 
+* _candidate-types_ - A list (or expanded parameter pack) of candidate types. For our variant, these are all the variant alternative types `Types`. 
+
+The return value is the integer index of the type with the best viable initialization. If there is no viable initialization, or there are more than one best viable initializations, the return value is -1.
+
+The firs constraint in the _requires-clause_ checks that `__preferred_copy_init` returns a successful index. The remaining constraints are copied straight out of the standard. 
+
+Circle's [type trait syntax](https://github.com/seanbaxter/circle/blob/master/imperative/README.md#type-traits) lets us imperatively access information about types resorting to argument deduction tricks. We're supposed to reject arguments that are specializations of the templates `in_place_type_t` or `in_place_index_t`. Writing `T.template != std::in_place_type_t` does precisely that, without needing a generic _is-specialization_ library feature. This works even when the argument isn't a class specialization at all: in isolation, `T.template` will cause a substitution failure when `T` is, say, `int`. But `T.template != std::in_place_type_t` is a special comparison expression, which serves as an _is-specialization_ operator when its operands name templates.
+
 ## `in_place_type_t` constructor.
+
+[![in_place_type](in_place_type.png)](http://eel.is/c++draft/variant#ctor-20)
 
 ```cpp
 template<class... Types>
 class variant {
   template<typename T>
+  static constexpr bool is_single_usage = 1 == (... + (T == Types));
+
+  template<typename T>
   static constexpr size_t find_index = T == Types ...?? int... : -1;
-
-  union {
-    Types ...m;
-  };
-
-  uint8_t _index = variant_npos;
 
 public:
   template<class T, class... Args, size_t j = find_index<T> >
@@ -200,7 +211,11 @@ public:
 };
 ```
 
-## Copy assignment.
+The `in_place_type_t` constructor receives the variant alternative to initialize as a template parameter. The variant implementation has to map this to the index of the variant member, so that it can be selected with `...[I]` during subobject construction.
+
+The variable template `find_index` performs a linear search, and yields the index of the first type in `Types` that matches the argument type `T`. The [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) `...??` is a multi-conditional that short-circuits _during substitution_. That is, as soon as the predicate is satisfied, pack expansion stops, and the result term is substituted. 
+
+The `is_single_usage` variable template uses a C++17 fold expresion to count the number of occurrences of the argument type among the variant alternatives. If it occurs exactly once, and the variant member is constructible given the function arguments, the constraint passes, and the active subobject is initialized.
 
 ## Converting assignment.
 
@@ -241,6 +256,8 @@ public:
   }
 ```
 
+The converting assignment is similar to the [converting constructor](#converting-constructor). Circle includes a builtin `__preferred_assignment`, which efficiently performs overload resolution to find the type with the best viable assignment from the provided rhs. 
+
 ## Comparison and relational operators.
 
 [![Relational](relational.png)](http://eel.is/c++draft/variant#relops-5)
@@ -268,6 +285,35 @@ constexpr bool operator<(const variant<Types...>& v,
       __builtin_unreachable();
 }
 ```
+
+The comparison, relational and spaceship operators are transliterated from the Standard. A pack `static_assert` tests the mandate that all variant alternatives support comparison. It provides type-specific information when the mandate is not satisfied.
+
+[**compare.cxx**](https://godbolt.org/z/a6KoWYqTb)
+```cpp
+#include "variant.hxx"
+#include <string>
+
+struct no_compare_t { };
+
+int main() {
+  circle::variant<int, long, std::string, no_compare_t> a, b;
+  bool c = a < b;
+}
+```
+![compare](compare.png)
+
+The `static_assert` states explicitly that "no_compare_t has no operator<". How is this level of specificity achieved?
+
+```cpp
+  static_assert(requires{ (bool)(get<int...>(v) < get<int...>(w)); }, 
+    Types.string + " has no operator<")...;
+```
+
+Circle's `static_assert` permits pack expressions in the first operand. If the first operand has a pack, a pack may also be expressed in the second message operand. `Types.string` is a pack expression, which uses reflection and yields the string literal expression for each variant alternative type name. In Circle, + is a literal concatenation operator which creates a new literal, so `Types.string + " has no operator<"` performs string literal fusion, supplying a type-specific error message.
+
+The _requires-expression_ in the predicate operand is also a pack expression. The index for the `get` function is the pack index operator `int...`. No pack size has to be specified here--the Circle compiler can infer the size from the sized pack in the message operand. 
+
+The trailing expand operator `...` substitutes the predicate for each pack element, and on the first false value, substituse the corresponding message operand and logs the error.
 
 ## Visit
 
