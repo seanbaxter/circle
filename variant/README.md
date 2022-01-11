@@ -2,9 +2,9 @@
 
 Browse implementation [**variant.hxx**](variant.hxx).
 
-This is a Circle implementation of C++20's [`std::variant`](http://eel.is/c++draft/variant) class. The goal of this exercise isn't about providing a faster-compiling variant, although it it that. Like my [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle), working through variant is an opportunity to extend the language so that writing such advanced code no longer poses a challenge.
+This is a Circle implementation of C++20's [`std::variant`](http://eel.is/c++draft/variant) class. The goal of this exercise isn't about providing a faster-compiling variant, although it is that. Like my [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle), working through variant is an opportunity to extend the language so that writing such advanced code no longer poses a challenge.
 
-The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of is? Standard Library code should be the cleanest, most idiomatic C++ code, and something for users to model in their own programming. But if you were to submit code that resembles acutal Standard Library code, it should be rejeceted during review by any serious organization--it's a liability to commit stuff like this! 
+The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of us? Standard Library code should be the cleanest, most idiomatic C++ code, and something for users to model in their own programming. But if you were to submit code that resembles actual Standard Library code, it should be rejected during review by any serious organization — commiting such code would be a liability! 
 
 This new variant is a simple transliteration from standardese. It's model Circle code. It's clean because it leverages a bunch of Circle-specific features:
 
@@ -16,7 +16,7 @@ This new variant is a simple transliteration from standardese. It's model Circle
 * [Member type traits](https://github.com/seanbaxter/circle/blob/master/imperative/README.md#type-traits) `.template`, `.type_args` and `.string` 
 * Pack `static_assert`
 
-But all that wasn't enough for a clean variant. To address pain points discovered during this effort, I implemented two more major features:
+But all that wasn't enough for a clean variant. To address pain points discovered during this effort, I implemented two additional major features:
 
 1. [`__preferred_copy_init`](#converting-constructor) and [`__preferred_assignment`](#converting-assignment) provide the intelligence for the converting constructor and converting assignment operator. They perform overload resolution given an expression and a collection of types, and indicate the type that has the best viable construction or assignment. If there is no viable operation or multiple best-viable operations, each builtin returns -1.
 2. [`__visit`](#visit) and `__visit_r` are multi-dimensional, single-expression visitor operators. They make implementing `std::visit` a one-line affair.
@@ -69,7 +69,7 @@ public:
 };
 ```
 
-Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to declare a pack of variant members. We no longer have to use inheritance to implement `std::variant`--it's all one self-contained class.
+Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to declare a pack of variant members. We no longer have to use inheritance to implement `std::variant` — it's all one self-contained class.
 
 Since we have an unnamed union with potentially non-trivially constructible members, we should specify a subobject initializer for the first variant member in the variant class's default constructor. Circle features a pack subscript operator `...[I]`, which is used to specify:
 * The _noexcept-specifier_ for construction of the first variant member,
