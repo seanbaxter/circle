@@ -1,6 +1,6 @@
 # Circle variant 
 
-[**variant code here**](variant.hxx)
+Browse implementation [**variant.hxx**](variant.hxx).
 
 This is a Circle implementation of C++20's [`std::variant`](http://eel.is/c++draft/variant) class. The goal of this exercise isn't about providing a faster-compiling variant, although it it that. Like my [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle), working through variant is an opportunity to extend the language so that writing such advanced code no longer poses a challenge.
 
@@ -317,6 +317,58 @@ The trailing expand operator `...` substitutes the predicate for each pack eleme
 
 ## Visit
 
+By far the most troublesome function in the C++ variant is its [visit](http://eel.is/c++draft/variant.visit) function. This function is tasked with multi-dimensional control flow, invoking an argument callable with the active variant members extracted from a parameter of variant arguments. Michael Park [documents](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the ongoing struggles of implementing even a one-dimensional visitor. 
+
+The Circle builtins `__visit` and `__visit_r` (which adds an explicit return type, see [visit<R>: Explicit Return Type for `visit`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0655r1.pdf)) generate n-dimensional control flow to map runtime variables to n constants, exposed as a parameter pack named `indices`. The user supplies an expression which is substituted for each combination of constants.
+
+[**enum.cxx**](enum.cxx) [Compiler explorer](https://godbolt.org/z/n9f4er9ss)
+
+```cpp
+#include <utility>
+#include <iostream>
+
+enum shapes_t {
+  circle, square, rhombus = 20, trapezoid, triangle, ellipse
+};
+
+template<int I, int J, shapes_t z>
+void f() {
+  std::cout<< I<< " "<< J<< " "<< z.string<< "\n";
+}
+
+int main() {
+
+  // Invoke with an element from a interval.
+  constexpr int XDim = 10;
+  int x = 3;
+
+  // Invoke with an element from a collection.
+  using YSequence = std::index_sequence<1, 3, 5, 7, 9>;
+  int y = 7;
+
+  // Invoke with an element from an enumeration.
+  shapes_t z = rhombus;
+
+  __visit<XDim, YSequence, shapes_t>(
+    f<indices...>(),
+    x, y, z
+  );
+}
+```
+```
+$ circle enum.cxx && ./enum
+3 7 rhombus
+```
+
+`__visit` is pretty generic. It supports three kinds of parameterizations:
+1. Specify a constant for the right-hand side of an interval. Passing an integral N generates control flow for integral values between 0 and N-1. This is all we need for a variant visit, where the dimensions are provided by `variant_size_v`.
+2. Specify a collection of integral/enum types in an `std::integer_sequence` container. These constants don't have to be ordered.
+3. Specify an enumeration type. Reflection causes each enumerator in the type to be visited.
+
+The builtin takes N template arguments, one for each dimension, and N + 1 function arguments. The first function argument is a dependent expression that's substituted for each combination of constant values. The `indices` pack declaration is visible only in this context. The subsequent N function arguments are integral or enum values bounded by their corresponding template arguments.
+
+Note that the visitor expression is not put into a lambda. There is no closure. In the code above, the expression is substituted 10 * 5 * 6 = 300 times, all in the scope of the `main` function. Making n-dimensional visitation a builtin allows the compiler to most efficiently implement this intricate control flow.
+
 ```cpp
 template <class Visitor, class... Variants>
 constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
@@ -330,5 +382,4 @@ constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
 }
 ```
 
-
-
+The variant `std::visit` function now has a trivial implementation. We return the result of a call to `__visit`, and that's all. The n-dimensional collection of variant sizes is expressed with `variant_size_v<Variants.remove_reference>...`. The corresponding collection of runtime index values is expressed with `vars.index()...`. The result expression extracts each combination of indices by calling the `get` member function on each forwarded variant (to maintain its value category), passing the implicitly-declared `indices` pack as the `get` template argument, and expanding this pack in the callable's function argument list.
