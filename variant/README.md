@@ -162,14 +162,10 @@ The move constructor is defined exactly the same way, except we use `std::move` 
 ## Converting constructor.
 
 ![Converting constructor](ctor.png)
+
+The Standard challenges us with a wall of text for the converting constructor. But the Circle implementation of this function is _very simple_.
+
 ```cpp
-  // Converting constructor.
-  // Let Tj be a type that is determined as follows: build an imaginary
-  // function FUN(Ti) for each alternative type Ti for which 
-  // Ti x[] = {std::forward<T>(t)}; is well-formed for some invented 
-  // variable x. The overload FUN(Tj) selected by overload resolution for
-  // the expression FUN(std::forward<T>(t)) defines the alternative Tj
-  // which is the type of the contained value after construction.
   template<typename T, int j = __preferred_copy_init(T, Types...)>
   requires(
     -1 != j &&
