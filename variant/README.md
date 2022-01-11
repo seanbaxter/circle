@@ -161,7 +161,7 @@ The move constructor is defined exactly the same way, except we use `std::move` 
 
 ## Converting constructor.
 
-![Converting constructor](ctor.png)
+[![Converting constructor](ctor.png)](http://eel.is/c++draft/variant#ctor-14)
 
 The Standard challenges us with a wall of text for the converting constructor. But the Circle implementation of this function is _very simple_.
 
@@ -178,4 +178,115 @@ The Standard challenges us with a wall of text for the converting constructor. B
     noexcept(std::is_nothrow_constructible_v<Types...[j], T>) :
     m...[j](std::forward<T>(arg)), _index(j) { }
 ```
+
+## `in_place_type_t` constructor.
+
+```cpp
+template<class... Types>
+class variant {
+  template<typename T>
+  static constexpr size_t find_index = T == Types ...?? int... : -1;
+
+  union {
+    Types ...m;
+  };
+
+  uint8_t _index = variant_npos;
+
+public:
+  template<class T, class... Args, size_t j = find_index<T> >
+  requires(is_single_usage<T> && std::is_constructible_v<T, Args...>) 
+  explicit constexpr variant(std::in_place_type_t<T>, Args&&... args)
+  noexcept(std::is_nothrow_constructible_v<T, Args...>):
+    m...[j](std::forward<Args>(args)), _index(j) { }
+};
+```cpp
+
+
+## Copy assignment.
+
+
+## Converting assignment.
+
+[![Converting assignment](assign.png)](http://eel.is/c++draft/variant#assign-11)
+
+```cpp
+  template<class T, size_t j = __preferred_assignment(T&&, Types...)>
+  requires(T.remove_cvref != variant && -1 != j &&
+    std::is_constructible_v<Types...[j], T>)
+  constexpr variant& operator=(T&& t) 
+  noexcept(std::is_nothrow_assignable_v<Types...[j], T> &&
+    std::is_nothrow_constructible_v<Types...[j], T>) {
+ 
+    if(_index == j) {
+      // If *this holds Tj, assigns std::forward<T>(t) to the value contained
+      // in *this.
+      m...[j] = std::forward<T>(t);
+ 
+    } else if constexpr(std::is_nothrow_constructible_v<Types...[j], T> ||
+      !std::is_nothrow_move_constructible_v<Types...[j]>) {
+ 
+      // Otherwise, if is_nothrow_constructible_v<Tj, T> || 
+      // !is_nothrow_move_constructible_v<Tj> is true, equivalent to
+      // emplace<j>(Tj(std::forward<T>(t))).
+      reset();
+      new(&m...[j]) Types...[j](std::forward<T>(t));
+      _index = j;
+ 
+    } else {
+      // Otherwise, equivalent to emplace<j>(Tj(std::forward<T>(t))).
+      Types...[j] temp(std::forward<T>(t));
+      reset();
+      new(&m...[j]) Types...[j](std::move(temp));
+      _index = j;
+    }
+ 
+    return *this;
+  }
+```
+
+## Comparison and relational operators.
+
+[![Relational](relational.png)](http://eel.is/c++draft/variant#relops-5)
+
+```cpp
+template<class... Types>
+constexpr bool operator<(const variant<Types...>& v, 
+  const variant<Types...>& w) {
+
+  static_assert(requires{ (bool)(get<int...>(v) < get<int...>(w)); }, 
+    Types.string + " has no operator<")...;
+
+  // Returns:
+  //  If w.valueless_by_exception(), false;
+  //  otherwise if v.valueless_by_exception(), true;
+  //  otherwise if v.index() < w.index(), true;
+  //  otherwise if v.index() > w.index(), false;
+  //  otherwise get<i>(v) < get<i>(w) with i being v.index().
+  return w.valueless_by_exception() ? false :
+    v.valueless_by_exception() ? true :
+    v.index() < w.index() ? true :
+    v.index() > w.index() ? false :
+    int...(sizeof...(Types)) == v.index() ...? 
+      v.template get<int...>() < w.template get<int...>() :
+      __builtin_unreachable();
+}
+```
+
+## Visit
+
+```cpp
+template <class Visitor, class... Variants>
+constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
+  if((... || vars.valueless_by_exception()))
+    throw bad_variant_access("variant visit has valueless index");
+
+  return __visit<variant_size_v<Variants.remove_reference>...>(
+    vis(std::forward<Variants>(vars).template get<indices>()...),
+    vars.index()...
+  );  
+}
+```
+
+
 
