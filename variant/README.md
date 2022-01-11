@@ -144,4 +144,42 @@ The multi-conditional operator `...?:` does all the work, as it will do over and
 * The type of the active member, is a pack, `Types`. 
 * The initializer exprsession of the active member is a pack, `w. ...m`. `w` is a parameter of a _dependent type_, `variant`. Although this is also the type of _current instantiation_, C++ rules require the compiler to defer name lookup until instantiation, only then will subobjects of dependent base classes be known. The `...` token that precedes the _member-id_ indicates that, upon name lookup, the member will be a pack declaration. We can't currently write `w....m`, because greedy lexing rules would tokenized that is `w... .m`, which is nonsense. If you forget to put the `...` disambiguating token before the member name, the compiler will remind you when you instantiate the template.
 
+```cpp
+  constexpr variant(variant&& w)
+  noexcept(nothrow_move_constructible)
+  requires(move_constructible && !trivially_move_constructible) {
+    if(!w.valueless_by_exception()) {
+      int... == w._index ...? 
+        (void)new(&m) Types(std::move(w. ...m)) : 
+        __builtin_unreachable();
+      _index = w._index;
+    }
+  }
+```
+
+The move constructor is defined exactly the same way, except we use `std::move` in the _placement-new_ initializer.
+
+## Converting constructor.
+
+![Converting constructor](ctor.png)
+```cpp
+  // Converting constructor.
+  // Let Tj be a type that is determined as follows: build an imaginary
+  // function FUN(Ti) for each alternative type Ti for which 
+  // Ti x[] = {std::forward<T>(t)}; is well-formed for some invented 
+  // variable x. The overload FUN(Tj) selected by overload resolution for
+  // the expression FUN(std::forward<T>(t)) defines the alternative Tj
+  // which is the type of the contained value after construction.
+  template<typename T, int j = __preferred_copy_init(T, Types...)>
+  requires(
+    -1 != j &&
+    T.remove_cvref != variant && 
+    T.template != std::in_place_type_t &&
+    T.template != std::in_place_index_t && 
+    std::is_constructible_v<Types...[j], T>
+  )
+  constexpr variant(T&& arg) 
+    noexcept(std::is_nothrow_constructible_v<Types...[j], T>) :
+    m...[j](std::forward<T>(arg)), _index(j) { }
+```
 
