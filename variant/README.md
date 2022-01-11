@@ -74,18 +74,18 @@ Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to decla
 Since we have an unnamed union with potentially non-trivially constructible members, we should specify a subobject initializer for the first variant member in the variant class's default constructor. Circle features a pack subscript operator `...[I]`, which is used to specify:
 * The _noexcept-specifier_ for construction of the first variant member,
 * The _requires-clause_ constraint that deactivates the constructor if the first variant member isn't default constructible, and
-* Subobject access to the first variant member in the unnamed unions.
+* Subobject access to the first variant member in the unnamed union.
 
 ### Conditionally trivial destructor.
 
-C++20 permits conditionally trivial destructors, in which multiple destructors are declared, marked by different _requires-clauses_, one of which may be marked `= default`, to create a trivial destructor. When the class is made complete (when the parser hits the closing brace of its definition, or when it's instantiated into a template specialization), the destructor constraints are evaluated and exactly one destructor candidate is chosen.
+C++20 permits conditionally trivial destructors, in which multiple destructors are declared, marked by different _requires-clauses_. To create a trivial destructor, one of which may be defined `= default`. During class completion (when the parser hits the closing brace of its definition, or when it's instantiated as a template specialization), the destructor constraints are evaluated and exactly one destructor candidate is chosen.
 
 ```cpp
   constexpr ~variant() requires(trivially_destructible) = default;
   constexpr ~variant() requires(!trivially_destructible) { reset(); }
 ```
 
-If all variant members have trivial destructors, we default the destructor's definition. This will suppress any code generation for the destructor.
+If all variant members have trivial destructors, we default the destructor's definition. This suppresses code generation for the destructor.
 
 ### Multi-conditional reset.
 
@@ -100,12 +100,12 @@ If any variant member has a non-trivial destructor, like an `std::string` that s
   }
 ```
 
-`reset` is where the choice of a member pack union starts paying off. We want to switch over all valid indices (that is, all indices exception `variant_npos`, which indicates the _valueless by exception_ state) and call the destructor of the corresponding variant member. Using the [multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`, this is performed with a single expression:
+`reset` is where the choice of a member pack union starts paying off. We want to switch over all valid indices (that is, all indices except `variant_npos`, which indicates the _valueless by exception_ state) and call the destructor of the corresponding variant member. Using the [multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`, this is performed with a single expression:
 ```cpp
       _index == int... ...? m.~Types() : __builtin_unreachable();
 ```
 
-`_index` is our scalar index of the currently-set variant member. `int...` is a pack expression yields the index of expansion when during substitution. Therefore, `_index == int...` is a pack of comparison expressions. In a variant with four alternatives, it'll expand out like this:
+`_index` is the scalar index of the currently-set variant member. `int...` is a pack expression yielding the index of expansion when during substitution. Therefore, `_index == int...` is a pack of comparison expressions. In a variant with four alternatives, it'll expand out like this:
 ```
 (_index == 0, _index == 1, _index == 2, _index == 3)
 ```
@@ -126,7 +126,7 @@ The multi-conditional operator `...?:` will expand out the left, middle and righ
 ```
 
 * The left-hand operand is the predicate, which yields true when we're substituting on the index corresponding to the active variant member. 
-* The center operand calls the _pseudo-destructor_ on the member pack declaration `m`. The type of the _pseudo-destructor_ is the `variant` template parameter `Types`. During pack expansion, the i'th variant member and i'th `Types` element are substituted in concert, forming a valid desturctor operation.
+* The center operand calls the _pseudo-destructor_ on the member pack declaration `m`. The type of the _pseudo-destructor_ is the `variant` template parameter `Types`. During pack expansion, the i'th variant member and i'th `Types` element are substituted in concert, effecting member destruction.
 * The right-hand operand is `__builtin_unreachable()`. This is compiler lingo for noting that a branch of execution is unreachable. It allows the optimizer to employ _strength reduction_ passes to improve code quality. We're basically telling the compiler that we've accounted for all code paths, even the unreachable ones.
 
 ## Copy constructor.
@@ -150,10 +150,10 @@ The multi-conditional operator `...?:` will expand out the left, middle and righ
 
 If all variant members are trivially copy constructible, a _requires_clause_ selects the default definition, so that the emitted copy constructor is a simple `memcpy`. Otherwise, the user-defined copy constructor is selected.
 
-The multi-conditional operator `...?:` does all the work, as it will do over and over in this variant implementation. The predicate for the conditional is a comparison of the current pack index with the active variant member of the rhs. When that predicate is true, we need _placement-new_ to invoke the copy constructor of the variant member that's going to become active. The syntax is `new(pointer) Type(arguments)`. But we have to do this as a pack, with a bunch of separate pack elements:
-* The pointer to the active member is a pack, `&m`. For each element of the pack expansion instantiated, this will yield the address the corresponding variant member in the union.
+The multi-conditional operator `...?:` does all the work, as it will do over and over in this variant implementation. The predicate for the conditional is a comparison of the current pack index with the active variant member of the rhs. When that predicate is true, we need _placement-new_ to invoke the copy constructor of the variant member that's going to become active. The syntax is `new(pointer) Type(arguments)`. But we have to do this as a pack, with a bunch of separate pack subexpressions:
+* The pointer to the active member, `&m`, is a pack. For each element of the pack expansion instantiated, this will yield the address the corresponding variant member in the union.
 * The type of the active member, is a pack, `Types`. 
-* The initializer exprsession of the active member is a pack, `w. ...m`. `w` is a parameter of a _dependent type_, `variant`. Although this is also the type of _current instantiation_, C++ rules require the compiler to defer name lookup until instantiation, only then will subobjects of dependent base classes be known. The `...` token that precedes the _member-id_ indicates that, upon name lookup, the member will be a pack declaration. We can't currently write `w....m`, because greedy lexing rules would tokenized that is `w... .m`, which is nonsense. If you forget to put the `...` disambiguating token before the member name, the compiler will remind you when you instantiate the template.
+* The initializer expression of the active member is a pack, `w. ...m`. `w` is a parameter of a _dependent type_, `variant`. Although this is also the type of _current instantiation_, C++ rules require the compiler to defer name lookup until instantiation; only then will subobjects of dependent base classes be known. The `...` token that precedes the _member-id_ indicates that, upon name lookup, the member will be a pack declaration. We can't currently write `w....m`, because greedy lexing rules would tokenize that as `w... .m`, which is nonsense. If you forget to put the `...` disambiguating token before the member name, the compiler reminds you when you instantiate the template.
 
 ```cpp
   constexpr variant(variant&& w)
@@ -190,17 +190,17 @@ The Standard challenges us with a wall of text for the converting constructor. B
     m...[j](std::forward<T>(arg)), _index(j) { }
 ```
 
-The converting constructor takes an argument and finds the best variant alternative to initialize with it. This is what the long first paragraph in the Standard describes. However, with ISO C++, this pattern is annoying to implement and very slow to compile. Circle has a new feature `__preferred_copy_init` which finds the best viable type to initialize as a builtin:
+The converting constructor takes an argument and performs overload resolution to determine the best viable variant alternative to initialize with it. This is what the long first paragraph in the Standard describes. However, with ISO C++, this pattern is annoying to implement and very slow to compile. Circle has a new feature `__preferred_copy_init` which finds the best viable type to initialize as a builtin:
 
 `__preferred_copy_init`_(argument-type, candidate-types)_
 * _argument-type_ - The type of the argument we want on the rhs of the initialization. 
-* _candidate-types_ - A list (or expanded parameter pack) of candidate types. For our variant, these are all the variant alternative types `Types`. 
+* _candidate-types_ - A list of candidate types. For our variant, these are all the variant alternative types `Types`. 
 
-The return value is the integer index of the type with the best viable initialization. If there is no viable initialization, or there are more than one best viable initializations, the return value is -1.
+The return value is the index of the type with the best viable initialization. If there is no viable initialization, or there are more than one best viable initializations, the return value is -1.
 
-The firs constraint in the _requires-clause_ checks that `__preferred_copy_init` returns a successful index. The remaining constraints are copied straight out of the standard. 
+The first constraint in the _requires-clause_ checks that `__preferred_copy_init` returns a successful index. The remaining constraints are copied straight out of the standard. 
 
-Circle's [type trait syntax](https://github.com/seanbaxter/circle/blob/master/imperative/README.md#type-traits) lets us imperatively access information about types resorting to argument deduction tricks. We're supposed to reject arguments that are specializations of the templates `in_place_type_t` or `in_place_index_t`. Writing `T.template != std::in_place_type_t` does precisely that, without needing a generic _is-specialization_ library feature. This works even when the argument isn't a class specialization at all: in isolation, `T.template` will cause a substitution failure when `T` is, say, `int`. But `T.template != std::in_place_type_t` is a special comparison expression, which serves as an _is-specialization_ operator when its operands name templates.
+Circle's [type trait syntax](https://github.com/seanbaxter/circle/blob/master/imperative/README.md#type-traits) lets us imperatively access information about types, without resorting to obscure argument deduction tricks. We're supposed to reject arguments that are specializations of the templates `in_place_type_t` or `in_place_index_t`. Writing `T.template != std::in_place_type_t` does precisely that, without needing a generic _is-specialization_ library feature. This works even when the argument isn't a class specialization at all: in isolation, `T.template` will cause a substitution failure when `T` is, say, `int`. But `T.template != std::in_place_type_t` is a special comparison expression, which serves as an _is-specialization_ operator when its operands name templates.
 
 ## `in_place_type_t` constructor.
 
@@ -226,9 +226,9 @@ public:
 
 The `in_place_type_t` constructor receives the variant alternative to initialize as a template parameter. The variant implementation has to map this to the index of the variant member, so that it can be selected with `...[I]` during subobject construction.
 
-The variable template `find_index` performs a linear search, and yields the index of the first type in `Types` that matches the argument type `T`. The [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) `...??` is a multi-conditional that short-circuits _during substitution_. That is, as soon as the predicate is satisfied, pack expansion stops, and the result term is substituted. 
+The variable template `find_index` performs a linear search, and yields the index of the first type in `Types` that matches the argument type `T`. The [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) `...??` chains conditional expressions, but short-circuits _during substitution_. That is, as soon as the predicate is satisfied, pack expansion stops, and the result term is substituted. 
 
-The `is_single_usage` variable template uses a C++17 fold expresion to count the number of occurrences of the argument type among the variant alternatives. If it occurs exactly once, and the variant member is constructible given the function arguments, the constraint passes, and the active subobject is initialized.
+The `is_single_usage` variable template uses a C++ fold expresion to count the number of occurrences of the argument type among the variant alternatives. If it occurs exactly once, and the variant member is constructible given the function arguments, the constraint passes, and the active subobject is initialized.
 
 ## Converting assignment.
 
@@ -299,7 +299,7 @@ constexpr bool operator<(const variant<Types...>& v,
 }
 ```
 
-The comparison, relational and spaceship operators are transliterated from the Standard. A pack `static_assert` tests the mandate that all variant alternatives support comparison. It provides type-specific information when the mandate is not satisfied.
+The comparison, relational and spaceship operators are translated directly from the Standard. A pack `static_assert` tests the mandate that all variant alternatives support comparison. It provides type-specific information when the mandate is not satisfied.
 
 [**compare.cxx**](https://godbolt.org/z/a6KoWYqTb)
 ```cpp
@@ -322,17 +322,17 @@ The `static_assert` states explicitly that "no_compare_t has no operator<". How 
     Types.string + " has no operator<")...;
 ```
 
-Circle's `static_assert` permits pack expressions in the first operand. If the first operand has a pack, a pack may also be expressed in the second message operand. `Types.string` is a pack expression, which uses reflection and yields the string literal expression for each variant alternative type name. In Circle, + is a literal concatenation operator which creates a new literal, so `Types.string + " has no operator<"` performs string literal fusion, supplying a type-specific error message.
+Circle's `static_assert` permits pack expressions in the first operand. If the first operand has a pack, a pack may also be expressed in the message operand. `Types.string` is a pack expression, which uses reflection and yields the string literal expression for each variant alternative type name. In Circle, `+` is a string literal concatenation operator which creates a new literal, so `Types.string + " has no operator<"` performs string literal fusion, defining a type-specific error message.
 
 The _requires-expression_ in the predicate operand is also a pack expression. The index for the `get` function is the pack index operator `int...`. No pack size has to be specified here--the Circle compiler can infer the size from the sized pack in the message operand. 
 
-The trailing expand operator `...` substitutes the predicate for each pack element, and on the first false value, substituse the corresponding message operand and logs the error.
+The trailing expand operator `...` substitutes the predicate for each pack element, and on the first false value, substitutes the corresponding message operand and logs the error.
 
 ## Visit
 
-By far the most troublesome function in the C++ variant is its [visit](http://eel.is/c++draft/variant.visit) function. This function is tasked with multi-dimensional control flow, invoking an argument callable with the active variant members extracted from a parameter of variant arguments. Michael Park [documents](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the ongoing struggles of implementing even a one-dimensional visitor. 
+By far the most troublesome function in the C++ variant is the [std::visit](http://eel.is/c++draft/variant.visit) function. This function is tasked with multi-dimensional control flow, invoking a callable with the active variant members extracted from a variadic number of variant arguments. Michael Park [documented](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the struggles of implementing even a one-dimensional visitor with ISO C++.
 
-The Circle builtins `__visit` and `__visit_r` (which adds an explicit return type, see [visit<R>: Explicit Return Type for `visit`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0655r1.pdf)) generate n-dimensional control flow to map runtime variables to n constants, exposed as a parameter pack named `indices`. The user supplies an expression which is substituted for each combination of constants.
+The Circle builtins `__visit` and `__visit_r` (the latter adds an explicit return type, see [visit<R>: Explicit Return Type for `visit`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0655r1.pdf)) generate n-dimensional control flow to map runtime variables to N constants. The user supplies an expression which is substituted for each combination of constants.
 
 [**enum.cxx**](enum.cxx) [Compiler explorer](https://godbolt.org/z/n9f4er9ss)
 
@@ -374,11 +374,11 @@ $ circle enum.cxx && ./enum
 ```
 
 `__visit` is pretty generic. It supports three kinds of parameterizations:
-1. Specify a constant for the right-hand side of an interval. Passing an integral N generates control flow for integral values between 0 and N-1. This is all we need for a variant visit, where the dimensions are provided by `variant_size_v`.
+1. Specify a constant for the right-hand side of an interval. Passing an integral N generates control flow for all integral values between 0 and N-1. This is all we need for a variant visit, where the dimensions are provided by `variant_size_v`.
 2. Specify a collection of integral/enum types in an `std::integer_sequence` container. These constants don't have to be ordered.
 3. Specify an enumeration type. Reflection causes each enumerator in the type to be visited.
 
-The builtin takes N template arguments, one for each dimension, and N + 1 function arguments. The first function argument is a dependent expression that's substituted for each combination of constant values. The `indices` pack declaration is visible only in this context. The subsequent N function arguments are integral or enum values bounded by their corresponding template arguments.
+The builtin takes N template arguments, one for each dimension, and N + 1 function arguments. The first function argument is the dependent expression that's substituted for each combination of constant values. The `indices` pack declaration is visible only in this context. The subsequent N function arguments are integral or enum values bounded by their corresponding template arguments.
 
 Note that the visitor expression is not put into a lambda. There is no closure. In the code above, the expression is substituted 10 * 5 * 6 = 300 times, all in the scope of the `main` function. Making n-dimensional visitation a builtin allows the compiler to most efficiently implement this intricate control flow.
 
