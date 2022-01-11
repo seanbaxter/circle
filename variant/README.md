@@ -18,8 +18,8 @@ This new variant is a simple transliteration from standardese. It leverages a bu
 
 But that wasn't enough for a clean variant. To address pain points discovered in variant, I implemented two more major features:
 
-1. `__preferred_copy_init` and `__preferred_assignment` provide the intelligence for the converting constructor and converting assignment operator. They perform overload resolution given an expression and a collection of types, and indicate the type that has the best viable construction or assignment, or failure if there is no viable operation, or multiple best-viable operations.
-2. `__visit` and `__visit_r` is a multi-dimensional, single-expression visitor operator. It implements `std::visit` on any number of variant arguments in one line.
+1. [`__preferred_copy_init`](#converting-constructor) and [`__preferred_assignment`](#converting-assignment) provide the intelligence for the converting constructor and converting assignment operator. They perform overload resolution given an expression and a collection of types, and indicate the type that has the best viable construction or assignment, or failure if there is no viable operation, or multiple best-viable operations.
+2. [`__visit`](#visit) and `__visit_r` is a multi-dimensional, single-expression visitor operator. It implements `std::visit` on any number of variant arguments in one line.
 
 ## Member pack unions, constructor and destructor.
 
@@ -92,9 +92,7 @@ If any variant member has a non-trivial destructor, like an `std::string` that s
       _index == int... ...? m.~Types() : __builtin_unreachable();
 ```
 
-`_index` is our scalar index of the currently-set variant member. `int...` is a pack expression, which when substituted as part of a pack expansion expression `...`, yields back the current index of the expansion as an index. This pack expression infers the pack size from other pack expressions in the same expansion. 
-
-`_index == int...` is a pack of comparison expressions. For a variant with four alternatives, it'll expand out like this:
+`_index` is our scalar index of the currently-set variant member. `int...` is a pack expression yields the index of expansion when during substitution. Therefore, `_index == int...` is a pack of comparison expressions. In a variant with four alternatives, it'll expand out like this:
 ```
 (_index == 0, _index == 1, _index == 2, _index == 3)
 ```
