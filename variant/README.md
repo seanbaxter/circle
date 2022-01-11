@@ -4,9 +4,9 @@ Browse implementation [**variant.hxx**](variant.hxx).
 
 This is a Circle implementation of C++20's [`std::variant`](http://eel.is/c++draft/variant) class. The goal of this exercise isn't about providing a faster-compiling variant, although it it that. Like my [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle), working through variant is an opportunity to extend the language so that writing such advanced code no longer poses a challenge.
 
-The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of is?
+The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of is? Standard Library code should be the cleanest, most idiomatic C++ code, and something for users to model in their own programming. But if you were to submit code that resembles acutal Standard Library code, it should be rejeceted during review by any serious organization--it's a liability to commit stuff like this! 
 
-This new variant is a simple transliteration from standardese. It leverages a bunch of existing Circle features:
+This new variant is a simple transliteration from standardese. It's model Circle code. It's clean because it leverages a bunch of Circle-specific features:
 
 * [Data member pack declarations](https://github.com/seanbaxter/mdspan#data-member-pack-declarations)
 * [Pack subscript operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) `...[I]`
@@ -16,14 +16,27 @@ This new variant is a simple transliteration from standardese. It leverages a bu
 * [Member type traits](https://github.com/seanbaxter/circle/blob/master/imperative/README.md#type-traits) `.template`, `.type_args` and `.string` 
 * Pack `static_assert`
 
-But that wasn't enough for a clean variant. To address pain points discovered in variant, I implemented two more major features:
+But all that wasn't enough for a clean variant. To address pain points discovered during this effort, I implemented two more major features:
 
-1. [`__preferred_copy_init`](#converting-constructor) and [`__preferred_assignment`](#converting-assignment) provide the intelligence for the converting constructor and converting assignment operator. They perform overload resolution given an expression and a collection of types, and indicate the type that has the best viable construction or assignment, or failure if there is no viable operation, or multiple best-viable operations.
-2. [`__visit`](#visit) and `__visit_r` is a multi-dimensional, single-expression visitor operator. It implements `std::visit` on any number of variant arguments in one line.
+1. [`__preferred_copy_init`](#converting-constructor) and [`__preferred_assignment`](#converting-assignment) provide the intelligence for the converting constructor and converting assignment operator. They perform overload resolution given an expression and a collection of types, and indicate the type that has the best viable construction or assignment. If there is no viable operation or multiple best-viable operations, each builtin returns -1.
+2. [`__visit`](#visit) and `__visit_r` are multi-dimensional, single-expression visitor operators. They make implementing `std::visit` a one-line affair.
+
+## Contents
+
+* [Member pack unions, constructor and destructor](
+#member-pack-unions-constructor-and-destructor)
+  * [Conditionally trivial destructor](#conditionally-trivial-destructor)
+  * [Multi-conditional reset](#multi-condititional-reset)
+* [Copy constructor](#copy-constructor)
+* [Converting constructor](#converting-constructor)
+* [`in_place_type_t` constructor](#in_place_type_t-constructor)
+* [Converting assignment](#converting-assignment)
+* [Comparison and relational operators](#comparison-and-relational-operators)
+* [Visit](#visit)
 
 ## Member pack unions, constructor and destructor.
 
-The [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle) introduced data member [data member pack declarations](https://github.com/seanbaxter/mdspan#data-member-pack-declarations). In that application, non-static data members of a class were declared variadically. In this exercise, _variant members_ and their subobject initializers are declared variadically.
+The Circle [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle) introduced [data member pack declarations](https://github.com/seanbaxter/mdspan#data-member-pack-declarations). In that application, non-static data members of a class are declared variadically. In this exercise, _variant members_ and their subobject initializers are declared variadically.
 
 [**variant.hxx**](variant.hxx)
 ```cpp
@@ -56,7 +69,7 @@ public:
 };
 ```
 
-Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to declare a pack of variant members. We no longer have to use inheritance to implement `std::variant` -- it's all one self-contained class.
+Use the `...member-name` _declarator_ syntax inside a _union-specifier_ to declare a pack of variant members. We no longer have to use inheritance to implement `std::variant`--it's all one self-contained class.
 
 Since we have an unnamed union with potentially non-trivially constructible members, we should specify a subobject initializer for the first variant member in the variant class's default constructor. Circle features a pack subscript operator `...[I]`, which is used to specify:
 * The _noexcept-specifier_ for construction of the first variant member,
@@ -116,7 +129,7 @@ The multi-conditional operator `...?:` will expand out the left, middle and righ
 * The center operand calls the _pseudo-destructor_ on the member pack declaration `m`. The type of the _pseudo-destructor_ is the `variant` template parameter `Types`. During pack expansion, the i'th variant member and i'th `Types` element are substituted in concert, forming a valid desturctor operation.
 * The right-hand operand is `__builtin_unreachable()`. This is compiler lingo for noting that a branch of execution is unreachable. It allows the optimizer to employ _strength reduction_ passes to improve code quality. We're basically telling the compiler that we've accounted for all code paths, even the unreachable ones.
 
-## Copy construction.
+## Copy constructor.
 
 ```cpp
   // Copy ctors.
