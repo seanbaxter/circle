@@ -373,7 +373,7 @@ public:
     std::is_constructible_v<T, std::initializer_list<U>&, Args...>)
   constexpr T& emplace(std::initializer_list<U> il, Args&&... args)
   noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>, Args...>) {
-    return emplace<find_index<T>>(il, std::forward<Args>(args)...);
+    return emplace<j>(il, std::forward<Args>(args)...);
   }
 
   template<size_t I, class... Args>
