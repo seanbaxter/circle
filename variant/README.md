@@ -198,11 +198,9 @@ public:
   noexcept(std::is_nothrow_constructible_v<T, Args...>):
     m...[j](std::forward<Args>(args)), _index(j) { }
 };
-```cpp
-
+```
 
 ## Copy assignment.
-
 
 ## Converting assignment.
 
