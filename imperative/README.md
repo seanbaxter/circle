@@ -422,7 +422,7 @@ ISO C++ doesn't define a mechanism for expanding nested packs, nor a way to yiel
 * `for` _[step-decl ,]_  `typename`_decl_ `:` _braced-type-list_ `=>` _generic-argument_
 * `for` _decl_ `:` _integer-count_ `=>` _generic-argument_
 * `for` _decl_ `:` _non-type-pack_ `=>` _generic-argument_
-* `for` _decl_ `:` _braced-non-type-list `=>` _generic-argument_
+* `for` _decl_ `:` _braced-non-type-list_ `=>` _generic-argument_
 * `for` _[step-decl ,]_ `template` _decl_ `:` _template-pack_ `=>` _generic-argument_
 * `for` _[step-decl ,]_ `template`  _decl_ `:` _braced-template-list_ `=>` _generic-argument_
 * `for` _[step-decl ,]_ `universal` _decl_ `:` _universal-pack_ `=>` _generic-argument_
