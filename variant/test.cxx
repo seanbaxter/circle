@@ -92,7 +92,7 @@ int main() {
   std::cout<< get<1>(v4)<< " "<< get<long>(v4)<< "\n";
 
   // Visitor.
-  visit([](auto a, auto b) {
+  circle::visit([](auto a, auto b) {
     std::cout<< a<< " "<< b<< "\n";
   }, v3, v4);
 }

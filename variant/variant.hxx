@@ -11,6 +11,27 @@
 #include <new>
 #include <utility>
 #include <compare>
+#include <variant> // common std::variant_size and std::variant_alternative
+
+namespace circle {
+
+template<class... Types>
+class variant;
+
+} // namespace circle
+
+namespace std {
+
+  template<class... Types>
+  struct variant_size<circle::variant<Types...> > : 
+    std::integral_constant<size_t, sizeof...(Types)> { };
+
+  template<size_t I, typename... Types>
+  struct variant_alternative<I, circle::variant<Types...>> {
+    using type = Types...[I];
+  };
+
+}
 
 namespace circle {
 
@@ -23,41 +44,6 @@ public:
 };
 
 inline constexpr size_t variant_npos = -1;
-
-template<class... Types>
-class variant;
-
-template<typename T>
-concept is_variant = T.template == variant;
-
-template<class T>
-struct variant_size;
-
-template<class T>
-struct variant_size<const T> : variant_size<T> { };
-
-template<class... Types>
-struct variant_size<variant<Types...> > : 
-  std::integral_constant<size_t, sizeof...(Types)> { };
-
-template<typename T>
-inline constexpr size_t variant_size_v = variant_size<T>::value;
-
-template<size_t I, typename T>
-struct variant_alternative;
-
-template<size_t I, typename... Types>
-struct variant_alternative<I, variant<Types...>> {
-  using type = Types...[I];
-};
-
-template<size_t I, typename T>
-using variant_alternative_t = typename variant_alternative<I, T>::type;
-
-template<size_t I, typename T>
-struct variant_alternative<I, const T> { 
-  using type = const variant_alternative_t<I, T>; 
-};
 
 template<class... Types>
 class variant {
@@ -449,15 +435,15 @@ constexpr bool holds_alternative(const variant<Types...>& v) noexcept {
   return T == Types ...?? int... == v.index() : __builtin_unreachable();
 }
 
-template<size_t I, is_variant Var>
-constexpr auto&& get(Var&& v) {
+template<size_t I, class Var, class... Types>
+constexpr auto&& get(Var&& v : variant<Types...>) {
   return I == v.index() ? 
     std::forward<Var>(v).template get<I>() : 
     throw bad_variant_access("variant get has valueless index");
 }
 
-template<typename T, is_variant Var>
-constexpr auto&& get(Var&& v) {
+template<class T, class Var, class... Types>
+constexpr auto&& get(Var&& v : variant<Types...>) {
   static_assert(1 == (... + (Var.type_args == T)));
   constexpr size_t I = Var.type_args == T ...?? int... : -1;
   return I == v.index() ? 
@@ -465,17 +451,31 @@ constexpr auto&& get(Var&& v) {
     throw bad_variant_access("variant get has valueless index");
 }
 
-template<size_t I, is_variant Var>
-constexpr auto get_if(Var* v) {
+template<size_t I, class... Types>
+constexpr auto get_if(variant<Types...>* v) {
+  return I == v->index() ?
+    v->template get<I>() : 
+    nullptr;
+}
+template<size_t I, class... Types>
+constexpr auto get_if(const variant<Types...>* v) {
   return I == v->index() ?
     v->template get<I>() : 
     nullptr;
 }
 
-template<typename T, is_variant Var>
-constexpr auto get_if(Var* v) {
-  static_assert(1 == (... + (Var.type_args == T)));
-  constexpr size_t I = Var.type_args == T ...?? int... : -1;
+template<class T, class... Types>
+constexpr auto get_if(variant<Types...>* v) {
+  static_assert(1 == (... + (Types == T)));
+  constexpr size_t I = Types == T ...?? int... : -1;
+  return I == v.index() ? 
+    v->template get<I>() : 
+    nullptr;
+}
+template<class T, class...Types>
+constexpr auto get_if(const variant<Types...>* v) {
+  static_assert(1 == (... + (Types == T)));
+  constexpr size_t I = Types == T ...?? int... : -1;
   return I == v.index() ? 
     v->template get<I>() : 
     nullptr;
@@ -631,7 +631,7 @@ constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
   if((... || vars.valueless_by_exception()))
     throw bad_variant_access("variant visit has valueless index");
 
-  return __visit<variant_size_v<Variants.remove_reference>...>(
+  return __visit<Variants.remove_reference.variant_size...>(
     vis(std::forward<Variants>(vars).template get<indices>()...),
     vars.index()...
   );  
@@ -642,7 +642,7 @@ constexpr R visit(Visitor&& vis, Variants&&... vars) {
   if((... || vars.valueless_by_exception()))
     throw bad_variant_access("variant visit has valueless index");
 
-  return __visit_r<R, variant_size_v<Variants.remove_reference>...>(
+  return __visit_r<R, Variants.remove_reference.variant_size...>(
     vis(std::forward<Variants>(vars).template get<indices>()...),
     vars.index()...
   );
