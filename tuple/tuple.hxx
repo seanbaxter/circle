@@ -173,7 +173,7 @@ public:
   constexpr explicit(!(... && std::is_convertible_v<const Types&, Types>))
   tuple(const Types&... x)
   requires(sizeof...(Types) > 0 && (... && std::is_copy_constructible_v<Types>)) :
-    m(x)... { }
+    m { x }... { }
 
   // Element conversion constructor.
   template<class... UTypes>
@@ -334,5 +334,21 @@ public:
     swap(m.x, rhs. ...m.x)...;
   }
 };
+
+// Deduction guides for std::tuple
+template<class... UTypes>
+tuple(UTypes...) -> tuple<UTypes...>;
+
+template<class T1, class T2>
+tuple(std::pair<T1, T2>) -> tuple<T1, T2>;
+
+template<class Alloc, class... UTypes>
+tuple(std::allocator_arg_t, Alloc, UTypes...) -> tuple<UTypes...>;
+
+template<class Alloc, class T1, class T2>
+tuple(std::allocator_arg_t, Alloc, std::pair<T1, T2>) -> tuple<T1, T2>;
+
+template<class Alloc, class... UTypes>
+tuple(std::allocator_arg_t, Alloc, tuple<UTypes...>) -> tuple<UTypes...>;
 
 } // namespace circle
