@@ -179,7 +179,7 @@ public:
   template<class... UTypes>
   requires(
     // Constraints
-    sizeof...(Types) >= 1 &&
+    sizeof...(Types) >= 1 && 
     (... && std::is_constructible_v<Types, UTypes>) &&
     (  // disambiguating constraint
       sizeof...(Types) == 1 ??
@@ -201,8 +201,7 @@ public:
   // Conversion constructor from tuple.
   template<class T, class... UTypes>
   requires(
-    sizeof...(Types) == sizeof...(UTypes) &&&
-    (... && std::is_constructible_v<Types, decltype(get<int...>(std::declval<T>()))>) &&&
+    (... && std::is_constructible_v<Types, UTypes>) &&
     (
       sizeof...(Types) != 1 |||
       (
@@ -212,9 +211,7 @@ public:
       )      
     )
   )
-  constexpr explicit(!(... && std::is_convertible_v<
-    decltype(get<int...>(std::declval<T>())), Types
-  >))
+  constexpr explicit(!(... && std::is_convertible_v<UTypes, Types>))
   tuple(T&& u : tuple<UTypes...>) :
     m { get<int...>(std::forward<T>(u)) }... { }
 
@@ -222,11 +219,14 @@ public:
   template<class T, class U1, class U2>
   requires(
     sizeof...(Types) == 2 &&
-    (... && std::is_constructible_v<Types, decltype(get<int...>(std::declval<T>()))>)
+    std::is_constructible_v<Types...[0], U1> &&
+    std::is_constructible_v<Types...[1], U2>
   )
   constexpr explicit(
-    !(... && std::is_convertible_v<decltype(get<int...>(std::declval<T>())), Types>)
-  ) tuple(T&& u : std::pair<U1, U2>) :
+    !std::is_convertible_v<U1, Types...[0]> || 
+    !std::is_convertible_v<U2, Types...[1]>
+  )
+  tuple(T&& u : std::pair<U1, U2>) :
     m { (get<int...>(std::forward<T>(u))) }... { }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -234,40 +234,67 @@ public:
 
   // Allocator-aware default constructor.
   template<class Alloc>
-  constexpr tuple(std::allocator_arg_t, const Alloc& a) :
+  requires((... && std::is_default_constructible_v<Types>))
+  constexpr explicit(!(... && requires { dummy<Types>({}); }))
+  tuple(std::allocator_arg_t, const Alloc& a) :
     m { std::make_obj_using_allocator<Types>(a) }... { }
 
   // Allocator-aware constructor from elements.
   template<class Alloc>
-  requires(sizeof...(Types) > 0)
-  constexpr tuple(std::allocator_arg_t, const Alloc& a, const Types&... x) :
+  requires(sizeof...(Types) > 0 && (... && std::is_copy_constructible_v<Types>))
+  constexpr explicit(!(... && std::is_convertible_v<const Types&, Types>))
+  tuple(std::allocator_arg_t, const Alloc& a, const Types&... x) :
     m { std::make_obj_using_allocator<Types>(a, x) }... { }
 
   // Allocator-aware converting constructor from elements.
   template<class Alloc, class... UTypes>
   requires(
-    sizeof...(Types) == sizeof...(UTypes) && 
     sizeof...(Types) >= 1 &&
-    sizeof...(Types) != 1 ||| UTypes...[0].remove_cvref != tuple
+    (... && std::is_constructible_v<Types, UTypes>) &&
+    (sizeof...(Types) != 1 ||| UTypes...[0].remove_cvref != tuple)
   )
-  constexpr tuple(std::allocator_arg_t, const Alloc& a, UTypes&&... x) :
+  constexpr explicit((... && std::is_convertible_v<UTypes, Types>))
+  tuple(std::allocator_arg_t, const Alloc& a, UTypes&&... x) :
     m { std::make_obj_using_allocator<Types>(a, std::forward<UTypes>(x)) }... { }
 
   // Converting allocator-aware constructor from tuple.
   template<class Alloc, class T, class... UTypes>
-  requires(sizeof...(UTypes) == sizeof...(Types))
-  constexpr tuple(std::allocator_arg_t, const Alloc& a, T&& u : tuple<UTypes...>) :
+  requires(
+    (... && std::is_constructible_v<Types, UTypes>) &&
+    (
+      sizeof...(Types) != 1 |||
+      (
+        !std::is_convertible_v<T&&, Types...[0]> &&
+        !std::is_constructible_v<Types...[0], T&&> &&
+        Types...[0] != UTypes...[0]
+      )      
+    )
+  )
+  constexpr explicit(!(... && std::is_convertible_v<UTypes, Types>))
+  tuple(std::allocator_arg_t, const Alloc& a, T&& u : tuple<UTypes...>) :
     m { std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) }... { }
 
   // Converting allocator-aware constructor from std::pair.
   template<class Alloc, class T, class U1, class U2>
-  requires(sizeof...(Types) == 2)
-  constexpr tuple(std::allocator_arg_t, const Alloc& a, T&& u : std::pair<U1, U2>) :
+  requires(
+    sizeof...(Types) == 2 &&
+    std::is_constructible_v<Types...[0], U1> &&
+    std::is_constructible_v<Types...[1], U2>
+  )
+  constexpr explicit(
+    !std::is_convertible_v<U1, Types...[0]> || 
+    !std::is_convertible_v<U2, Types...[1]>
+  ) 
+  tuple(std::allocator_arg_t, const Alloc& a, T&& u : std::pair<U1, U2>) :
     m{ std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) } { }
 
 
   //////////////////////////////////////////////////////////////////////////////
   // [tuple.assign]
+
+  // Declare defaulted assignment.
+  constexpr tuple& operator=(const tuple&) = default;
+  constexpr tuple&& operator=(tuple&&) = default;
 
   template<class... UTypes, typename T>
   requires((... && std::is_assignable_v<Types, const UTypes&>))
