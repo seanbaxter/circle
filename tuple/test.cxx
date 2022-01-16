@@ -60,6 +60,12 @@ int main() {
     // Converting construct from another tuple.
     tuple<long, std::string, double> tup2 = tup1;
     tuple<long, std::string, double> tup3 = std::move(tup1);
+
+    // Converting copy assign.
+    tup2 = tup1;
+
+    // Converting move assign.
+    tup3 = std::move(tup1);
   }
 
   {

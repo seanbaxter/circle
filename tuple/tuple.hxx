@@ -31,7 +31,7 @@ namespace std {
 } // namespace std
 
 namespace circle {
-  
+
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.elem]
 
@@ -295,20 +295,20 @@ public:
   constexpr tuple&& operator=(tuple&&) = default;
 
   template<class... UTypes, typename T>
-  requires((... && std::is_assignable_v<Types, const UTypes&>))
-  constexpr tuple& operator=(const tuple<UTypes...>& u) {
-    m.x = get<int...>(u) ...;
+  requires((... && std::is_assignable_v<Types, __copy_cvref(T&&, UTypes)>))
+  constexpr tuple& operator=(T&& u : tuple<UTypes...>) {
+    m.x = get<int...>(std::forward<T>(u)) ...;
     return *this;
   }
 
-  template<class U1, class U2>
+  template<class U1, class U2, typename T>
   requires(
     sizeof...(Types) == 2 &&
-    std::is_assignable_v<Types...[0]&, const U1&> &&
-    std::is_assignable_v<Types...[1]&, const U2&>
+    std::is_assignable_v<Types...[0]&, __copy_cvref(T&&, U1)> &&
+    std::is_assignable_v<Types...[1]&, __copy_cvref(T&&, U2)>
   )
-  constexpr tuple& operator=(const std::pair<U1, U2>& u) {
-    m.x = get<int...>(u) ...;
+  constexpr tuple& operator=(T&& u : std::pair<U1, U2>) {
+    m.x = get<int...>(std::forward<T>(u)) ...;
     return *this;
   }
 
