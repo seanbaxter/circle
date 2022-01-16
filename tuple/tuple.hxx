@@ -31,7 +31,7 @@ namespace std {
 } // namespace std
 
 namespace circle {
-
+  
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.elem]
 
@@ -43,9 +43,7 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
 
 template<class T, class Tuple, class... Types>
 auto&& get(Tuple&& t : tuple<Types...>) noexcept {
-  // Mandates: The Type T occures exactly once in types.
   static_assert(1 == (... + (T == Types)));
-
   constexpr size_t I = T == Types ...?? int... : -1;
   return std::forward<Tuple>(t).template _get<I>();
 }
@@ -180,7 +178,7 @@ public:
   requires(
     // Constraints
     sizeof...(Types) >= 1 && 
-    (... && std::is_constructible_v<Types, UTypes>) &&
+    (... && std::is_constructible_v<Types, UTypes&&>) &&
     (  // disambiguating constraint
       sizeof...(Types) == 1 ??
         UTypes...[0].remove_cvref != tuple :
@@ -201,7 +199,7 @@ public:
   // Conversion constructor from tuple.
   template<class T, class... UTypes>
   requires(
-    (... && std::is_constructible_v<Types, UTypes&&>) &&
+    (... && std::is_constructible_v<Types, __copy_cvref(T&&, UTypes)>) &&
     (
       sizeof...(Types) != 1 |||
       (
@@ -211,7 +209,7 @@ public:
       )      
     )
   )
-  constexpr explicit(!(... && std::is_convertible_v<UTypes&&, Types>))
+  constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
   tuple(T&& u : tuple<UTypes...>) :
     m { get<int...>(std::forward<T>(u)) }... { }
 
@@ -219,12 +217,12 @@ public:
   template<class T, class U1, class U2>
   requires(
     sizeof...(Types) == 2 &&
-    std::is_constructible_v<Types...[0], U1&&> &&
-    std::is_constructible_v<Types...[1], U2&&>
+    std::is_constructible_v<Types...[0], __copy_cvref(T&&, U1)> &&
+    std::is_constructible_v<Types...[1], __copy_cvref(T&&, U2)>
   )
   constexpr explicit(
-    !std::is_convertible_v<U1&&, Types...[0]> || 
-    !std::is_convertible_v<U2&&, Types...[1]>
+    !std::is_convertible_v<__copy_cvref(T&&, U1), Types...[0]> || 
+    !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   )
   tuple(T&& u : std::pair<U1, U2>) :
     m { (get<int...>(std::forward<T>(u))) }... { }
@@ -260,7 +258,7 @@ public:
   // Converting allocator-aware constructor from tuple.
   template<class Alloc, class T, class... UTypes>
   requires(
-    (... && std::is_constructible_v<Types, UTypes&&>) &&
+    (... && std::is_constructible_v<Types, __copy_cvref(T&&, UTypes)>) &&
     (
       sizeof...(Types) != 1 |||
       (
@@ -270,7 +268,7 @@ public:
       )
     )
   )
-  constexpr explicit(!(... && std::is_convertible_v<UTypes&&, Types>))
+  constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
   tuple(std::allocator_arg_t, const Alloc& a, T&& u : tuple<UTypes...>) :
     m { std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) }... { }
 
@@ -278,12 +276,12 @@ public:
   template<class Alloc, class T, class U1, class U2>
   requires(
     sizeof...(Types) == 2 &&
-    std::is_constructible_v<Types...[0], U1&&> &&
-    std::is_constructible_v<Types...[1], U2&&>
+    std::is_constructible_v<Types...[0], __copy_cvref(T&&, U1)> &&
+    std::is_constructible_v<Types...[1], __copy_cvref(T&&, U2)>
   )
   constexpr explicit(
-    !std::is_convertible_v<U1&&, Types...[0]> || 
-    !std::is_convertible_v<U2&&, Types...[1]>
+    !std::is_convertible_v<__copy_cvref(T&&, U1), Types...[0]> || 
+    !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   ) 
   tuple(std::allocator_arg_t, const Alloc& a, T&& u : std::pair<U1, U2>) :
     m{ std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) } { }
