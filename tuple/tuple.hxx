@@ -1,5 +1,9 @@
 #pragma once
 
+#if __cplusplus < 202002L
+  #error Compile with -std=c++20
+#endif
+
 #include <tuple>
 #include <memory>
 
@@ -151,7 +155,7 @@ class tuple {
 
   // A dummy function to test default copy-list-initialization.
   template<typename T>
-  void dummy(const T&);
+  static void dummy(const T&);
 
 public:
   //////////////////////////////////////////////////////////////////////////////
