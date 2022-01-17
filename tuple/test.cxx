@@ -6,6 +6,9 @@ int main() {
   using namespace circle;
   using namespace std::string_literals;
 
+  circle::tuple<> x;
+  std::cout<< x...[:]<< "\n" ...;
+
   auto a = make_tuple(100, "Hello tuple", 'x');
   auto b = make_tuple(21.1f, nullptr, 19i16);
   auto c = make_tuple(true, 3.14l);

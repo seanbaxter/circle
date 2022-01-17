@@ -162,17 +162,24 @@ public:
   // [tuple.cnstr]
 
   // Default ctor.
+  // The 0-element tuple has a trivial constructor.
+  constexpr tuple() requires(0 == sizeof...(Types)) = default;
+
   // The expression inside explicit evaluates to true if and only if Ti
   // is not copy-list-initializable from an empty list for at least one i.
+  // This default constructor value-initializes its members.
   explicit(!(... && requires { dummy<Types>({}); }))
   constexpr tuple()
-  requires((... && std::is_default_constructible_v<Types>)) = default;
+  requires(
+    sizeof...(Types) && 
+    (... && std::is_default_constructible_v<Types>)
+  ) : m()... { }
 
   // Construct from elements.
   constexpr explicit(!(... && std::is_convertible_v<const Types&, Types>))
   tuple(const Types&... x)
   requires(sizeof...(Types) > 0 && (... && std::is_copy_constructible_v<Types>)) :
-    m { x }... { }
+    m(x)... { }
 
   // Element conversion constructor.
   template<class... UTypes>
@@ -191,7 +198,7 @@ public:
   )
   constexpr explicit((... && std::is_convertible_v<UTypes&&, Types>))
   tuple(UTypes&&... u) :
-    m { std::forward<UTypes>(u) }... { }
+    m(std::forward<UTypes>(u))... { }
 
   // Copy and move constructors are defaulted.
   constexpr tuple(const tuple& u) = default;
@@ -212,7 +219,7 @@ public:
   )
   constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
   tuple(T&& u : tuple<UTypes...>) :
-    m { get<int...>(std::forward<T>(u)) }... { }
+    m(get<int...>(std::forward<T>(u)))... { }
 
   // Conversion constructor from std::pair.
   template<class T, class U1, class U2>
@@ -226,7 +233,7 @@ public:
     !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   )
   tuple(T&& u : std::pair<U1, U2>) :
-    m { (get<int...>(std::forward<T>(u))) }... { }
+    m((get<int...>(std::forward<T>(u))))... { }
 
   //////////////////////////////////////////////////////////////////////////////
   // Allocator-aware constructors.
@@ -236,14 +243,14 @@ public:
   requires((... && std::is_default_constructible_v<Types>))
   constexpr explicit(!(... && requires { dummy<Types>({}); }))
   tuple(std::allocator_arg_t, const Alloc& a) :
-    m { std::make_obj_using_allocator<Types>(a) }... { }
+    m(std::make_obj_using_allocator<Types>(a))... { }
 
   // Allocator-aware constructor from elements.
   template<class Alloc>
   requires(sizeof...(Types) > 0 && (... && std::is_copy_constructible_v<Types>))
   constexpr explicit(!(... && std::is_convertible_v<const Types&, Types>))
   tuple(std::allocator_arg_t, const Alloc& a, const Types&... x) :
-    m { std::make_obj_using_allocator<Types>(a, x) }... { }
+    m(std::make_obj_using_allocator<Types>(a, x))... { }
 
   // Allocator-aware converting constructor from elements.
   template<class Alloc, class... UTypes>
@@ -254,7 +261,7 @@ public:
   )
   constexpr explicit((... && std::is_convertible_v<UTypes&&, Types>))
   tuple(std::allocator_arg_t, const Alloc& a, UTypes&&... x) :
-    m { std::make_obj_using_allocator<Types>(a, std::forward<UTypes>(x)) }... { }
+    m(std::make_obj_using_allocator<Types>(a, std::forward<UTypes>(x)))... { }
 
   // Converting allocator-aware constructor from tuple.
   template<class Alloc, class T, class... UTypes>
@@ -271,7 +278,7 @@ public:
   )
   constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
   tuple(std::allocator_arg_t, const Alloc& a, T&& u : tuple<UTypes...>) :
-    m { std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) }... { }
+    m(std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))))... { }
 
   // Converting allocator-aware constructor from std::pair.
   template<class Alloc, class T, class U1, class U2>
@@ -285,7 +292,7 @@ public:
     !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   ) 
   tuple(std::allocator_arg_t, const Alloc& a, T&& u : std::pair<U1, U2>) :
-    m{ std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))) } { }
+    m(std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))))... { }
 
 
   //////////////////////////////////////////////////////////////////////////////
