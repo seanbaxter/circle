@@ -145,12 +145,9 @@ constexpr T make_from_tuple(Tuple&& t) {
   return T(get<int...(N)>(std::forward<Tuple>(t))...);
 }
 
-
 template<class... Types>
 class tuple {
-  template<int I, typename T>
-  struct storage_t { T x; };
-  [[no_unique_address]] storage_t<int..., Types> ...m;
+  [[no_unique_address]] Types ...m;
 
   // A dummy function to test default copy-list-initialization.
   template<typename T>
@@ -297,7 +294,7 @@ public:
   template<class... UTypes, typename T>
   requires((... && std::is_assignable_v<Types, __copy_cvref(T&&, UTypes)>))
   constexpr tuple& operator=(T&& u : tuple<UTypes...>) {
-    m.x = get<int...>(std::forward<T>(u)) ...;
+    m = get<int...>(std::forward<T>(u)) ...;
     return *this;
   }
 
@@ -308,7 +305,7 @@ public:
     std::is_assignable_v<Types...[1]&, __copy_cvref(T&&, U2)>
   )
   constexpr tuple& operator=(T&& u : std::pair<U1, U2>) {
-    m.x = get<int...>(std::forward<T>(u)) ...;
+    m = get<int...>(std::forward<T>(u)) ...;
     return *this;
   }
 
@@ -316,20 +313,20 @@ public:
   // getters of other types.
   template<size_t I, class Self>
   auto&& _get(this Self&& self : tuple) noexcept {
-    return self. ...m...[I].x;
+    return self. ...m...[I];
   }
 
   // [tuple.swap]
   constexpr void swap(tuple& rhs) 
   noexcept((... && std::is_nothrow_swappable_v<Types>)) {
     using std::swap;
-    swap(m.x, rhs. ...m.x)...;
+    swap(m, rhs. ...m)...;
   }
 
   constexpr void swap(const tuple& rhs) 
   noexcept((... && std::is_nothrow_swappable_v<const Types>)) {
     using std::swap;
-    swap(m.x, rhs. ...m.x)...;
+    swap(m, rhs. ...m)...;
   }
 };
 
