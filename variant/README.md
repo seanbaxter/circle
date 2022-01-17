@@ -4,7 +4,7 @@ Browse implementation [**variant.hxx**](variant.hxx).
 
 This is a Circle implementation of C++20's [`std::variant`](http://eel.is/c++draft/variant) class. The goal of this exercise isn't about providing a faster-compiling variant, although it it that. Like my [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-circle), working through variant is an opportunity to extend the language so that writing such advanced code no longer poses a challenge.
 
-The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of us? Standard Library code should be the cleanest, most idiomatic C++ code, and something for users to model in their own programming. But if you were to submit code that resembles acutal Standard Library code, it should be rejeceted during review by any serious organization--it's a liability to commit stuff like this! 
+The libstdc++ variant is [very scary](https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/std/variant). If the veteran C++ programmers who implemented this had so much trouble, what hope is there for the rest of us? Standard Library code should be the cleanest, most idiomatic C++ code, and something for users to model in their own programming.
 
 This new variant is a simple transliteration from standardese. It's model Circle code. It's clean because it leverages a bunch of Circle-specific features:
 
