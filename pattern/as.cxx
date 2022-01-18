@@ -11,7 +11,7 @@ void func(const type_t& obj) {
     // Third element is dereferenced and converted to double.
     tuple as [short, *float, **double] => {
       std::cout<< decltype(tuple).string<< ": ";
-      (std::cout<< tuple...[:]<< " " ...)<< "\n";
+      (std::cout<< tuple.[:]<< " " ...)<< "\n";
     }
 
     // Follow * by _ to indicate wildcard. We don't try to convert to anything,

@@ -634,7 +634,7 @@ void subgroupShuffle(type_t& x, uint id) {
     requires { typename std::tuple_size<type_t>::type; }) {
 
     // Shuffle elements of arrays, vectors, matrices and tuples.
-    subgroupShuffle(x...[:], id)...;
+    subgroupShuffle(x.[:], id)...;
 
   } else if constexpr(std::is_class_v<type_t>) {
     // Shuffle all public base classes and data members of class objects.
@@ -690,7 +690,7 @@ void comp() {
 
 Consider using base and member reflection to write functions that generically disaggregates types. A good example is extending GLSL instructions to complex data types. The `gl_subgroupShuffle` function shuffles a scalar or vector type between lanes in a subgroup. This instruction helps implement high-throughput prefix sum algorithms, but to make the prefix sum totally generic, you need to be able to shuffle arbitrary types, and not just scalars.
 
-The `subgroupShuffle` function templates takes a reference to an object or array and shuffles it in-place. If the type is tuple-like, meaning it's a vector, matrix, array or type that provides specializations for `std::tuple_size`, it is recursively disaggregated with the `...[:]` static slice mechanism. This yields a non-type parameter pack holding lvalues for each operand component, which is fed back into `subgroupShuffle` and expanded. If the type is any other class, the `@base_values()` and `@member_values()` accessors yield non-type parameters for the base and data member lvalues, which are passed to the next `subgroupShuffle` level. Finally, scalars are passed to the GLSL function `gl_subgroupShuffle` which terminates recursion.
+The `subgroupShuffle` function templates takes a reference to an object or array and shuffles it in-place. If the type is tuple-like, meaning it's a vector, matrix, array or type that provides specializations for `std::tuple_size`, it is recursively disaggregated with the `.[:]` static slice mechanism. This yields a non-type parameter pack holding lvalues for each operand component, which is fed back into `subgroupShuffle` and expanded. If the type is any other class, the `@base_values()` and `@member_values()` accessors yield non-type parameters for the base and data member lvalues, which are passed to the next `subgroupShuffle` level. Finally, scalars are passed to the GLSL function `gl_subgroupShuffle` which terminates recursion.
 
 ## User attributes
 
@@ -1391,7 +1391,7 @@ float _1
 int _2
 ```
 
-You can also use a Python-like extended slice expression [`...[begin:end:step]`](https://github.com/seanbaxter/circle/blob/master/comprehension/comprehension.md#static-slice-expressions) to reorder or skip elements in your class definition. This class template is a tuple that reverses the argument types using negative step index in an extended parameter pack slice expression.
+You can also use a Python-like extended slice expression [`...[begin:end:step]`](https://github.com/seanbaxter/circle/blob/master/comprehension#static-slice-expressions) to reorder or skip elements in your class definition. This class template is a tuple that reverses the argument types using negative step index in an extended parameter pack slice expression.
 
 ## AoS to SoA
 
@@ -1466,7 +1466,7 @@ vectors_t<vec3_t>
 
 The transformation itself involves two pack expansion expressions. The first calls `.resize` on each `std::vector` data member. Then a runtime loop iterates over each array element, and the second expansion performs member-wise assignment.
 
-Printing the contents of an `std::vector` is done concisely with a Python-style [extended slice](https://github.com/seanbaxter/circle/blob/master/comprehension/comprehension.md#a-slice-expressions). `oss<< ", "<< vec[1:]...` prints all vector elements, starting from index 1, prepended by a comma delimiter.
+Printing the contents of an `std::vector` is done concisely with a Python-style [extended slice](https://github.com/seanbaxter/circle/blob/master/comprehension#a-slice-expressions). `oss<< ", "<< vec[1:]...` prints all vector elements, starting from index 1, prepended by a comma delimiter.
 
 ## Loading JSON into C++
 

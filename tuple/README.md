@@ -6,14 +6,83 @@ This is a Circle implementation of C++20's [`std::tuple`](http://eel.is/c++draft
 
 Also note the Circle [variant](../variant#circle-viriant) and Circle [mdspan](https://github.com/seanbaxter/mdspan#mdspan-circle) implementations.
 
-## Contents
+## Contents.
 
+* [First-class tuple support](#first-class-tuple-support)
+* [Data member packs](#data-member-packs)
+* [Mapping types to indices](#mapping-types-to-indices)
+* [Deduced forward references](#deduced-forward-references)
+* [Tuple cat](#tuple-cat)
+
+## First-class tuple support.
+
+As documented [here](../universal#tuple-subscripts-and-slices), 
+
+
+
+[**access.cxx**](access.cxx)
+```cpp
+#include "tuple.hxx"
+#include <array>
+#include <iostream>
+
+int main() {
+  circle::tuple<int, double, const char*> x1(
+    100, 3.14, "Hello circle::tuple"
+  );
+
+  // Print out by subscript.
+  std::cout<< "Print by subscript:\n";
+  std::cout<< "  0: "<< x1.[0]<< "\n";
+  std::cout<< "  1: "<< x1.[1]<< "\n";
+  std::cout<< "  2: "<< x1.[2]<< "\n";
+
+  std::tuple<short, float, std::string> x2(
+    50, 1.618f, "Hello std::tuple"
+  );
+
+  // Print out by slice.
+  std::cout<< "Print by slice:\n";
+  std::cout<< "  " + int....string + ": "<< x2.[:]<< "\n" ...;
+
+  std::pair<const char*, long> x3(
+    "A pair's string",
+    42
+  );
+  std::cout<< "Works with pairs:\n";
+  std::cout<< "  " + int....string + ": "<< x3.[:]<< "\n" ...;
+
+  std::cout<< "Even works with builtin arrays:\n";
+  int primes[] { 2, 3, 5, 7, 11 };
+  std::cout<< "  " + int....string + ": "<< primes.[:]<< "\n" ...;
+}
+```
+```
+$ circle access.cxx && ./access
+Print by subscript:
+  0: 100
+  1: 3.14
+  2: Hello circle::tuple
+Print by slice:
+  0: 50
+  1: 1.618
+  2: Hello std::tuple
+Works with pairs:
+  0: A pair's string
+  1: 42
+Even works with builtin arrays:
+  0: 2
+  1: 3
+  2: 5
+  3: 7
+  4: 11
+```
 
 ## Data member packs.
 
 Member pack declarations are used in the Circle mdspan for [_partially-static storage_](https://github.com/seanbaxter/mdspan#data-member-pack-declarations) and [inside unions](../variant#circle-variant) in the Circle variant.
 
-[**pack1.cxx**] - [Compiler Explorer]()
+[**pack1.cxx**](pack1.cxx) 
 ```cpp
 #include <iostream>
 #include <utility>
@@ -82,7 +151,7 @@ The heart of the tuple implementation is the data member pack declaration `Ts ..
 
 The member pack is given the [`[[no_unique_address]]`](https://en.cppreference.com/w/cpp/language/attributes/no_unique_address), which helps compress the data structure by allowing empty members with different types alias to the same offset within the class. This is equivalent to the [empty base optimization](https://en.cppreference.com/w/cpp/language/ebo), but in a more useful form. It is prohibited to directly inherit from multiple base classes of the same type, but it is perfectly fine to expand a member pack with multiple elements of the same type. This member pack-driven tuple does away with the indexing wrappers that appear in every ISO C++ tuple implementation.
 
-To initialize member packs subobjects in bulk, use `m(args)...`, the same syntax that you'd use to initialize base class pack subobjects. However, Circle also lets you initialize specific data members with the [pack subscript operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) `m...[I](args)`. Initialize as many subscripted elements as you'd like, and then initialize the remainder of the pack with the bulk initializer `m(args)...`. 
+To initialize member packs subobjects in bulk, use `m(args)...`, the same syntax that you'd use to initialize base class pack subobjects. However, Circle also lets you initialize specific data members with the [pack subscript operator](https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-subscripts-and-slices) `m...[I](args)`. Initialize as many subscripted elements as you'd like, and then initialize the remainder of the pack with the bulk initializer `m(args)...`. 
 
 ## Mapping types to indices.
 
@@ -149,7 +218,7 @@ void f(const volatile std::tuple<Args...>&& u);
 
 This sample uses Circle reflection to confirm that deduced forward references do properly handle const and non-const lvalue and xvalue argument types.
 
-[**deduce.cxx**] - [Compiler Explorer]()
+[**deduce.cxx**](deduce.cxx) 
 ```cpp
 #include <iostream>
 #include <utility>
@@ -212,7 +281,7 @@ const xvalue:
 
 [P2481R0 - Forwarding reference to specific type/template](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html) highlights a number of problems with general unconstrained forwarding refernces. [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html) specifically considers the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem) in which deducing a derived type in an explicit 'this' function can make members of the base class inaccessible. 
 
-[**self.cxx**](self.cxx) - [Compiler Explorer]()
+[**self.cxx**](self.cxx) 
 ```cpp
 #include <iostream>
 #include <utility>
@@ -299,7 +368,7 @@ The constraint and _explicit-specifier_ require determining the type of the pair
 
 ## Tuple cat.
 
-The most difficult `std::tuple` function to implement using ordinary C++ has got to be [`tuple_cat`](
+The most difficult `std::tuple` function to implement using ordinary C++ is be [`tuple_cat`](
 https://eel.is/c++draft/tuple#lib:tuple_cat):
 
 ```cpp
@@ -307,4 +376,42 @@ template<class... Tuples>
 constexpr tuple<CTypes...> tuple_cat(Tuples&&... tpls);
 ```
 
+The libstdc++ implementation uses [recursive partial template specialization](https://github.com/gcc-mirror/gcc/blob/16e2427f50c208dfe07d07f18009969502c25dc8/libstdc%2B%2B-v3/include/std/tuple#L1651). But this should be an easy operation. It's really just a double for loop: the outer loop visits the parameters in `tpls`, and the inner loop visits the tuple elements in each parameter.
 
+[**tuple.hxx**](tuple.hxx)
+```cpp
+template<class... Tuples>
+constexpr tuple<
+  for typename Ti : Tuples => 
+    Ti.remove_reference.tuple_elements...
+>
+tuple_cat(Tuples&&... tpls) {
+  return { 
+    for i, typename Ti : Tuples =>
+      auto N : Ti.remove_reference.tuple_size =>
+        get<int...(N)>(std::forward<Ti>(tpls...[i]))...
+  };
+}
+```
+
+[Circle Imperative Arguments](https://github.com/seanbaxter/circle/tree/master/imperative#readme) provides control flow within template argument lists, function argument lists and initializer lists. [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for) is the tool of choice here. To form the function's return type, we _argument-for_ inside the tuple's _template-argument-list_. For each parameter `Ti` in `Tuples`, expand the pack `Ti.remove_reference.tuple_elements`. This is a usage of Circle member traits, which rewrites C++ type traits using a member-like syntax for clarity. `tuple_elements` yields a parameter pack by querying `std::tuple_size` for the pack size and probing `std::tuple_elements` for each pack member.
+
+The function's body is just the return statement with a hulked out initializer list. This uses the two-declaration version of _argument-for_, where the first declaration `i` is the index of iteration, and the second declaration `typename Ti` holds the current type in the collection `Tuples`. For each type parameter, we use _argument-let_ to declare a value `N`, which is set with the number of tuple elements. Finally, there's a pack expansion expression that forwards the `i`th function parameter `tpls...[i]` using its forwarding reference `Ti` into a `get` function, specialized on each integer between 0 and `N` - 1. That final line essentially blows out a tuple into its elements.
+
+```cpp
+template<class... Tuples>
+constexpr tuple<
+  for typename Ti : Tuples => 
+    Ti.remove_reference.tuple_elements...
+>
+tuple_cat2(Tuples&&... tpls) {
+  return { 
+    for i, typename Ti : Tuples =>
+      std::forward<Ti>(tpls...[i]).[:] ...
+  };
+}
+```
+
+But this function is _even easier_ with Circle's [first-class tuple support](#first-class-tuple-support). We don't have to form a call to `get` to destructure each function parameter into the _initializer-list_. We can simply use the tuple slice operator `.[:]` directly on each function parameter, and pack expand that.
+
+Because the `circle::tuple` class registers itself with the `std::tuple_size` extension point, the Circle frontend can infer its tuple size and access its constituent elements with an ADL call to `get`.

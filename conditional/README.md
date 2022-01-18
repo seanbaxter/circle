@@ -51,7 +51,7 @@ auto call_tuple1(func_t f, const std::tuple<types_t...>& tuple, int index) {
   switch(index) {
     @meta for(int i : sizeof...(types_t)) {
       case i:
-        return f(tuple...[i]);
+        return f(tuple.[i]);
     }
   }
 }
@@ -59,7 +59,7 @@ auto call_tuple1(func_t f, const std::tuple<types_t...>& tuple, int index) {
 template<typename func_t, typename... types_t>
 void call_tuple2(func_t f, const std::tuple<types_t...>& tuple, int index) {
   // Like the above, but one line.
-  return int... == index ...? f(tuple...[:]) : __builtin_unreachable();
+  return int... == index ...? f(tuple.[:]) : __builtin_unreachable();
 }
 
 int main() {
@@ -83,7 +83,7 @@ Hello tuple
 
 This powerful visitor pattern calls the function-like object `f` with the tuple element held at `index`. We can't dynamically access elements of tuples (or variants), because their heterogeneity requires static address calculations. Before multi conditional, programmatically generating a switch would be the course.
 
-With the availability of multi conditional, we can generate equivalent code inside a single expression. First, notice the [tuple slice operator `...[:]`](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices). This internally calls `std::get<I>(tuple)` for each element of the tuple, yielding a non-type parameter pack. This pack expression is passed to the candidate function `f`.
+With the availability of multi conditional, we can generate equivalent code inside a single expression. First, notice the [tuple slice operator `.[:]`](https://github.com/seanbaxter/circle/blob/master/universal/README.md#tuple-subscripts-and-slices). This internally calls `std::get<I>(tuple)` for each element of the tuple, yielding a non-type parameter pack. This pack expression is passed to the candidate function `f`.
 
 Because the `b` expression in `a ...? b : c` is a parameter pack, we can use its size to infer the size of the integer pack `int...` in the `a` condition. `int... == index` is a pack of expressions, `0 == index`, `1 == index` and so on. This generates a test of the incoming index against each tuple element index. When there's a match, the corresponding function call subexpression is evaluated.
 
@@ -191,7 +191,7 @@ void f2(const char* x) { std::cout<< "f2: "<< x<< "\n"; }
 
 auto f3 = []<typename type_t, size_t I>(std::array<type_t, I> a) {
   std::cout<< "f3: ";
-  std::cout<< a...[:]<< " " ...;
+  std::cout<< a.[:]<< " " ...;
   std::cout<< "\n";
 };
 
@@ -223,6 +223,7 @@ auto call_first(const type_t& x, auto&&... fs) {
 
 template<typename... types_t, typename... funcs_t>
 auto visit1(const std::variant<types_t...>& variant, funcs_t&&... fs) {
+  // Use a multi conditional operator and forward to call_first.
   return int...(sizeof...(types_t)) == variant.index() ...?
     call_first(std::get<int...>(variant), std::forward<funcs_t>(fs)...) :
     __builtin_unreachable();
@@ -230,6 +231,7 @@ auto visit1(const std::variant<types_t...>& variant, funcs_t&&... fs) {
 
 template<typename... types_t>
 auto visit2(const std::variant<types_t...>& variant, auto&&... fs) {
+  // Generate a switch and use a ...?? in each case.
   switch(variant.index()) {
     @meta for(int i : sizeof...(types_t)) {
       case i:
@@ -247,7 +249,7 @@ void f2(const char* x) { std::cout<< "f2: "<< x<< "\n"; }
 
 auto f3 = []<typename type_t, size_t I>(std::array<type_t, I> a) {
   std::cout<< "f3: ";
-  std::cout<< a...[:]<< " " ...;
+  std::cout<< a.[:]<< " " ...;
   std::cout<< "\n";
 };
 

@@ -8,14 +8,14 @@ typedef float __attribute__((vector_size(16))) vec4;
 template<typename type_t>
 void print_object1(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
-  @meta for(int i = 0; i < sizeof...(type_t); ++i)
-    std::cout<< "  "<< i<< ": "<< obj...[i]<< "\n";
+  @meta for(int i : sizeof.(type_t))
+    std::cout<< "  "<< i<< ": "<< obj.[i]<< "\n";
 }
 
 template<typename type_t>
 void print_object2(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
-  std::cout<< "  "<< int...<< ": "<< obj...[0:-1:1]<< "\n" ...;
+  std::cout<< "  "<< int...<< ": "<< obj.[0:-1:1]<< "\n" ...;
 }
 
 template<typename type_t>
@@ -23,8 +23,8 @@ void print_object3(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
 
   // Write comma-separated members inside braces.
-  std::cout<< "  { "<< obj...[0];
-  std::cout<< ", "<< obj...[1:]...;
+  std::cout<< "  { "<< obj.[0];
+  std::cout<< ", "<< obj.[1:]...;
   std::cout<< " }\n";
 }
 
@@ -32,8 +32,8 @@ template<typename type_t>
 void print_object4(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   if constexpr(__is_structured_type(type_t)) {
-    std::cout<< "  { "<< obj...[0];
-    std::cout<< ", "<< obj...[1:]...;
+    std::cout<< "  { "<< obj.[0];
+    std::cout<< ", "<< obj.[1:]...;
     std::cout<< " }\n";
   } else
     std::cout<< "  "<< obj<< "\n";

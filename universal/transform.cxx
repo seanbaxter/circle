@@ -5,7 +5,7 @@ typedef float __attribute__((vector_size(16))) vec4;
 
 template<typename a_t, typename b_t, typename func_t>
 void binary_op(a_t& a, const b_t& b, func_t f) {
-  f(a...[:], b...[:]) ...;
+  f(a.[:], b.[:]) ...;
 }
 
 int main() {
@@ -19,8 +19,8 @@ int main() {
   });
 
   // Or just do it directly in line.
-  left...[:] += right...[:] ...;
+  left.[:] += right.[:] ...;
 
-  std::cout<< int...<< ": "<< left...[:]<< "\n"...;
+  std::cout<< int...<< ": "<< left.[:]<< "\n"...;
 }
 

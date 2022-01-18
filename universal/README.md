@@ -68,13 +68,20 @@ The pack structured binding is a foundation for this slick one-liner print, that
 
 This sample prompts an important question: why can't we generically print the tuple without declaring the structured binding? We only care about the structured binding as a means for exposing the tuple's elements as a non-type parameter pack in order to expand it in a pack-expansion expression. If we were to take the structured binding mechanisms and hoist them from declarations to expressions, we could perform disaggregation into parameter packs directly inside expressions.
 
-## Static subscripts and slices
+## Pack subscripts and slices
 
-Circle includes the `...[subscript]` postfix operator to subscript parameter packs. It also includes the `...[begin:end:step]` slice operator to slice parameter packs. We're going to overload these operators to support non-pack operands. For a non-pack operand, it performs the structured binding _as an expression_ and yields either a single element (a non-pack experssion) or a slice (a pack expression) of the elements of the operand.
+Circle includes the `...[subscript]` postfix operator to subscript parameter packs. It also includes the `...[begin:end:step]` slice operator to slice parameter packs. 
 
-* `a...[subscript]` - yield the _subscript'th_ member of the object _a_.
-* `a...[begin:end:step]` - yield a static parameter pack that slices the object _a_.
-* `sizeof...(a)` - return the number of members in _a_, where _a_ is a type or _unary-expression_.
+* `a...[subscript]` - yield the _subscript'th_ member of the pack _a_. This may be a type pack, non-type pack, template pack, or universal parameter pack.
+* `a...[begin:end:step]` - reorder the elements of a parameter pack according to [extended slice rules](../comprehension#static-slices-on-template-parameter-packs).
+
+## Tuple subscripts and slices
+
+We're going to add corresponding operators to support tuple-like operands. These new operators perform structured binding _as an expression_ and yield either a single element or a slice of the elements of the operand.
+
+* `a.[subscript]` - yield the _subscript'th_ member of the object _a_.
+* `a.[begin:end:step]` - yield a static parameter pack that [slices](../comprehension#static-slices-on-template-parameter-packs) the expression _a_.
+* `sizeof.(a)` - return the number of tuple elements on public non-static data members in _a_, where _a_ is a type or _unary-expression_.
 * `__is_structured_type(type)` - a trait indicating that the type is compatible with destructurization.
 
 As with structured bindings, the subscript and slice operators first check for a specialization of `std::tuple_size<E>` before accessing data members of class types.
@@ -165,96 +172,10 @@ int
 
 This sample generically prints the members of a pair, tuple, std::array, array and vector type. 
 
-1. `print_object1` executes a compile-time loop over the members, ranging from 0 to `sizeof...(type_t)`. It uses `...[subscript]` to access each data member. 
-2. `print_object2` reduces this to a one-liner. Use `...[begin:end:step]` slice notation to turn an object into a parameter pack of its members. The simple syntax `...[:]` is equivalent to `...[0:-1:1]`, meaning it ranges over all elements from left-to-right, stepping one at a time. The `int...` expression yields the current element of the pack expansion, which corresponds to the step count `i` in `print_object1`.
-3. `print_object3` formats the elements into a comma-separated list enclosed in braces. The first element is written with a subscript. All subsequent elements are written, comma-prefixed, with a slice expansion. The `...[1:]` slice operation returns a pack of members starting at 1 and continuing to the end of the container.
+1. `print_object1` executes a compile-time loop over the members, ranging from 0 to `sizeof.(type_t)`. It uses `.[subscript]` to access each data member. 
+2. `print_object2` reduces this to a one-liner. Use `.[begin:end:step]` slice notation to turn an object into a parameter pack of its members. The simple syntax `.[:]` is equivalent to `.[0:-1:1]`, meaning it ranges over all elements from left-to-right, stepping one at a time. The `int...` expression yields the current element of the pack expansion, which corresponds to the step count `i` in `print_object1`.
+3. `print_object3` formats the elements into a comma-separated list enclosed in braces. The first element is written with a subscript. All subsequent elements are written, comma-prefixed, with a slice expansion. The `.[1:]` slice operation returns a pack of members starting at 1 and continuing to the end of the container.
 4. `print_object4` adds a compile-time check, that tests if the object is a structured binding type. `__is_structured_type` returns true for tuple-like types (those with `std::tuple_size` specializations), arrays, matrices, vectors and non-union classes. This more generic function prints scalar types without requiring an overload.
-
-## Implicit slices
-
-Static slices are a powerful mechanism, but look syntactically busy at times.
-
-```cpp
-auto tuple = make_tuple('a', 2, 3.0);
-func(tuple...[:]...);
-```
-
-In contexts like this, you can expand the argument object directly, without explicitly slicing it.
-
-```cpp
-auto tuple = make_tuple('a', 2, 3.0);
-func(tuple...);
-```
-
-You can expand an object operand in these contexts:
-* Function argument list
-* Template argument list
-* Braced initializer list
-* Unary fold expression
-
-[**implicit.cxx**](implicit.cxx)
-```cpp
-#include <iostream>
-#include <functional>
-#include <tuple>
-#include <array>
-
-void func(auto... args) {
-  std::cout<< args<< " "...;
-  std::cout<< "\n";
-}
-
-template<auto... args>
-struct foo_t { 
-  foo_t() {
-    std::cout<< @type_string(foo_t)<< "\n";
-  }
-};
-
-int main() {
-  // Expand array into a function argument list.
-  int data1[] { 1, 2, 3 };
-  func(0, data1..., 4);
-
-  // Expand a normal array into an std::array.
-  // Expand std::array into a function argument list.
-  std::array data2 { data1..., 4, 5, 6 };
-  func(data2..., 7);
-
-  // Expand a tuple into a funtion argument list.
-  auto tuple = std::make_tuple('a', 2u, 300ll);
-  func(tuple...);
-
-  // Use in a unary fold expression.
-  int max = (... std::max data1);
-  std::cout<< "max = "<< max<< "\n";
-
-  int product = (... * data2);
-  std::cout<< "product = "<< product<< "\n";
-
-  // Specialize a template over compile-time data.
-  // It can be constexpr.
-  constexpr int data[] { 10, 20, 30 };
-  foo_t<data...> obj1;
-
-  // Or it can be meta.
-  struct bar_t {
-    int a;
-    long b;
-    char32_t c;
-  };
-  @meta bar_t bar { 100, 200, U'A' };
-
-  // meta objects are mutable.
-  @meta bar.b++;
-
-  foo_t<bar...> obj2;
-}
-```
-
-To be implicitly promoted to a static slice, the expression must be an object or parameter, of a tuple-like class, array, matrix, vector or any non-union class object. Universal member access implicitly splits it into its parts and inserts these into the function argument list, template argument list, initializer list or unary fold expression.
-
-Note that objects must be constexpr or meta to be valid template arguments.
 
 ## Object lengths
 
@@ -292,14 +213,11 @@ my_array.length = 6
 obj.length = 4
 ```
 
-In Standard C++, `sizeof...(identifier)` yields the element count when pointed at a template parameter pack. Circle extends this, by first freeing up the grammar to match `sizeof`'s:
-* `sizeof... unary-expression` - Match a unary-expression.
-* `sizeof...(type-id)` - Match a type-id.
+In Standard C++, `sizeof...(identifier)` yields the element count when pointed at a template parameter pack. The new `sizeof.` operator has an extended syntax and works on tuple-like entities:
+* `sizeof. unary-expression` - Match a unary-expression.
+* `sizeof.(type-id)` - Match a type-id.
 
-If the indicated expression or type is a parameter pack, this operator continues to work as expected. If the indicated expression is a pack structured binding, `sizeof...` yields the number of elements in the binding. Otherwise, `sizeof...` returns the number of members of the destructured operand type.
-
-That is, `sizeof...` returns:
-* Elements in a parameter pack.
+Dependeng on its operand, `sizeof.` returns:
 * Elements in a pack structured binding.
 * Elements in a tuple-like type.
 * Length of an array.
@@ -307,7 +225,7 @@ That is, `sizeof...` returns:
 * Number of components in a vector.
 * Number of public non-static data members in a non-union class.
 
-`sizeof...` is the long-awaited _ARRAY LENGTH OPERATOR_. 
+`sizeof.` is the long-awaited _ARRAY LENGTH OPERATOR_. 
 
 ## Pack indices
 

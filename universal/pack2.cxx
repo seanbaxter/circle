@@ -33,5 +33,5 @@ int main() {
     int x, y, z;
   };
   obj_t obj { 100, 200, 300 };
-  std::cout<< int...(1:)<< ": "<< obj...[:]<< "\n" ...;
+  std::cout<< int...(1:)<< ": "<< obj.[:]<< "\n" ...;
 }

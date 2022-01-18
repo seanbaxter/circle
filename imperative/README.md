@@ -87,7 +87,7 @@ std::tuple<int, char*, char*, double, double, double, short, short, short, short
 
 If you aren't sure what this does at first glance, the wise coarse of action is to print it and find out. Use `@meta std::cout` along with `.string` reflection to print types at compile time. This works even if the translation unit doesn't otherwise compile; just put the print statement before where the error occurs. This is a big help when trying to deciper arcane stuff.
 
-CIA leverages [static subscripts and slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) and [pack indices](
+CIA leverages [pack subscripts and slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-subscripts-and-slices) and [pack indices](
 https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-indices), powerful features already documented [here](https://github.com/seanbaxter/circle/blob/master/universal/README.md). [Constexpr conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-conditional--) and [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) are documented [here](https://github.com/seanbaxter/circle/tree/master/conditional#readme).
 
 ## The imperative model
@@ -255,7 +255,7 @@ using T1 = std::tuple<char, short, int, long, long long>;
 static_assert(std::tuple<int, long, long long, char, short> == Rotate<2, T1>);
 ```
 
-Circle makes argument transformations trivial. To rotate the arguments within a class specialization, expand two [static slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#static-subscripts-and-slices) into the new argument list. The first, `...[N:]` starts at the rotation location `N` and extends to the end of the pack. The second, `...[:N]`, runs from the start of the pack and extends to `N`. 
+Circle makes argument transformations trivial. To rotate the arguments within a class specialization, expand two [pack slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-subscripts-and-slices) into the new argument list. The first, `...[N:]` starts at the rotation location `N` and extends to the end of the pack. The second, `...[:N]`, runs from the start of the pack and extends to `N`. 
 
 [**rotate2.cxx**](rotate.cxx) [(Compiler Explorer)](https://godbolt.org/z/d5o3osd8d)
 ```cpp

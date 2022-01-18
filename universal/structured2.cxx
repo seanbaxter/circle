@@ -9,6 +9,6 @@ int main() {
   auto [...parts] = tuple;
 
   // Print its components.
-  std::cout<< sizeof... tuple<< " components:\n";
+  std::cout<< sizeof. tuple<< " components:\n";
   std::cout<< int...<< ": "<< parts<< "\n" ...;
 }

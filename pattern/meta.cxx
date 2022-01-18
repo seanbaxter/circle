@@ -24,7 +24,7 @@ std::string to_string(const type_t& x) {
 
     is is_tuple_like    => 
       "[" + (... + 
-        (int... ?? ", " : "") + to_string(x...[:])
+        (int... ?? ", " : "") + to_string(x.[:])
       ) + "]";
 
     // All tuple-like types must have already returned.
@@ -32,7 +32,7 @@ std::string to_string(const type_t& x) {
     
     is std::is_class_v  => 
       "{" + (... + 
-        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x...[:])
+        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x.[:])
       ) + "}";
 
     // All class objects must have already returned.

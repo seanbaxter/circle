@@ -16,13 +16,13 @@ std::ostream& operator<<(std::ostream& os, const T& obj) {
   if constexpr(is_tuple_like<T>) {
     // Bust the tuple into components and print.
     os<< "[";
-    os<< (int... ? ", " : " ")<< obj...[:] ...;
+    os<< (int... ? ", " : " ")<< obj.[:] ...;
     os<< " ]";
 
   } else {
     // Use reflection and print non-static public data members.
     os<< "{";
-    os<< (int... ? ", " : " ")<< T.member_names<< ":"<< obj...[:] ...;
+    os<< (int... ? ", " : " ")<< T.member_names<< ":"<< obj.[:] ...;
     os<< " }";
   }
   return os; 

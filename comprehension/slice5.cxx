@@ -21,7 +21,7 @@ void print_static(const type_t& obj) {
   // A heterogenous print operation. Uses static pack expansion. Works on
   // member objects of class types, regular arrays, plus types implementing
   // std::tuple_size, such as std::array, std::pair and std::tuple.
-  std::cout<< obj...[:]<< " "...;
+  std::cout<< obj.[:]<< " "...;
 
   std::cout<< "]\n";
 }
@@ -35,7 +35,7 @@ int main() {
 
   // Static pack indexing performs template substitution to unroll
   // the operation.
-  ++array...[:] ...;
+  ++array.[:] ...;
   print_static(array);
 
   // Use list comprehension to generate an std::vector.
@@ -46,26 +46,26 @@ int main() {
   // Expansion of static slice expansion occurs during substitution.
   // This supports using heterogeneous containers as initializers in
   // list comprehension and uniform initializers.
-  std::vector v2 = [ array...[:] * 4... ];
+  std::vector v2 = [ array.[:] * 4... ];
   print_dynamic(v2);
 
   // Use static slice expansion to create an initializer list for a 
   // builtin array. This won't work with the dynamic slice operator [:], 
   // because the braced initializer must have a compile-time set number of 
   // elements.
-  int array2[] { array...[:] * 5 ... };
+  int array2[] { array.[:] * 5 ... };
   print_static(array2);
 
   // Create a braced initializer in forward then reverse order.
-  int forward_reverse[] { array...[:] ..., array...[::-1] ...};
+  int forward_reverse[] { array.[:] ..., array.[::-1] ...};
   print_static(forward_reverse);
 
   // Create a braced initializer with evens then odds.
-  int parity[] { array...[0::2] ..., array...[1::2] ... };
+  int parity[] { array.[0::2] ..., array.[1::2] ... };
   print_static(parity);
 
   // Use a compile-time loop to add up all elements of array3.
-  int static_sum = (... + array...[:]);
+  int static_sum = (... + array.[:]);
   printf("static sum = %d\n", static_sum);
 
   // Use a dynamic loop to add up all elements of array3.

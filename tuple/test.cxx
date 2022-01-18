@@ -7,20 +7,21 @@ int main() {
   using namespace std::string_literals;
 
   circle::tuple<> x;
-  std::cout<< x...[:]<< "\n" ...;
+  std::cout<< x.[:]<< "\n" ...;
 
   auto a = make_tuple(100, "Hello tuple", 'x');
   auto b = make_tuple(21.1f, nullptr, 19i16);
   auto c = make_tuple(true, 3.14l);
 
   auto cat = tuple_cat(std::move(a), std::move(b), c);
+  auto cat2 = tuple_cat2(std::move(a), std::move(b), c);
 
   // Print the index, the type of each element, and its value.
   std::cout<< "Visit with Circle packs:\n";
   std::cout<< 
     int...<< ": "<< 
     decltype(cat).tuple_elements.string << " is '"<<
-    cat...[:]<< "'\n" ...;
+    cat.[:]<< "'\n" ...;
 
   // Use apply() to visit each element.
   std::cout<< "\nVisit with apply:\n";

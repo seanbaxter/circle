@@ -6,7 +6,7 @@ auto call_tuple1(func_t f, const std::tuple<types_t...>& tuple, int index) {
   switch(index) {
     @meta for(int i : sizeof...(types_t)) {
       case i:
-        return f(tuple...[i]);
+        return f(tuple.[i]);
     }
   }
 }
@@ -14,7 +14,7 @@ auto call_tuple1(func_t f, const std::tuple<types_t...>& tuple, int index) {
 template<typename func_t, typename... types_t>
 void call_tuple2(func_t f, const std::tuple<types_t...>& tuple, int index) {
   // Like the above, but one line.
-  return int... == index ...? f(tuple...[:]) : __builtin_unreachable();
+  return int... == index ...? f(tuple.[:]) : __builtin_unreachable();
 }
 
 int main() {

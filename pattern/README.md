@@ -679,13 +679,13 @@ std::ostream& operator<<(std::ostream& os, const T& obj) {
   if constexpr(is_tuple_like<T>) {
     // Bust the tuple into components and print.
     os<< "[";
-    os<< (int... ? ", " : " ")<< obj...[:] ...;
+    os<< (int... ? ", " : " ")<< obj.[:] ...;
     os<< " ]";
 
   } else {
     // Use reflection and print non-static public data members.
     os<< "{";
-    os<< (int... ? ", " : " ")<< T.member_names<< ":"<< obj...[:] ...;
+    os<< (int... ? ", " : " ")<< T.member_names<< ":"<< obj.[:] ...;
     os<< " }";
   }
   return os; 
@@ -804,7 +804,7 @@ struct foo_t {
 int main() {
   foo_t obj { 1, 2, 3 };
   auto obj2 = obj as [short, long, double];
-  std::cout<< obj2...[:]<< "\n" ...;
+  std::cout<< obj2.[:]<< "\n" ...;
 }
 ```
 
@@ -831,7 +831,7 @@ void func(const type_t& obj) {
     // Third element is dereferenced and converted to double.
     tuple as [short, *float, **double] => {
       std::cout<< decltype(tuple).string<< ": ";
-      (std::cout<< tuple...[:]<< " " ...)<< "\n";
+      (std::cout<< tuple.[:]<< " " ...)<< "\n";
     }
 
     // Follow * by _ to indicate wildcard. We don't try to convert to anything,
@@ -968,7 +968,7 @@ std::string to_string(const type_t& x) {
 
     is is_tuple_like    => 
       "[" + (... + 
-        (int... ?? ", " : "") + to_string(x...[:])
+        (int... ?? ", " : "") + to_string(x.[:])
       ) + "]";
 
     // All tuple-like types must have already returned.
@@ -976,7 +976,7 @@ std::string to_string(const type_t& x) {
     
     is std::is_class_v  => 
       "{" + (... + 
-        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x...[:])
+        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x.[:])
       ) + "}";
 
     // All class objects must have already returned.
@@ -1046,7 +1046,7 @@ Another quality of life improvement of pattern matching over ordinary C++ is tha
 ```cpp
     is is_tuple_like    => 
       "[" + (... + 
-        (int... ?? ", " : "") + to_string(x...[:])
+        (int... ?? ", " : "") + to_string(x.[:])
       ) + "]";
 
     // All tuple-like types must have already returned.
@@ -1054,7 +1054,7 @@ Another quality of life improvement of pattern matching over ordinary C++ is tha
     
     is std::is_class_v  => 
       "{" + (... + 
-        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x...[:])
+        (int... ?? ", " : "") + type_t.member_names + ": " + to_string(x.[:])
       ) + "}";
 
     // All class objects must have already returned.

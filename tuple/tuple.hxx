@@ -1,5 +1,9 @@
 #pragma once
 
+#if !defined(__circle_build__) || __circle_build__ < 152
+  #error Must compile with Circle build 152 or later
+#endif
+
 #if __cplusplus < 202002L
   #error Compile with -std=c++20
 #endif
@@ -84,6 +88,17 @@ tuple_cat(Tuples&&... tpls) {
   };
 }
 
+template<class... Tuples>
+constexpr tuple<
+  for typename Ti : Tuples => 
+    Ti.remove_reference.tuple_elements...
+>
+tuple_cat2(Tuples&&... tpls) {
+  return { 
+    for i, typename Ti : Tuples =>
+      std::forward<Ti>(tpls...[i]).[:] ...
+  };
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.rel]
@@ -105,9 +120,7 @@ template<class... TTypes, class... UTypes>
 constexpr auto operator<=>(const tuple<TTypes...>& t, 
   const tuple<UTypes...>& u) { 
 
-  constexpr size_t N = sizeof...(TTypes);
-  static_assert(N == sizeof...(UTypes));
-
+  static_assert(sizeof...(TTypes) == sizeof...(UTypes));
   static_assert(requires { std::declval<TTypes>() <=> std::declval<UTypes>(); },
     "no valid <=> for " + TTypes.string + " and " + UTypes.string)...;
 
@@ -115,7 +128,7 @@ constexpr auto operator<=>(const tuple<TTypes...>& t,
     decltype(std::declval<TTypes>() <=> std::declval<UTypes>())...
   >;
 
-  @meta for(size_t i : N)
+  @meta for(size_t i : sizeof...(TTypes))
     if(Result c = get<i>(t) <=> get<i>(u); c != 0)
       return c;
 

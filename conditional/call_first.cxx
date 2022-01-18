@@ -14,7 +14,7 @@ void f2(const char* x) { std::cout<< "f2: "<< x<< "\n"; }
 
 auto f3 = []<typename type_t, size_t I>(std::array<type_t, I> a) {
   std::cout<< "f3: ";
-  std::cout<< a...[:]<< " " ...;
+  std::cout<< a.[:]<< " " ...;
   std::cout<< "\n";
 };
 

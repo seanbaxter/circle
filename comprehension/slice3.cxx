@@ -40,15 +40,15 @@ int main() {
   // Use static indexing to turn a tuple into a parameter pack. Expand it
   // into function arguments.
   std::cout<< "tuple to pack in forward order:\n";
-  print_args(tuple...[:] ...);
+  print_args(tuple.[:] ...);
 
   // Or expand it in reverse order.
   std::cout<< "\ntuple to pack in reverse order:\n";
-  print_args(tuple...[::-1] ...);
+  print_args(tuple.[::-1] ...);
 
   // Or send the even then the odd elements.
   std::cout<< "\neven then odd tuple elements:\n";
-  print_args(tuple...[0::2] ..., tuple...[1::2] ...);
+  print_args(tuple.[0::2] ..., tuple.[1::2] ...);
 
   // Pass indices manually to a template.
   std::cout<< "\ntemplate non-type arguments sent the old way:\n";
@@ -58,5 +58,5 @@ int main() {
   // into a parameter pack and expand that into a template-arguments-list.
   std::cout<< "\ntemplate non-type arguments expanded from an array:\n";
   constexpr int values[] { 7, 8, 9, 10 };
-  print_nontype<values...[:] ...>();
+  print_nontype<values.[:] ...>();
 }

@@ -11,7 +11,7 @@ void subgroupShuffle(type_t& x, uint id) {
     requires { typename std::tuple_size<type_t>::type; }) {
 
     // Shuffle elements of arrays, vectors, matrices and tuples.
-    subgroupShuffle(x...[:], id)...;
+    subgroupShuffle(x.[:], id)...;
 
   } else if constexpr(std::is_class_v<type_t>) {
     // Shuffle all public base classes and data members of class objects.

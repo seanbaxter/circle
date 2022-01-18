@@ -1357,7 +1357,7 @@ The static slice operator `...[begin:end:step]` transforms the template paramete
 
 ### Static slices on tuple-like objects
 
-The static slice operator `...[begin:end:step]` also works when applied to non-pack expressions with array, tuple-like or class types. It presents busts up the entity and exposes it as a _heterogeneous_ non-type static pack. The same semantic rules for fixing structured bindings to initializers is at play here:
+The static slice operator `.[begin:end:step]` also works when applied to non-pack expressions with array, tuple-like or class types. It presents busts up the entity and exposes it as a _heterogeneous_ non-type static pack. The same semantic rules for fixing structured bindings to initializers is at play here:
 
 1. If the operand is an array, each element in the static parameter pack is one array element.
 1. If specializing `std::tuple_size` on the operand's type finds a partial template specialization (or technically a specialization that's not incomplete), the object is treated as "tuple-like." `std::tuple_element` breaks the object apart into elements. `std::array`, `std::pair` and `std::tuple` all provide specializations for these class templates.
@@ -1409,15 +1409,15 @@ int main() {
   // Use static indexing to turn a tuple into a parameter pack. Expand it
   // into function arguments.
   std::cout<< "tuple to pack in forward order:\n";
-  print_args(tuple...[:] ...);
+  print_args(tuple.[:] ...);
 
   // Or expand it in reverse order.
   std::cout<< "\ntuple to pack in reverse order:\n";
-  print_args(tuple...[::-1] ...);
+  print_args(tuple.[::-1] ...);
 
   // Or send the even then the odd elements.
   std::cout<< "\neven then odd tuple elements:\n";
-  print_args(tuple...[0::2] ..., tuple...[1::2] ...);
+  print_args(tuple.[0::2] ..., tuple.[1::2] ...);
 
   // Pass indices manually to a template.
   std::cout<< "\ntemplate non-type arguments sent the old way:\n";
@@ -1427,7 +1427,7 @@ int main() {
   // into a parameter pack and expand that into a template-arguments-list.
   std::cout<< "\ntemplate non-type arguments expanded from an array:\n";
   constexpr int values[] { 7, 8, 9, 10 };
-  print_nontype<values...[:] ...>();
+  print_nontype<values.[:] ...>();
 }
 ```
 ```
@@ -1468,24 +1468,24 @@ template<typename type_t>
 void print_object(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    @type_string(decltype(obj...[:]))<< " : "<< 
-    obj...[:]<< "\n" ...;
+    decltype(obj.[:]).string<< " : "<< 
+    obj.[:]<< "\n" ...;
 }
 
 template<typename type_t>
 void print_reverse(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    @type_string(decltype(obj...[::-1]))<< " : "<< 
-    obj...[::-1]<< "\n" ...;
+    decltype(obj.[::-1]).string<< " : "<< 
+    obj.[::-1]<< "\n" ...;
 }
 
 template<typename type_t>
 void print_odds(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    @type_string(decltype(obj...[1::2]))<< " : "<< 
-    obj...[1::2]<< "\n" ...;
+    decltype(obj.[1::2]).string<< " : "<< 
+    obj.[1::2]<< "\n" ...;
 }
 
 int main() {
@@ -1500,7 +1500,6 @@ int main() {
   std::cout<< "\nprint_odds:\n";
   print_odds(obj);
 }
-
 ```
 ```
 $ circle slice4.cxx && ./slice4
@@ -1529,7 +1528,7 @@ tuple_t<double, long, const char*, const char*, char, unsigned>
   2) unsigned : 19
 ```
 
-This example uses static slices to break tuple-like objects into packs and prints the expanded contents with annotations. During static pack expansion, the `int...` operator yields the current index of expansion as an integer. (It's a value-dependent expression.) `@type_string(decltype(obj...[:]))` renders the type of the current slice expansion into a character array. This may be different from the Circle intrinsic `@member_type_strings`. The former expression treats array types, `std::array`s, `std::pair`s and `std::tuple`s by running their contents through `std::tuple_element`. The `@member_type_strings` operator returns character arrays spelling out the type of each non-static data member of the argument type.
+This example uses static slices to break tuple-like objects into packs and prints the expanded contents with annotations. During static pack expansion, the `int...` operator yields the current index of expansion as an integer. (It's a value-dependent expression.) `decltype(obj.[:]).string` renders the type of the current slice expansion into a character array.
 
 [**slice5.cxx**](slice5.cxx)
 ```cpp
@@ -1556,7 +1555,7 @@ void print_static(const type_t& obj) {
   // A heterogenous print operation. Uses static pack expansion. Works on
   // member objects of class types, regular arrays, plus types implementing
   // std::tuple_size, such as std::array, std::pair and std::tuple.
-  std::cout<< obj...[:]<< " "...;
+  std::cout<< obj.[:]<< " "...;
 
   std::cout<< "]\n";
 }
@@ -1570,7 +1569,7 @@ int main() {
 
   // Static pack indexing performs template substitution to unroll
   // the operation.
-  ++array...[:] ...;
+  ++array.[:] ...;
   print_static(array);
 
   // Use list comprehension to generate an std::vector.
@@ -1581,33 +1580,32 @@ int main() {
   // Expansion of static slice expansion occurs during substitution.
   // This supports using heterogeneous containers as initializers in
   // list comprehension and uniform initializers.
-  std::vector v2 = [ array...[:] * 4... ];
+  std::vector v2 = [ array.[:] * 4... ];
   print_dynamic(v2);
 
   // Use static slice expansion to create an initializer list for a 
   // builtin array. This won't work with the dynamic slice operator [:], 
   // because the braced initializer must have a compile-time set number of 
   // elements.
-  int array2[] { array...[:] * 5 ... };
+  int array2[] { array.[:] * 5 ... };
   print_static(array2);
 
   // Create a braced initializer in forward then reverse order.
-  int forward_reverse[] { array...[:] ..., array...[::-1] ...};
+  int forward_reverse[] { array.[:] ..., array.[::-1] ...};
   print_static(forward_reverse);
 
   // Create a braced initializer with evens then odds.
-  int parity[] { array...[0::2] ..., array...[1::2] ... };
+  int parity[] { array.[0::2] ..., array.[1::2] ... };
   print_static(parity);
 
   // Use a compile-time loop to add up all elements of array3.
-  int static_sum = (... + array...[:]);
+  int static_sum = (... + array.[:]);
   printf("static sum = %d\n", static_sum);
 
   // Use a dynamic loop to add up all elements of array3.
   int dynamic_sum = (... + array[:]);
   printf("dynamic sum = %d\n", dynamic_sum);
 }
-
 ```
 ```
 $ circle slice5.cxx && ./slice5
