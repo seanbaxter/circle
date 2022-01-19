@@ -2,6 +2,7 @@ set -x
 circle structured.cxx && ./structured
 circle structured2.cxx && ./structured2
 circle subscript.cxx && ./subscript
+circle implicit.cxx && ./implicit
 circle length.cxx && ./length
 circle pack.cxx && ./pack
 circle pack2.cxx && ./pack2

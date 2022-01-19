@@ -11,12 +11,12 @@ int main() {
     5, 3.14, 'X'
   };
   std::cout<< "A:\n";
-  std::cout<< "  "<< decltype(A).member_type_strings<< ": "<< A.m<< "\n" ...;
+  std::cout<< "  "<< decltype(A).member_decl_strings<< ": "<< A.m<< "\n" ...;
 
   // It even works with CTAD! Deduced through the parameter pack.
   tuple B {
     6ll, 1.618f, true
   };
   std::cout<< "B:\n";
-  std::cout<< "  "<< decltype(B).member_type_strings<< ": "<< B.m<< "\n" ...;
+  std::cout<< "  "<< decltype(B).member_decl_strings<< ": "<< B.m<< "\n" ...;
 }

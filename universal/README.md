@@ -2,7 +2,17 @@
 
 This capability grew out of the [list comprehension](../comprehension/comprehenion.md) and [pattern matching](../pattern/pattern.md) Circle extensions. Those sections give a more expensive view into the mechanisms detailed here.
 
-## Structured bindings
+## Contents.
+
+1. [Structured bindings](#structured-bindings)
+2. [Pack subscripts and slices](#pack-subscripts-and-slices)
+3. [Tuple subscripts and slices](#tuple-subscripts-and-slices)
+4. [Implicit slices](#implicit-slices)
+5. [Object lengths](#object-lengths)
+6. [Pack indices](#pack-indices)
+7. [Transforming objects](#transforming-objects)
+
+## Structured bindings.
 
 C++17 introduced _structured bindings_, a way to disaggregate tuples, arrays and class objects into separate declarations.
 
@@ -68,14 +78,14 @@ The pack structured binding is a foundation for this slick one-liner print, that
 
 This sample prompts an important question: why can't we generically print the tuple without declaring the structured binding? We only care about the structured binding as a means for exposing the tuple's elements as a non-type parameter pack in order to expand it in a pack-expansion expression. If we were to take the structured binding mechanisms and hoist them from declarations to expressions, we could perform disaggregation into parameter packs directly inside expressions.
 
-## Pack subscripts and slices
+## Pack subscripts and slices.
 
 Circle includes the `...[subscript]` postfix operator to subscript parameter packs. It also includes the `...[begin:end:step]` slice operator to slice parameter packs. 
 
 * `a...[subscript]` - yield the _subscript'th_ member of the pack _a_. This may be a type pack, non-type pack, template pack, or universal parameter pack.
 * `a...[begin:end:step]` - reorder the elements of a parameter pack according to [extended slice rules](../comprehension#static-slices-on-template-parameter-packs).
 
-## Tuple subscripts and slices
+## Tuple subscripts and slices.
 
 We're going to add corresponding operators to support tuple-like operands. These new operators perform structured binding _as an expression_ and yield either a single element or a slice of the elements of the operand.
 
@@ -177,7 +187,93 @@ This sample generically prints the members of a pair, tuple, std::array, array a
 3. `print_object3` formats the elements into a comma-separated list enclosed in braces. The first element is written with a subscript. All subsequent elements are written, comma-prefixed, with a slice expansion. The `.[1:]` slice operation returns a pack of members starting at 1 and continuing to the end of the container.
 4. `print_object4` adds a compile-time check, that tests if the object is a structured binding type. `__is_structured_type` returns true for tuple-like types (those with `std::tuple_size` specializations), arrays, matrices, vectors and non-union classes. This more generic function prints scalar types without requiring an overload.
 
-## Object lengths
+## Implicit slices.
+
+Static slices are a powerful mechanism, but look syntactically busy at times.
+
+```cpp
+auto tuple = make_tuple('a', 2, 3.0);
+func(tuple...[:]...);
+```
+
+In contexts like this, you can expand the argument object directly, without explicitly slicing it.
+
+```cpp
+auto tuple = make_tuple('a', 2, 3.0);
+func(tuple...);
+```
+
+You can expand an object operand in these contexts:
+* Function argument list
+* Template argument list
+* Braced initializer list
+* Unary fold expression
+
+[**implicit.cxx**](implicit.cxx)
+```cpp
+#include <iostream>
+#include <functional>
+#include <tuple>
+#include <array>
+
+void func(auto... args) {
+  std::cout<< args<< " "...;
+  std::cout<< "\n";
+}
+
+template<auto... args>
+struct foo_t { 
+  foo_t() {
+    std::cout<< @type_string(foo_t)<< "\n";
+  }
+};
+
+int main() {
+  // Expand array into a function argument list.
+  int data1[] { 1, 2, 3 };
+  func(0, data1..., 4);
+
+  // Expand a normal array into an std::array.
+  // Expand std::array into a function argument list.
+  std::array data2 { data1..., 4, 5, 6 };
+  func(data2..., 7);
+
+  // Expand a tuple into a funtion argument list.
+  auto tuple = std::make_tuple('a', 2u, 300ll);
+  func(tuple...);
+
+  // Use in a unary fold expression.
+  int max = (... std::max data1);
+  std::cout<< "max = "<< max<< "\n";
+
+  int product = (... * data2);
+  std::cout<< "product = "<< product<< "\n";
+
+  // Specialize a template over compile-time data.
+  // It can be constexpr.
+  constexpr int data[] { 10, 20, 30 };
+  foo_t<data...> obj1;
+
+  // Or it can be meta.
+  struct bar_t {
+    int a;
+    long b;
+    char32_t c;
+  };
+  @meta bar_t bar { 100, 200, U'A' };
+
+  // meta objects are mutable.
+  @meta bar.b++;
+
+  foo_t<bar...> obj2;
+}
+```
+
+To be implicitly promoted to a static slice, the expression must be an object or parameter, of a tuple-like class, array, matrix, vector or any non-union class object. Universal member access implicitly splits it into its parts and inserts these into the function argument ist, template argument list, initializer list or unary fold expression.
+
+Note that objects must be constexpr or meta to be valid template arguments.
+
+## Object lengths.
 
 [**length.cxx**](length.cxx)
 ```cpp
@@ -227,7 +323,7 @@ Dependeng on its operand, `sizeof.` returns:
 
 `sizeof.` is the long-awaited _ARRAY LENGTH OPERATOR_. 
 
-## Pack indices
+## Pack indices.
 
 C++ metaprogramming relies on the generation of integer sequences. The standard library class templates [`std::integer_sequence`](https://en.cppreference.com/w/cpp/utility/integer_sequence) and [`std::index_sequence`](https://en.cppreference.com/w/cpp/utility/index_sequence) allow argument deduction of integer non-type parameter packs, from which a function template can access and expand the deduced template parameters. Unfortunately, this is a burdensome way to use integer packs, as they must be deduced by a template, and cannot be used in line.
 
@@ -331,7 +427,7 @@ $ circle pack2.cxx && ./pack2
 
 The `int...(count)` expression generates an `int` parameter pack with values from 0 to count-1. `int...(begin:end:step)` is a pack-yielding slice. `end` is an optional parameter and the size of the pack may be inferred from other packs in the same expansion. In this mode, it acts like a linear equation around `int...`, where the `begin` and `step` terms are constant and linear adjustments.
 
-## Transforming objects
+## Transforming objects.
 
 [**transform.cxx**](transform.cxx)
 ```cpp
@@ -377,21 +473,21 @@ auto sort_tuple(const auto& tuple) {
   // Sort once per template instantiation. .first is the sizeof the element.
   // .second is the gather index.
   @meta std::pair<int, int> sizes[] { 
-    std::make_pair(sizeof(tuple...[:]), int...) ...
+    std::make_pair(sizeof(tuple.[:]), int...) ...
   };
-  @meta std::sort(sizes + 0, sizes + sizeof...(sizes));
+  @meta std::sort(sizes + 0, sizes + sizeof. sizes); 
 
   // The gather operation. ...[] gathers from tuple. sizes...[:].second is the
   // gather index for each output.
-  return std::make_tuple(tuple...[sizes...[:].second] ...);
+  return std::make_tuple(tuple.[sizes.[:].second] ...);
 }
 
 int main() {  
   auto tuple = std::make_tuple(1, 2.f, '3', 4ll, 5.0, 6);
   auto tuple2 = sort_tuple(tuple);
 
-  std::cout<< @type_string(decltype(tuple2))<< "\n";
-  std::cout<< tuple2...[:]<< " (size = "<< sizeof(tuple2...[:])<< ")\n" ...;
+  std::cout<< decltype(tuple2).string << "\n";
+  std::cout<< tuple2.[:]<< " (size = "<< sizeof(tuple2.[:])<< ")\n" ...;
 }
 ```
 ```
@@ -413,4 +509,4 @@ Universal member access pairs well with Circle's `@meta`-driven imperative metap
   return std::make_tuple(tuple...[sizes...[:].second] ...);
 ```
 
-This statement is brings together many of the mechanisms described in this document. `tuple...[]` subscripts the original tuple. But we want a full gather operation, not a single subscript, so we feed it with `sizes...[:].second`, which slices the `sizes` array into a parameter pack of gather indices. Expanding `tuple...[sizes...[:].second]` into `std::make_tuple`s arguments list coins a new tuple, with members sorted according to size.
+This statement is brings together many of the mechanisms described in this document. `tuple.[]` subscripts the original tuple. But we want a full gather operation, not a single subscript, so we feed it with `sizes.[:].second`, which slices the `sizes` array into a parameter pack of gather indices. Expanding `tuple.[sizes.[:].second]` into `std::make_tuple`s arguments list coins a new tuple, with members sorted according to size.

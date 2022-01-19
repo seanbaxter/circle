@@ -22,6 +22,6 @@ int main() {
   auto tuple = std::make_tuple(1, 2.f, '3', 4ll, 5.0, 6);
   auto tuple2 = sort_tuple(tuple);
 
-  std::cout<< @type_string(decltype(tuple2))<< "\n";
+  std::cout<< decltype(tuple2).string << "\n";
   std::cout<< tuple2.[:]<< " (size = "<< sizeof(tuple2.[:])<< ")\n" ...;
 }

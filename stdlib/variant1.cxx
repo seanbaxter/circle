@@ -22,7 +22,7 @@ struct variant {
 
   // Count the number of types that match T.
   template<typename T>
-  static constexpr size_t count_of_type = (... + (T == Types));
+  static constexpr size_t count_of_type = (0 + ... + (T == Types));
 
   // Initialize the type indicate by T.
   template<typename T, typename U, size_t I = index_of_type<T> >
@@ -34,22 +34,12 @@ struct variant {
   ~variant() {
     _index == int... ...? m.~Types() : __builtin_unreachable();
   }
-
-  // Use a constrained forward reference deduced this to implement all
-  // get cv-ref combinations.
-  template<size_t I, typename Self>
-  auto&& get(this Self&& self : variant) {
-    return self. ...m...[I];
-  } 
 };
 
 // Visit the active variant member.
 template<typename F, typename... Types>
 decltype(auto) visit(F f, variant<Types...>& var) {
-  constexpr size_t N = sizeof...(Types);
-  var._index == int...(N) ...? 
-    f(var.template get<int...>()) :
-    __builtin_unreachable();
+  return var._index == int... ...? f(var. ...m) : __builtin_unreachable();
 }
 
 int main() {

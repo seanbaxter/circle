@@ -51,7 +51,7 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
 
 template<class T, class Tuple, class... Types>
 auto&& get(Tuple&& t : tuple<Types...>) noexcept {
-  static_assert(1 == (... + (T == Types)));
+  static_assert(1 == (0 + ... + (T == Types)));
   constexpr size_t I = T == Types ...?? int... : -1;
   return std::forward<Tuple>(t).template _get<I>();
 }
@@ -96,7 +96,7 @@ constexpr tuple<
 tuple_cat2(Tuples&&... tpls) {
   return { 
     for i, typename Ti : Tuples =>
-      std::forward<Ti>(tpls...[i]).[:] ...
+      std::forward<Ti>(tpls...[i]) ...
   };
 }
 

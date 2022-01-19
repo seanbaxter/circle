@@ -116,7 +116,7 @@ class variant {
     nothrow_swappable;
 
   template<typename T>
-  static constexpr bool is_single_usage = 1 == (... + (T == Types));
+  static constexpr bool is_single_usage = 1 == (0 + ... + (T == Types));
 
   template<typename T>
   static constexpr size_t find_index = T == Types ...?? int... : -1;
@@ -431,7 +431,7 @@ public:
 // [variant.get]
 template<class T, class... Types>
 constexpr bool holds_alternative(const variant<Types...>& v) noexcept {
-  static_assert(1 == (... + (Types == T)));
+  static_assert(1 == (0 + ... + (Types == T)));
   return T == Types ...?? int... == v.index() : __builtin_unreachable();
 }
 
@@ -444,7 +444,7 @@ constexpr auto&& get(Var&& v : variant<Types...>) {
 
 template<class T, class Var, class... Types>
 constexpr auto&& get(Var&& v : variant<Types...>) {
-  static_assert(1 == (... + (Var.type_args == T)));
+  static_assert(1 == (0 + ... + (Var.type_args == T)));
   constexpr size_t I = Var.type_args == T ...?? int... : -1;
   return I == v.index() ? 
     std::forward<Var>(v).template get<I>() : 
@@ -466,7 +466,7 @@ constexpr auto get_if(const variant<Types...>* v) {
 
 template<class T, class... Types>
 constexpr auto get_if(variant<Types...>* v) {
-  static_assert(1 == (... + (Types == T)));
+  static_assert(1 == (0 + ... + (Types == T)));
   constexpr size_t I = Types == T ...?? int... : -1;
   return I == v.index() ? 
     v->template get<I>() : 
@@ -474,7 +474,7 @@ constexpr auto get_if(variant<Types...>* v) {
 }
 template<class T, class...Types>
 constexpr auto get_if(const variant<Types...>* v) {
-  static_assert(1 == (... + (Types == T)));
+  static_assert(1 == (0 + ... + (Types == T)));
   constexpr size_t I = Types == T ...?? int... : -1;
   return I == v.index() ? 
     v->template get<I>() : 
