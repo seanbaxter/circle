@@ -6,11 +6,11 @@ This page highlights Circle language features that aided in the Circle rewrite o
 * [std::variant](https://eel.is/c++draft/variant) - [Implementation](../variant/variant.hxx) - [Notes](../tvariantcircle-variant)
 * [std::mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) - [Implementation](https://github.com/seanbaxter/mdspan/blob/circle/circle/experimental/mdspan.hpp) - [Notes](https://github.com/seanbaxter/mdspan#mdspan-circle)
 
-The implementations draw on lots of features unique to Circle. Some where motivated by these STL components.
+The implementations draw on lots of features unique to Circle, some even motivated by these STL components.
 
-### Features:
+### Features only implemented in the Circle/C++ compiler:
 
-* [Member pack declarations](#member-pack-declarations) `...m`
+* [Member pack declarations](https://github.com/seanbaxter/circle/tree/master/tuple#data-member-packs) `...m`
 * [Pack subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) `...[I]` and `...[begin:end:step]`
 * [Tuple subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#tuple-subscripts-and-slices) `.[I]` and `.[begin:end:step]`
 * [Implicit slices](https://github.com/seanbaxter/circle/tree/master/universal#implicit-slices)
