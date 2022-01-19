@@ -11,6 +11,7 @@ Also note the Circle [variant](../variant#circle-viriant) and Circle [mdspan](ht
 ## Contents.
 
 * [First-class tuple support](#first-class-tuple-support)
+    * Apply
 * [Data member packs](#data-member-packs)
 * [Mapping types to indices](#mapping-types-to-indices)
 * [Deduced forward references](#deduced-forward-references)

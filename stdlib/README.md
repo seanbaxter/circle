@@ -1,15 +1,41 @@
 # Circle implementations of Standard Library classes.
 
+This page highlights Circle language features that aided in the Circle rewrite of three C++ Standard Library classes:
+
+* [std::tuple](https://eel.is/c++draft/tuple) - [Implementation](../tuple/tuple.hxx) - [Notes](../tuple#circle-tuple)
+* [std::variant](https://eel.is/c++draft/variant) - [Implementation](../variant/variant.hxx) - [Notes](../tvariantcircle-variant)
+* [std::mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) - [Implementation](https://github.com/seanbaxter/mdspan/blob/circle/circle/experimental/mdspan.hpp) - [Notes](https://github.com/seanbaxter/mdspan#mdspan-circle)
+
+The implementations draw on lots of features unique to Circle. Some where motivated by these STL components.
+
+### Features:
+
+* [Member pack declarations](#member-pack-declarations) `...m`
+* [Pack subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) `...[I]` and `...[begin:end:step]`
+* [Tuple subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#tuple-subscripts-and-slices) `.[I]` and `.[begin:end:step]`
+* [Implicit slices](https://github.com/seanbaxter/circle/tree/master/universal#implicit-slices)
+* [Pack indices](https://github.com/seanbaxter/circle/tree/master/universal#pack-indices) `int...`, `int...(N)` and `int...(begin:end:step)`
+* [Deduced forwarding references](https://github.com/seanbaxter/circle/tree/master/tuple#deduced-forward-references)
+* [Multi-conditional](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`
+* [Constexpr multi-conditional](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---) `...??:`
+* [Member type traits](https://github.com/seanbaxter/circle/tree/master/imperative#type-traits)
+* [Generic comparisons](https://github.com/seanbaxter/circle/tree/master/imperative#is_specialization)
+* [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for)
+* [`__visit`](https://github.com/seanbaxter/circle/tree/master/variant#visit) compiler builtin
+* [`__preferred_copy_init`](https://github.com/seanbaxter/circle/tree/master/variant#converting-constructor) and [`__preferred_assignment`](https://github.com/seanbaxter/circle/tree/master/variant#converting-assignment) builtins
+* [Pack `static_assert`](https://github.com/seanbaxter/circle/tree/master/variant#comparison-and-relational-operators)
+
 ## Contents.
 
 1. [Member pack declarations](#member-pack-declarations)
     * [Basic tuple](#basic-tuple)
     * [Basic variant](#basic-variant)
     * [Basic mdspan](#basic-mdspan)
-2. [Deduced forwarding references](#deduced-forwarding-references)
-3. [Circle Imperative Arguments](#circle-imperative-arguments)
+2. [Circle Imperative Arguments](#circle-imperative-arguments)
     * [Create an n-length set](#create-an-n-length-set)
     * [Tuple cat](#tuple-cat)
+3. [Deduced forwarding references](#deduced-forwarding-references)
+4. [Visit](#visit)
 
 ## 1. Member pack declarations.
 
@@ -136,7 +162,44 @@ To write a basic variant, make a member pack declaration inside an unnamed union
 
 The [multi-conditional operator](https://github.com/seanbaxter/circle/tree/master/conditional#multi-conditional---) `...?:` makes it easy to generate a cascade of ternary operators, which serve as a higher-level switch to bridge runtime values (like `_index)` with compile-time concerns (like a particular data member). The pseudo-destructor call in the variant's destructor, or the callable invocation in `visit` are both satisfied in one line with this operator.
 
+Note that dependent name lookup of a member pack requires a disambiguation token `...` just before the member name. 
+
+```cpp
+template<typename F, typename... Types>
+decltype(auto) visit(F f, variant<Types...>& var) {
+  return var._index == int... ...? f(var. ...m) : __builtin_unreachable();
+}
+```
+
+The program is ill-formed if, during substitution, the compiler finds a member pack without a preceding `...` token, or if it finds a non-member pack with the token.
+
 ### Basic mdspan.
+
+[mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) is a multi-dimensional span class, that can be specialized over any mixture of static and dynamic extents. Static extents take no storage, and are pinned to template parameters. The challenge of implementation is ensuring _partially-static storage_, so that only the dynamic extents take storage, while providing both dynamic and static access to this now-irregular collection of extents.
+
+```cpp
+template<size_t index, size_t Extent>
+struct _storage_t {
+  // static storage.
+  constexpr _storage_t(size_t extent) noexcept { }
+  static constexpr size_t extent = Extent;
+};
+
+template<size_t index>
+struct _storage_t<index, dynamic_extent> {
+  // dynamic storage.
+  constexpr _storage_t(size_t extent) noexcept : extent(extent) { }
+  size_t extent;
+};
+
+template<size_t... Extents>
+struct extents {
+  // Partial static storage.
+  [[no_unique_address]] _storage_t<int..., Extents> ...m;
+};
+```
+
+The heart of the Circle mdspan [implementation](https://github.com/seanbaxter/mdspan#mdspan-circle) is a `[[no_unique_address]]` member pack declaration of `storage_t` types. When the `Extent` template parameter equals `dynamic_extent`, then the extent is stored by the non-static data member `extent`. Otherwise, the extent is indicated by the static data member of the same name. `_storage_t` classes specialized on static extents are _empty classes_, and we arrange that they take no space in the `extents` class by using the `[[no_unique_address]]` attribute and by making their types unique, specializing the class templates with the index of the extent within its collection. Empty unique types marked `[[no_unique_address]]` alias to the same layout offset, effectively requiring no space.
 
 [**extent1.cxx**](extent1.cxx)
 ```cpp
@@ -221,11 +284,36 @@ int main() {
 }
 ```
 
-## Deduced forwarding references.
+mdspan is challenging to implement because the division of extents into static and dynamic categories creates an irregularity when indexing. This is most acute in the constructor which takes a function parameter for each dynamic extent. The Circle implementation defines a variable template `find_dynamic_index` which counts the number of dynamic extents prior to some extent index `I`. This is a search operation, easily accomplished by using a [pack slice](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) inside a _fold-expression_. 
+
+```cpp
+  template<size_t I>
+  static constexpr size_t find_dynamic_index =
+    (0 + ... + (dynamic_extent == Extents...[:I]));
+```
+
+The slice `...[:I]` effectively truncates the template parameter pack `Extents` to its first `I` elements. These are compared with `dynamic_extent`, and all the matches are summed.
+
+```cpp
+  template<SizeType... IndexTypes>
+  requires(
+    sizeof...(IndexTypes) != rank() && 
+    sizeof...(IndexTypes) == rank_dynamic()
+  )
+  constexpr extents(IndexTypes... exts) noexcept : m(
+    dynamic_extent == Extents ??
+      exts...[find_dynamic_index<int...>] :
+      Extents
+  )... { }
+```
+
+The constructor's _mem-initializer-list_ initializes each element of the member pack `m`. If the extent corresponding to a member is `dynamic_extent`, then `find_dynamic_index<int...>`, where `int...` yields the index of the current pack expansion, specifies a gather index into the function parameter pack `exts`. We're telling the compiler: if this is a dynamic extent, search for the function parameter specifying the extent, and gather and initialize from that; otherwise, initialize from the static extent in the `Extents` template parameter.
+
+The [constexpr multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---) `...??:` serves as an important guard. Consider if we specialized `extents<dynamic_extent, 3>` and called the one-parameter dynamic extent constructor. When computing the subobject initializer for `m1`, we might specialized `find_dynamic_index<1>`, which would count the number of preceding `dynamic_extent` elements, which is 1 in this case. `exts...[find_dyanmic_index<int...>]` would then attempt to read function parameter 1, which is out-of-range, because we only passed it 1 function parameter in all. 
 
 
 
-## Circle Imperative Arguments.
+## 2. Circle Imperative Arguments.
 
 ### Create an n-length set.
 
@@ -281,3 +369,8 @@ int main() {
 }
 ```
 
+## 3. Deduced forwarding references.
+
+
+
+## 4. Visit
