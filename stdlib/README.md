@@ -3,7 +3,7 @@
 This page highlights Circle language features that aided in the Circle rewrite of three C++ Standard Library classes:
 
 * [std::tuple](https://eel.is/c++draft/tuple) - 350 lines! [Implementation](../tuple/tuple.hxx) - [Notes](../tuple#circle-tuple)
-* [std::variant](https://eel.is/c++draft/variant) - 650 lines! [Implementation](../variant/variant.hxx) - [Notes](../tvariantcircle-variant)
+* [std::variant](https://eel.is/c++draft/variant) - 650 lines! [Implementation](../variant/variant.hxx) - [Notes](../tvariant#circle-variant)
 * [std::mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) - 700 lines! [Implementation](https://github.com/seanbaxter/mdspan/blob/circle/circle/experimental/mdspan.hpp) - [Notes](https://github.com/seanbaxter/mdspan#mdspan-circle)
 
 The implementations draw on lots of features unique to Circle, some even motivated by these STL components.
