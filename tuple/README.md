@@ -1,7 +1,5 @@
 # Circle tuple
 
-**UNDER CONSTRUCTION**
-
 Browse implementation [**tuple.hxx**](tuple.hxx).
 
 This is a Circle implementation of C++20's [`std::tuple`](http://eel.is/c++draft/tuple) class.
@@ -19,61 +17,71 @@ Also note the Circle [variant](../variant#circle-viriant) and Circle [mdspan](ht
 
 ## First-class tuple support.
 
-As documented [here](../universal#tuple-subscripts-and-slices), 
+As documented [here](../universal#tuple-subscripts-and-slices), the operators `.[I]` and `[begin:end:step]` subscript and slice "structured types." What types are these?
+* Tuple-like types that specialize `std::tuple_size` yield their elements.
+    * `std::tuple`
+    * `std::pair`
+    * `std::array`
+    * `circle::tuple`
+* Builtin arrays yield their elements.
+* Other classes and structs yield their non-static public data members.
 
+The `sizeof.` operator returns the number of elements in a structured type. For a tuple-like type, this returns `std::tuple_size`. For an array, it returns the number of elements in the first rank. For other class types, it returns the number of non-static data members.
 
+The `tuple_elements` member trait probes `std::tuple_elements` and yields the contained types as a type parameter pack. This is fully imperative, so you don't have to call a function that exposes template parameters that can be deduced to use it.
 
-[**access.cxx**](access.cxx) - [Compiler Explorer](https://godbolt.org/z/jhYjozqvs)
+[**access.cxx**](access.cxx) - [Compiler Explorer](https://godbolt.org/z/PG9zqqeMx)
 ```cpp
 #include <tuple>
 #include <array>
 #include <iostream>
 
 int main() {
-  std::tuple<int, double, const char*> x1(
-    100, 3.14, "Hello sd::tuple"
+  std::tuple<int, double, const char*> tup(
+    100, 3.14, "Hello std::tuple"
   );
+
+  std::cout<< int...<<": "<< decltype(tup).tuple_elements.string<< "\n" ...;
 
   // Print out by subscript.
   std::cout<< "Print by subscript:\n";
-  std::cout<< "  0: "<< x1.[0]<< "\n";
-  std::cout<< "  1: "<< x1.[1]<< "\n";
-  std::cout<< "  2: "<< x1.[2]<< "\n";
-
-  std::tuple<short, float, std::string> x2(
-    50, 1.618f, "Hello std::tuple"
-  );
+  std::cout<< "  0: "<< tup.[0]<< "\n";
+  std::cout<< "  1: "<< tup.[1]<< "\n";
+  std::cout<< "  2: "<< tup.[2]<< "\n";
 
   // Print out by slice.
-  std::cout<< "Print by slice:\n";
-  std::cout<< "  "<< int...<< ": "<< x2.[:]<< "\n" ...;
+  std::cout<< "Print by slice - "<< sizeof. tup<< " elements:\n";
+  std::cout<< "  "<< int...<< ": "<< tup.[:]<< "\n" ...;
 
-  std::pair<const char*, long> x3(
+  std::pair<const char*, long> pair(
     "A pair's string",
     42
   );
-  std::cout<< "Works with pairs:\n";
-  std::cout<< "  "<< int...<< ": "<< x3.[:]<< "\n" ...;
+  std::cout<< "Works with pairs - "<< sizeof. pair<< " elements:\n";
+  std::cout<< "  "<< int...<< ": "<< pair.[:]<< "\n" ...;
 
   int primes[] { 2, 3, 5, 7, 11 };
-  std::cout<< "Even works with builtin arrays:\n";
+  std::cout<< "Works with builtin arrays - "<< sizeof. primes<< " elements:\n";
   std::cout<< "  "<< int...<< ": "<< primes.[:]<< "\n" ...;
 }
 ```
 ```
 $ circle access.cxx && ./access
+0: int
+1: double
+2: const char*
 Print by subscript:
   0: 100
   1: 3.14
   2: Hello std::tuple
-Print by slice:
-  0: 50
-  1: 1.618
+Print by slice - 3 elements:
+  0: 100
+  1: 3.14
   2: Hello std::tuple
-Works with pairs:
+Works with pairs - 2 elements:
   0: A pair's string
   1: 42
-Even works with builtin arrays:
+Works with builtin arrays - 5 elements:
   0: 2
   1: 3
   2: 5
@@ -81,39 +89,7 @@ Even works with builtin arrays:
   4: 11
 ```
 
-### Apply
-
-
-```cpp
-#include <tuple>
-#include <iostream>
-
-int main() {
-  auto f = [](auto... x) {
-    std::cout<< "  "<< int...<< ": "<< x<< "\n" ...;
-  };
-  auto tup = std::make_tuple(1, 2.2, "Three");
-
-  // Use std::apply to break a tuple into elements and foward to a callable.
-  std::cout<< "std::apply:\n";
-  std::apply(f, tup);
-
-  // We don't need an apply function for this. The implicit slice operator 
-  // does this
-  // for us.
-  std::cout<< "implicit slice:\n";
-  f(tup...);
-
-  // In fact, we don't need a function at all. Use the tuple slice operator
-  // .[:] to packify the elements of a tuple and write the operation you
-  // want directly.
-  std::cout<< "pack expression:\n";
-  std::cout<< "  "<< int...<< ": "<< tup.[:]<< "\n" ...;
-}
-```
-```
-
-```
+This sample shows the tuple subscript and slice operators on a variety of types. Because Circle imperatively will create a pack from a tuple's elements, you don't need indirection through an `apply`-like function for the purpose of argument deduction. Write your operation inline, and use a pack expansion at the end of the statement to transform each element.
 
 ## Data member packs.
 

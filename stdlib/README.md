@@ -1,7 +1,5 @@
 # Circle implementations of Standard Library classes.
 
-**UNDER CONSTRUCTION**
-
 This page highlights Circle language features that aided in the Circle rewrite of three C++ Standard Library classes:
 
 * [std::tuple](https://eel.is/c++draft/tuple) - 350 lines! [Implementation](../tuple/tuple.hxx) - [Notes](../tuple#circle-tuple)
@@ -10,12 +8,11 @@ This page highlights Circle language features that aided in the Circle rewrite o
 
 The implementations draw on lots of features unique to Circle, some even motivated by these STL components.
 
-### Features only implemented in the Circle/C++ compiler:
+### Features unique to Circle/C++:
 
 * [Member pack declarations](https://github.com/seanbaxter/circle/tree/master/tuple#data-member-packs) `...m`
 * [Pack subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) `...[I]` and `...[begin:end:step]`
 * [Tuple subscripts and slices](https://github.com/seanbaxter/circle/tree/master/universal#tuple-subscripts-and-slices) `.[I]` and `.[begin:end:step]`
-* [Implicit slices](https://github.com/seanbaxter/circle/tree/master/universal#implicit-slices)
 * [Pack indices](https://github.com/seanbaxter/circle/tree/master/universal#pack-indices) `int...`, `int...(N)` and `int...(begin:end:step)`
 * [Deduced forwarding references](https://github.com/seanbaxter/circle/tree/master/tuple#deduced-forward-references)
 * Enhanced conditional operators [`??:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--), [`...?:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) and [`...??:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---)
@@ -28,16 +25,17 @@ The implementations draw on lots of features unique to Circle, some even motivat
 
 ## Contents.
 
-1. [Member pack declarations](#member-pack-declarations)
+1. [Member pack declarations](#1-member-pack-declarations)
     * [Basic tuple](#basic-tuple)
     * [Basic variant](#basic-variant)
     * [Basic mdspan](#basic-mdspan)
-2. [Circle Imperative Arguments](#circle-imperative-arguments)
+2. [Circle Imperative Arguments](#2-circle-imperative-arguments)
     * [Create an n-length set](#create-an-n-length-set)
     * [Tuple cat](#tuple-cat)
-3. [Deduced forwarding references](#deduced-forwarding-references)
-4. [Visit](#visit)
-5. [Builtins for overload resolution](#builtins-for-overload-resolution)
+3. [Deduced forwarding references](#3-deduced-forwarding-references)
+4. [N-dimensional Visit](#4-n-dimensional-visit)  
+5. [Builtins for overload resolution](#5-builtins-for-overload-resolution)
+6. [First-class tuple support](#6-first-class-tuple-support)
 
 ## 1. Member pack declarations.
 
@@ -467,7 +465,7 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
 
 The Circle tuple [implementation](../tuple/tuple.hxx) reduces the eight `get` overloads declared in the Standard to just two function definitions. This 4:1 replacement can be observed in many scenarios in the Standard Library as well as user code. It plays nicely with [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), also implemented in Circle. That proposal exposes the implicit object argument as an explicit function parameter. You could already use a C++11 forwarding reference with that. But now you can use a deduced forwarding reference to further constrain it to the class type, getting around the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem).
 
-## 4. Visit
+## 4. N-dimensional visit.
 
 By far the most troublesome function in the C++ variant is the [std::visit](http://eel.is/c++draft/variant.visit) function. Experience with variant inspired a Circle builtin for generating an n-dimensional visitor pattern. Michael Park [documented](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the struggles of implementing even a one-dimensional visitor with ISO C++.
 
@@ -492,7 +490,7 @@ The [`__visit`](../variant#visit) and `__visit_r` builtins take N template argum
 
 The `__visit` builtin is also reflection-aware, allowing specialization over enums (where it visits all enumerators), and on specializations of `integer_sequence`, where it visits all template parameters.
 
-## 5. Builtins for overload resolution
+## 5. Builtins for overload resolution.
 
 Variant inspired two extensions for accessing the compiler's overload resolution capabilities. 
 
@@ -551,4 +549,78 @@ This makes for an easy implementation of the [variant converting constructor](ht
   }
 ```
 
-## 6. 
+## 6. First-class tuple support.
+
+As documented [here](../universal#tuple-subscripts-and-slices), the operators `.[I]` and `[begin:end:step]` subscript and slice "structured types." What types are these?
+* Tuple-like types that specialize `std::tuple_size` yield their elements.
+    * `std::tuple`
+    * `std::pair`
+    * `std::array`
+    * `circle::tuple`
+* Builtin arrays yield their elements.
+* Other classes and structs yield their non-static public data members.
+
+The `sizeof.` operator returns the number of elements in a structured type. For a tuple-like type, this returns `std::tuple_size`. For an array, it returns the number of elements in the first rank. For other class types, it returns the number of non-static data members.
+
+The `tuple_elements` member trait probes `std::tuple_elements` and yields the contained types as a type parameter pack. This is fully imperative, so you don't have to call a function that exposes template parameters that can be deduced to use it.
+
+[**access.cxx**](access.cxx) - [Compiler Explorer](https://godbolt.org/z/PG9zqqeMx)
+```cpp
+#include <tuple>
+#include <array>
+#include <iostream>
+
+int main() {
+  std::tuple<int, double, const char*> tup(
+    100, 3.14, "Hello std::tuple"
+  );
+
+  std::cout<< int...<<": "<< decltype(tup).tuple_elements.string<< "\n" ...;
+
+  // Print out by subscript.
+  std::cout<< "Print by subscript:\n";
+  std::cout<< "  0: "<< tup.[0]<< "\n";
+  std::cout<< "  1: "<< tup.[1]<< "\n";
+  std::cout<< "  2: "<< tup.[2]<< "\n";
+
+  // Print out by slice.
+  std::cout<< "Print by slice - "<< sizeof. tup<< " elements:\n";
+  std::cout<< "  "<< int...<< ": "<< tup.[:]<< "\n" ...;
+
+  std::pair<const char*, long> pair(
+    "A pair's string",
+    42
+  );
+  std::cout<< "Works with pairs - "<< sizeof. pair<< " elements:\n";
+  std::cout<< "  "<< int...<< ": "<< pair.[:]<< "\n" ...;
+
+  int primes[] { 2, 3, 5, 7, 11 };
+  std::cout<< "Works with builtin arrays - "<< sizeof. primes<< " elements:\n";
+  std::cout<< "  "<< int...<< ": "<< primes.[:]<< "\n" ...;
+}
+```
+```
+$ circle access.cxx && ./access
+0: int
+1: double
+2: const char*
+Print by subscript:
+  0: 100
+  1: 3.14
+  2: Hello std::tuple
+Print by slice - 3 elements:
+  0: 100
+  1: 3.14
+  2: Hello std::tuple
+Works with pairs - 2 elements:
+  0: A pair's string
+  1: 42
+Works with builtin arrays - 5 elements:
+  0: 2
+  1: 3
+  2: 5
+  3: 7
+  4: 11
+```
+
+This sample shows the tuple subscript and slice operators on a variety of types. Because Circle imperatively will create a pack from a tuple's elements, you don't need indirection through an `apply`-like function for the purpose of argument deduction. Write your operation inline, and use a pack expansion at the end of the statement to transform each element.
