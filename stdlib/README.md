@@ -39,7 +39,13 @@ The implementations draw on lots of features unique to Circle, some even motivat
 
 ## 1. Member pack declarations.
 
-Declare a pack of non-static data members with the member pack declaration syntax. Use `...` before the _declarator-id_, as if you were writing a function or template parameter pack. This is compatible with the description in [P1858R2 - Generalized pack declaration and usage](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1858r2.html#member-packs). Use a member pack in a struct to define a [tuple-like thing](#basic-tuple). Use a member pack in a union to define a [variant-like thing](#basic-variant). Use a member pack and partially-static storage templates to define the extents in an [mdspan-like thing](#basic-mdspan).
+Declare a pack of non-static data members with the member pack declaration syntax. Use `...` before the _declarator-id_, as if you were writing a function or template parameter pack. This is compatible with the description in [P1858R2 - Generalized pack declaration and usage](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1858r2.html#member-packs).
+
+* Use a member pack in a struct to define a [tuple-like thing](#basic-tuple).
+* Use a member pack in a union to define a [variant-like thing](#basic-variant). 
+* Use a member pack and partially-static storage templates to define the extents in an [mdspan-like thing](#basic-mdspan).
+
+Here are simple implementations of tuple, variant and mdspan, to help illustrate the technology in the fully-conformant implementations of the same classes.
 
 ### Basic tuple.
 
@@ -158,7 +164,7 @@ double: 6.67e-11
 std::basic_string<char, std::char_traits<char>, std::allocator<char>>: Hello variant
 ```
 
-To write a basic variant, make a member pack declaration inside an unnamed union. The [pack subscript operator](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) `...[I]` provides direct access to specific instantiated data members.  Use it inside the _mem-initializer-list_ to name a member to initialize.
+To write a basic variant, make a member pack declaration inside an unnamed union. The [pack subscript operator](https://github.com/seanbaxter/circle/tree/master/universal#pack-subscripts-and-slices) `...[I]` provides direct access to specific instantiated data members.  Use it inside the _mem-initializer-list_ to name a member for subobject initialization.
 
 The [multi-conditional operator](https://github.com/seanbaxter/circle/tree/master/conditional#multi-conditional---) `...?:` makes it easy to generate a cascade of ternary operators, which serve as a higher-level switch to bridge runtime values (like `_index)` with compile-time concerns (like a particular data member). The pseudo-destructor call in the variant's destructor, or the callable invocation in `visit` are both satisfied in one line with this operator.
 
@@ -171,11 +177,11 @@ decltype(auto) visit(F f, variant<Types...>& var) {
 }
 ```
 
-The program is ill-formed if, during substitution, the compiler finds a member pack without a preceding `...` token, or if it finds a non-member pack with the token.
+The program is ill-formed if, during substitution, the compiler finds a member pack without a preceding `...` token, or if it finds a non-member pack with the token. In other words, if you mess up disambiguation, the compiler will remind you on what to do.
 
 ### Basic mdspan.
 
-[mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) is a multi-dimensional span class, that can be specialized over any mixture of static and dynamic extents. Static extents take no storage, and are pinned to template parameters. The challenge of implementation is ensuring _partially-static storage_, so that only the dynamic extents take storage, while providing both dynamic and static access to this now-irregular collection of extents.
+[mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) is a multi-dimensional span class, that can be specialized over any mixture of static and dynamic extents. Static extents take no storage, and are pinned to template parameters. The challenge of implementation is ensuring _partially-static storage_, so that only the dynamic extents take storage, while providing both dynamic and static access to this now-irregular collection of values.
 
 ```cpp
 template<size_t index, size_t Extent>
@@ -309,11 +315,11 @@ The slice `...[:I]` effectively truncates the template parameter pack `Extents` 
 
 The constructor's _mem-initializer-list_ initializes each element of the member pack `m`. If the extent corresponding to a member is `dynamic_extent`, then `find_dynamic_index<int...>`, where `int...` yields the index of the current pack expansion, specifies a gather index into the function parameter pack `exts`. We're telling the compiler: if this is a dynamic extent, search for the function parameter specifying the extent, and gather and initialize from that; otherwise, initialize from the static extent in the `Extents` template parameter.
 
-The [constexpr conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--) `??:` serves as an important guard. Consider if we specialized `extents<dynamic_extent, 3>` and called the one-parameter dynamic extent constructor. When computing the subobject initializer for `m1`, we might specialized `find_dynamic_index<1>`, which would count the number of preceding `dynamic_extent` elements, which is 1 in this case. `exts...[find_dyanmic_index<int...>]` would then attempt to read function parameter 1, which is out-of-range, because we only passed it one function parameter in all. However, the `??:` operator only substitutes the middle operand when the left-hand operand true, and subtitutes the right-hand operand when the left-hand operand is false
+The [constexpr conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--) `??:` serves as an important guard. Consider if we specialized `extents<dynamic_extent, 3>` and called the one-parameter dynamic extent constructor. When computing the subobject initializer for `m1`, we might specialize `find_dynamic_index<1>`, which would count the number of preceding `dynamic_extent` elements, which is 1 in this case. `exts...[find_dynamic_index<int...>]` would then attempt to read function parameter 1, which is out-of-range, because we only passed it one function parameter in all. However, the `??:` operator only substitutes the middle operand when the left-hand operand true, and only subtitutes the right-hand operand when the left-hand operand is false. Usage of this operator, as well as its multi-conditional sibling `...??:`, helps a program guard against substitution failure.
 
 ## 2. Circle Imperative Arguments.
 
-Circle includes a simple [domain-specific language](https://github.com/seanbaxter/circle/tree/master/imperative#circle-imperative-arguments-cia) for programmatically constructing template argument lists, function argument lists and initializer lists with common programming primitives like for loops, if statements, and declarations. I don't know if it's Turing Complete, but you can write a [Game of Life](https://github.com/seanbaxter/circle/tree/master/imperative#conways-game-of-life) in a handful of lines, entirely within a template argument list.
+Circle includes a simple [domain-specific language](https://github.com/seanbaxter/circle/tree/master/imperative#circle-imperative-arguments-cia) for programmatically constructing template argument lists, function argument lists and initializer lists using common programming primitives like for loops, if statements and declarations. I don't know if it's Turing Complete, but you can write a [Game of Life](https://github.com/seanbaxter/circle/tree/master/imperative#conways-game-of-life) in a handful of lines, entirely within a template argument list.
 
 ### Create an n-length set.
 
@@ -324,7 +330,7 @@ template<size_t Rank>
 using dextents = extents<dynamic_extent x Rank times here>;
 ```
 
-The proposal gives this exposition implementation:
+The [proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) suggests this exposition implementation:
 
 ```cpp
   template<size_t Rank>
@@ -338,7 +344,7 @@ The proposal gives this exposition implementation:
 
 The reference implementation uses a more [traditional TMP approach](https://github.com/kokkos/mdspan/blob/a32d60ac5632e340c6b991f37910fd7598ea07cf/mdspan.hpp#L3320), with recursive template specialization.
 
-But this should be easy. You shouldn't need _nested lambdas_ in unevaluated contexts just to replicate an argument N times. This is where CIA makes programming easy:
+But this should be easy. You shouldn't need _nested lambdas_ in unevaluated contexts just to replicate an argument N times. This is one spot in which CIA makes programming easy:
 
 ```cpp
 template<size_t Rank>
@@ -354,9 +360,9 @@ template< class... Tuples >
 std::tuple<CTypes...> tuple_cat(Tuples&&... args);
 ```
 
-[std::tuple_cat](https://en.cppreference.com/w/cpp/utility/tuple/tuple_cat) is a generic function that concatenates all tuple elements in all of its arguments. It's [hard to implement](https://github.com/gcc-mirror/gcc/blob/7adcbafe45f8001b698967defe682687b52c0007/libstdc%2B%2B-v3/include/std/tuple#L1693)!
+[std::tuple_cat](https://en.cppreference.com/w/cpp/utility/tuple/tuple_cat) is a generic function that concatenates all the tuple elements from all of its arguments. It's typically [hard to implement](https://github.com/gcc-mirror/gcc/blob/7adcbafe45f8001b698967defe682687b52c0007/libstdc%2B%2B-v3/include/std/tuple#L1693)!
 
-[**tuple_cat1.cxx**](tuple_cat1.cxx) - [Compiler Explorer](https://godbolt.org/z/W3nqYd5jb)
+[**tuple_cat1.cxx**](tuple_cat1.cxx) - [Compiler Explorer](https://godbolt.org/z/8xM3zds14)
 ```cpp
 #include <tuple>
 #include <string>
@@ -370,8 +376,7 @@ constexpr std::tuple<
 tuple_cat1(Tuples&&... tpls) {
   return { 
     for i, typename Ti : Tuples =>
-      auto N : Ti.remove_reference.tuple_size =>
-        get<int...(N)>(std::forward<Ti>(tpls...[i]))...
+      std::forward<Ti>(tpls...[i])...
   };
 }
 
@@ -399,17 +404,15 @@ unsigned long long: 7
 
 But CIA makes it easy. There are two steps:
 1. Form the function return type by looping over all types in the `Tuples` template parameter pack, and expanding the trait `tuple_elements` on each one.
-2. Form the _initializer-list_ for the return object by looping over all types in the template parameter pack, declaring `N` to hold the `tuple_size` of each parameter tuple, then calling `get` to extract each member from each function parameter. `get` is specialized over the pack index `int...(N)`, and expanded into the _initializer-list_.
+2. Form the _initializer-list_ for the return object by looping over all types in the template parameter pack, and declaring `i` to hold the corresponding index of the loop. (`i` and `Ti` are advanced together.) For each step, forward the current function parameter and insert its elements into the _initializer-list_.
 
-* `for` _[step-decl ,]_  `typename`_decl_ `:` _type-pack_ `=>` _generic-argument_
-
-We use [this syntax](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for) for _argument-for_, which both declares an integer step index and a type alias for each element in the type parameter pack. Pack subscript `tpls...[i]` accesses each function parameter, and the `get` pack expansion disaggregates it.
+We use CIA's [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for) syntax, which both declares an integer step index and a type alias for each element in the type parameter pack. Pack subscript `tpls...[i]` accesses each function parameter, and the trailing `...` [implicitly slices](https://github.com/seanbaxter/circle/tree/master/universal#implicit-slices) the tuple into its elements, and expands those elements into the list.
 
 Circle supports `tuple_elements` (and `variant_alternatives`) as pack-yielding member traits. Under the hood the compiler queries `tuple_size` and probes the `tuple_elements` class template for each element index, and exposes all this information to the sure as an imperative pack. There's nothing to deduce, you just ask and expand it right into the argument list.
 
 ## 3. Deduced forwarding references.
 
-There's an in depth discussion of deduced forwarding references [here](../tuple#deduced-forwarding-references). In a word, deduced forwarding references fix a hole in C++ function declarations and overload resolution. They allow a function parameter to infer the reference and cv qualifiers of its argument and to actively deduce the argument type. This differs from ordinary C++11 forwarding references which infer all three things.
+There's an in depth discussion of deduced forwarding references [here](../tuple#deduced-forwarding-references). In a word, deduced forwarding references fix a hole in C++'s support for function declarations and overload resolution. DFRs allow a function parameter to infer the reference and cv qualifiers of its argument while actively deducing the argument type. This differs from ordinary C++11 forwarding references which infer all three things.
 
 As an example:
 
@@ -446,7 +449,7 @@ template<typename... Args>
 void f(const volatile std::tuple<Args...>&& u);
 ```
 
-This is directly applicable to generic containers like `std::tuple`, which associated functions with four overloads differing only in their cv-ref qualifiers.
+This is directly applicable to generic containers like `std::tuple`, which specifies operations with four otherwise-identical overloads differing only in their cv-ref qualifiers.
 
 ```cpp
 template<size_t I, class Tuple, class...Types>
@@ -463,11 +466,11 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
 }
 ```
 
-The Circle tuple [implementation](../tuple/tuple.hxx) reduces the eight `get` overloads declared in the Standard to just two function definitions. This 4:1 replacement can be observed in many scenarios in the Standard Library as well as user code. It plays nicely with [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), also implemented in Circle. That proposal exposes the implicit object argument as an explicit function parameter. You could already use a C++11 forwarding reference with that. But now you can use a deduced forwarding reference to further constrain it to the class type, getting around the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem).
+The Circle tuple [implementation](../tuple/tuple.hxx) reduces the eight `get` overloads declared in the Standard to just two function definitions. This 4:1 replacement can be observed in many scenarios in the Standard Library, as well as user code. It plays nicely with [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), also implemented in Circle. That proposal exposes the implicit object argument as an explicit function parameter. You could already use a C++11 forwarding reference with that. But now you can use a deduced forwarding reference to further constrain it to the class type, getting around the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem). See [P2481R0 - Forwarding reference to specific type/template](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html) for further motivation of this mechanism.
 
 ## 4. N-dimensional visit.
 
-By far the most troublesome function in the C++ variant is the [std::visit](http://eel.is/c++draft/variant.visit) function. Experience with variant inspired a Circle builtin for generating an n-dimensional visitor pattern. Michael Park [documented](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the struggles of implementing even a one-dimensional visitor with ISO C++.
+The most troublesome function in the C++ variant specification is its [std::visit](http://eel.is/c++draft/variant.visit) function. Experience with variant inspired a Circle builtin for generating an n-dimensional visitor pattern. Michael Park [documented](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the struggles of implementing even a one-dimensional visitor with ISO C++.
 
 [**visit.hxx**](../variant/variant.hxx)
 ```cpp
@@ -486,15 +489,15 @@ constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
 }
 ```
 
-The [`__visit`](../variant#visit) and `__visit_r` builtins take N template arguments, which indicate the _extent_ of each dimension. The first function parameter is the callable. The subsequence N function parameters indicate the runtime values for each dimension. The compiler generates the N-dimensional switch.
+The [`__visit`](../variant#visit) builtin takes N template arguments, which indicate the _extent_ of each dimension. The first function parameter is the callable. The subsequence N function parameters indicate the runtime values for each dimension. The compiler generates the N-dimensional switch.
 
 The `__visit` builtin is also reflection-aware, allowing specialization over enums (where it visits all enumerators), and on specializations of `integer_sequence`, where it visits all template parameters.
 
 ## 5. Builtins for overload resolution.
 
-Variant inspired two extensions for accessing the compiler's overload resolution capabilities. 
+My experience implementing `variant` inspired two extensions for exposing more of the compiler's overload resolution capabilities. 
 
-`__preferred_copy_init` takes an argument type and a set of target types, and finds the target type with the best viable copy initialization given the argument type. If there is no viable initialization, or there are ambiguous best viable conversions, the builtin yields -1.
+[`__preferred_copy_init`](../variant#converting-constructor) takes an argument type and a set of target types, and finds the target type with the best viable copy initialization given the argument type. If there is no viable initialization, or there are ambiguous best viable conversions, the builtin yields -1.
 
 This makes for an easy implementation of the [variant converting constructor](http://eel.is/c++draft/variant#ctor-14).
 [**variant.hxx**](../variant/variant.hxx)
@@ -512,7 +515,7 @@ This makes for an easy implementation of the [variant converting constructor](ht
     m...[j](std::forward<T>(arg)), _index(j) { }
 ```
 
-`__preferred_assignment` has the same parameterization as `__preferred_copy_init`, but finds the best viable assignment operator. This makes implementing the [variant converting assignment](http://eel.is/c++draft/variant#assign-11) very easy.
+[`__preferred_assignment`](../variant/#converting-assignment) has the same parameterization as `__preferred_copy_init`, but finds the best viable _assignment operator_. This makes implementing the [variant converting assignment](http://eel.is/c++draft/variant#assign-11) very easy.
 
 ```cpp
   template<class T, size_t j = __preferred_assignment(T&&, Types...)>
@@ -562,7 +565,7 @@ As documented [here](../universal#tuple-subscripts-and-slices), the operators `.
 
 The `sizeof.` operator returns the number of elements in a structured type. For a tuple-like type, this returns `std::tuple_size`. For an array, it returns the number of elements in the first rank. For other class types, it returns the number of non-static data members.
 
-The `tuple_elements` member trait probes `std::tuple_elements` and yields the contained types as a type parameter pack. This is fully imperative, so you don't have to call a function that exposes template parameters that can be deduced to use it.
+The `tuple_elements` member trait probes `std::tuple_elements` and yields the contained types as a parameter pack.
 
 [**access.cxx**](access.cxx) - [Compiler Explorer](https://godbolt.org/z/PG9zqqeMx)
 ```cpp

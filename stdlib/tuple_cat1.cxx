@@ -10,8 +10,7 @@ constexpr std::tuple<
 tuple_cat1(Tuples&&... tpls) {
   return { 
     for i, typename Ti : Tuples =>
-      auto N : Ti.remove_reference.tuple_size =>
-        get<int...(N)>(std::forward<Ti>(tpls...[i]))...
+      std::forward<Ti>(tpls...[i])...
   };
 }
 

@@ -83,19 +83,6 @@ constexpr tuple<
 tuple_cat(Tuples&&... tpls) {
   return { 
     for i, typename Ti : Tuples =>
-      auto N : Ti.remove_reference.tuple_size =>
-        get<int...(N)>(std::forward<Ti>(tpls...[i]))...
-  };
-}
-
-template<class... Tuples>
-constexpr tuple<
-  for typename Ti : Tuples => 
-    Ti.remove_reference.tuple_elements...
->
-tuple_cat2(Tuples&&... tpls) {
-  return { 
-    for i, typename Ti : Tuples =>
       std::forward<Ti>(tpls...[i]) ...
   };
 }
