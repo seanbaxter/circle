@@ -1,10 +1,12 @@
 # Circle implementations of Standard Library classes.
 
+**UNDER CONSTRUCTION**
+
 This page highlights Circle language features that aided in the Circle rewrite of three C++ Standard Library classes:
 
-* [std::tuple](https://eel.is/c++draft/tuple) - [Implementation](../tuple/tuple.hxx) - [Notes](../tuple#circle-tuple)
-* [std::variant](https://eel.is/c++draft/variant) - [Implementation](../variant/variant.hxx) - [Notes](../tvariantcircle-variant)
-* [std::mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) - [Implementation](https://github.com/seanbaxter/mdspan/blob/circle/circle/experimental/mdspan.hpp) - [Notes](https://github.com/seanbaxter/mdspan#mdspan-circle)
+* [std::tuple](https://eel.is/c++draft/tuple) - 350 lines! [Implementation](../tuple/tuple.hxx) - [Notes](../tuple#circle-tuple)
+* [std::variant](https://eel.is/c++draft/variant) - 650 lines! [Implementation](../variant/variant.hxx) - [Notes](../tvariantcircle-variant)
+* [std::mdspan](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0009r14.html) - 700 lines! [Implementation](https://github.com/seanbaxter/mdspan/blob/circle/circle/experimental/mdspan.hpp) - [Notes](https://github.com/seanbaxter/mdspan#mdspan-circle)
 
 The implementations draw on lots of features unique to Circle, some even motivated by these STL components.
 
@@ -16,8 +18,7 @@ The implementations draw on lots of features unique to Circle, some even motivat
 * [Implicit slices](https://github.com/seanbaxter/circle/tree/master/universal#implicit-slices)
 * [Pack indices](https://github.com/seanbaxter/circle/tree/master/universal#pack-indices) `int...`, `int...(N)` and `int...(begin:end:step)`
 * [Deduced forwarding references](https://github.com/seanbaxter/circle/tree/master/tuple#deduced-forward-references)
-* [Multi-conditional](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`
-* [Constexpr multi-conditional](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---) `...??:`
+* Enhanced conditional operators [`??:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--), [`...?:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) and [`...??:`](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---)
 * [Member type traits](https://github.com/seanbaxter/circle/tree/master/imperative#type-traits)
 * [Generic comparisons](https://github.com/seanbaxter/circle/tree/master/imperative#is_specialization)
 * [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for)
@@ -309,19 +310,54 @@ The slice `...[:I]` effectively truncates the template parameter pack `Extents` 
 
 The constructor's _mem-initializer-list_ initializes each element of the member pack `m`. If the extent corresponding to a member is `dynamic_extent`, then `find_dynamic_index<int...>`, where `int...` yields the index of the current pack expansion, specifies a gather index into the function parameter pack `exts`. We're telling the compiler: if this is a dynamic extent, search for the function parameter specifying the extent, and gather and initialize from that; otherwise, initialize from the static extent in the `Extents` template parameter.
 
-The [constexpr multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-multi-conditional---) `...??:` serves as an important guard. Consider if we specialized `extents<dynamic_extent, 3>` and called the one-parameter dynamic extent constructor. When computing the subobject initializer for `m1`, we might specialized `find_dynamic_index<1>`, which would count the number of preceding `dynamic_extent` elements, which is 1 in this case. `exts...[find_dyanmic_index<int...>]` would then attempt to read function parameter 1, which is out-of-range, because we only passed it 1 function parameter in all. 
-
-
+The [constexpr conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#constexpr-conditional--) `??:` serves as an important guard. Consider if we specialized `extents<dynamic_extent, 3>` and called the one-parameter dynamic extent constructor. When computing the subobject initializer for `m1`, we might specialized `find_dynamic_index<1>`, which would count the number of preceding `dynamic_extent` elements, which is 1 in this case. `exts...[find_dyanmic_index<int...>]` would then attempt to read function parameter 1, which is out-of-range, because we only passed it one function parameter in all. However, the `??:` operator only substitutes the middle operand when the left-hand operand true, and subtitutes the right-hand operand when the left-hand operand is false
 
 ## 2. Circle Imperative Arguments.
 
+Circle includes a simple [domain-specific language](https://github.com/seanbaxter/circle/tree/master/imperative#circle-imperative-arguments-cia) for programmatically constructing template argument lists, function argument lists and initializer lists with common programming primitives like for loops, if statements, and declarations. I don't know if it's Turing Complete, but you can write a [Game of Life](https://github.com/seanbaxter/circle/tree/master/imperative#conways-game-of-life) in a handful of lines, entirely within a template argument list.
+
 ### Create an n-length set.
+
+mdspan specifies a `dextents` alias template which typedefs a fully-dynamic `extents` object for a given rank:
+
+```cpp
+template<size_t Rank>
+using dextents = extents<dynamic_extent x Rank times here>;
+```
+
+The proposal gives this exposition implementation:
+
+```cpp
+  template<size_t Rank>
+    using dextents = decltype(
+      [] <size_t... Pack> (index_sequence<Pack...>) constexpr {
+        return extents<
+          [] (auto) constexpr { return dynamic_extent; } (
+            integral_constant<size_t, Pack>{})...>{};
+      }(make_index_sequence<Rank>{}));
+```
+
+The reference implementation uses a more [traditional TMP approach](https://github.com/kokkos/mdspan/blob/a32d60ac5632e340c6b991f37910fd7598ea07cf/mdspan.hpp#L3320), with recursive template specialization.
+
+But this should be easy. You shouldn't need _nested lambdas_ in unevaluated contexts just to replicate an argument N times. This is where CIA makes programming easy:
+
+```cpp
+template<size_t Rank>
+using dextents = extents<for i : Rank => dynamic_extent>;
+```
+
+Inside the _template-argument-list_ production, write an [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for) to loop the declaration `i` from 0 to Rank - 1. The `=>` wide arrow indicates the body of the loop, which can be a type, non-type, template, universal template parameter, or another CIA construct like an _if_, _for_, declaration, or so on. We can literally write loops in argument lists, and deposit arguments with each step.
 
 ### Tuple cat.
 
-[libstdc++ implementation](https://github.com/gcc-mirror/gcc/blob/7adcbafe45f8001b698967defe682687b52c0007/libstdc%2B%2B-v3/include/std/tuple#L1693)
+```cpp
+template< class... Tuples >
+std::tuple<CTypes...> tuple_cat(Tuples&&... args);
+```
 
-[**tuple_cat.cxx**](tuple_cat.cxx)
+[std::tuple_cat](https://en.cppreference.com/w/cpp/utility/tuple/tuple_cat) is a generic function that concatenates all tuple elements in all of its arguments. It's [hard to implement](https://github.com/gcc-mirror/gcc/blob/7adcbafe45f8001b698967defe682687b52c0007/libstdc%2B%2B-v3/include/std/tuple#L1693)!
+
+[**tuple_cat1.cxx**](tuple_cat1.cxx)
 ```cpp
 #include <tuple>
 #include <string>
@@ -340,37 +376,94 @@ tuple_cat1(Tuples&&... tpls) {
   };
 }
 
-template<class... Tuples>
-constexpr std::tuple<
-  for typename Ti : Tuples => 
-    Ti.remove_reference.tuple_elements...
->
-tuple_cat2(Tuples&&... tpls) {
-  return { 
-    for i, typename Ti : Tuples =>
-      std::forward<Ti>(tpls...[i]) ...
-  };
-}
-
 int main() {
   using namespace std::string_literals;
   auto t1 = std::make_tuple(1, 2.2, "Three");
   auto t2 = std::make_tuple("Four"s, 5i16);
   auto t3 = std::make_tuple(6.6f, 7ull);
 
-  auto cat  = std::tuple_cat(t1, t2, t3);
   auto cat1 = tuple_cat1(t1, t2, t3);
-  auto cat2 = tuple_cat2(t1, t2, t3);
-  
-  std::cout<< "cat == cat1 is "<< (cat == cat1 ? "true\n" : "false\n");
-  std::cout<< "cat == cat2 is "<< (cat == cat2 ? "true\n" : "false\n");
 
-  std::cout<< decltype(cat2).tuple_elements.string<< ": "<< cat2.[:]<< "\n" ...;  
+  std::cout<< decltype(cat1).tuple_elements.string<< ": "<< cat1.[:]<< "\n" ...;  
 }
 ```
+```
+$ circle tuple_cat1.cxx && ./tuple_cat1
+int: 1
+double: 2.2
+const char*: Three
+std::basic_string<char, std::char_traits<char>, std::allocator<char>>: Four
+short: 5
+float: 6.6
+unsigned long long: 7
+```
+
+But CIA makes it easy. There are two steps:
+1. Form the function return type by looping over all types in the `Tuples` template parameter pack, and expanding the trait `tuple_elements` on each one.
+2. Form the _initializer-list_ for the return object by looping over all types in the template parameter pack, declaring `N` to hold the `tuple_size` of each parameter tuple, then calling `get` to extract each member from each function parameter. `get` is specialized over the pack index `int...(N)`, and expanded into the _initializer-list_.
+
+* `for` _[step-decl ,]_  `typename`_decl_ `:` _type-pack_ `=>` _generic-argument_
+
+We use [this syntax](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for) for _argument-for_, which both declares an integer step index and a type alias for each element in the type parameter pack. Pack subscript `tpls...[i]` accesses each function parameter, and the `get` pack expansion disaggregates it.
+
+Circle supports `tuple_elements` (and `variant_alternatives`) as pack-yielding member traits. Under the hood the compiler queries `tuple_size` and probes the `tuple_elements` class template for each element index, and exposes all this information to the sure as an imperative pack. There's nothing to deduce, you just ask and expand it right into the argument list.
 
 ## 3. Deduced forwarding references.
 
+There's an in depth discussion of deduced forwarding references [here](../tuple#deduced-forwarding-references). In a word, deduced forwarding references fix a hole in C++ function declarations and overload resolution. They allow a function parameter to infer the reference and cv qualifiers of its argument and to actively deduce the argument type. This differs from ordinary C++11 forwarding references which infer all three things.
 
+As an example:
+
+```cpp
+template<typename T, typename... Args>
+void f(T&& u : std::tuple<Args...>);
+```
+
+`T` can deduced to any of eight possible types, allowing this one function to take the place of up to eight separate overloads:
+
+```cpp
+template<typename... Args>
+void f(std::tuple<Args...>& u);
+
+template<typename... Args>
+void f(const std::tuple<Args...>& u);
+
+template<typename... Args>
+void f(volatile std::tuple<Args...>& u);
+
+template<typename... Args>
+void f(const volatile std::tuple<Args...>& u);
+
+template<typename... Args>
+void f(std::tuple<Args...>&& u);
+
+template<typename... Args>
+void f(const std::tuple<Args...>&& u);
+
+template<typename... Args>
+void f(volatile std::tuple<Args...>&& u);
+
+template<typename... Args>
+void f(const volatile std::tuple<Args...>&& u);
+```
+
+This is directly applicable to generic containers like `std::tuple`, which associated functions with four overloads differing only in their cv-ref qualifiers.
+
+```cpp
+template<size_t I, class Tuple, class...Types>
+auto&& get(Tuple&& t : tuple<Types...>) noexcept {
+  static_assert(I < sizeof...(Types));
+  return std::forward<Tuple>(t).template _get<I>();
+}
+
+template<class T, class Tuple, class... Types>
+auto&& get(Tuple&& t : tuple<Types...>) noexcept {
+  static_assert(1 == (0 + ... + (T == Types)));
+  constexpr size_t I = T == Types ...?? int... : -1;
+  return std::forward<Tuple>(t).template _get<I>();
+}
+```
+
+The Circle tuple [implementation](../tuple/tuple.hxx) reduces the eight `get` overloads declared in the Standard to just two function definitions. This 4:1 replacement can be observed in many scenarios in the Standard Library as well as user code. It plays nicely with [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), also implemented in Circle. That proposal exposes the implicit object argument as an explicit function parameter. You could already use a C++11 forwarding reference with that. But now you can use a deduced forwarding reference to further constrain it to the class type, getting around the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem).
 
 ## 4. Visit

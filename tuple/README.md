@@ -81,6 +81,40 @@ Even works with builtin arrays:
   4: 11
 ```
 
+### Apply
+
+
+```cpp
+#include <tuple>
+#include <iostream>
+
+int main() {
+  auto f = [](auto... x) {
+    std::cout<< "  "<< int...<< ": "<< x<< "\n" ...;
+  };
+  auto tup = std::make_tuple(1, 2.2, "Three");
+
+  // Use std::apply to break a tuple into elements and foward to a callable.
+  std::cout<< "std::apply:\n";
+  std::apply(f, tup);
+
+  // We don't need an apply function for this. The implicit slice operator 
+  // does this
+  // for us.
+  std::cout<< "implicit slice:\n";
+  f(tup...);
+
+  // In fact, we don't need a function at all. Use the tuple slice operator
+  // .[:] to packify the elements of a tuple and write the operation you
+  // want directly.
+  std::cout<< "pack expression:\n";
+  std::cout<< "  "<< int...<< ": "<< tup.[:]<< "\n" ...;
+}
+```
+```
+
+```
+
 ## Data member packs.
 
 Member pack declarations are used in the Circle mdspan for [_partially-static storage_](https://github.com/seanbaxter/mdspan#data-member-pack-declarations) and [inside unions](../variant#circle-variant) in the Circle variant.
@@ -282,7 +316,7 @@ const xvalue:
   f2: const tuple<int, char, void*> | Args: int char void* 
 ```
 
-[P2481R0 - Forwarding reference to specific type/template](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html) highlights a number of problems with general unconstrained forwarding refernces. [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html) specifically considers the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem) in which deducing a derived type in an explicit 'this' function can make members of the base class inaccessible. 
+[P2481R0 - Forwarding reference to specific type/template](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html) highlights a number of problems with general unconstrained forwarding references. [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html) specifically considers the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem) in which deducing a derived type in an explicit 'this' function can make members of the base class inaccessible. 
 
 [**self.cxx**](self.cxx) 
 ```cpp
