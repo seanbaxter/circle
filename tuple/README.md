@@ -419,11 +419,9 @@ constexpr tuple<
 tuple_cat2(Tuples&&... tpls) {
   return { 
     for i, typename Ti : Tuples =>
-      std::forward<Ti>(tpls...[i]).[:] ...
+      std::forward<Ti>(tpls...[i])...
   };
 }
 ```
 
-But this function is _even easier_ with Circle's [first-class tuple support](#first-class-tuple-support). We don't have to form a call to `get` to destructure each function parameter into the _initializer-list_. We can simply use the tuple slice operator `.[:]` directly on each function parameter, and pack expand that.
-
-Because the `circle::tuple` class registers itself with the `std::tuple_size` extension point, the Circle frontend can infer its tuple size and access its constituent elements with an ADL call to `get`.
+But this function is _even easier_ with Circle's [first-class tuple support](#first-class-tuple-support). We don't have to form a call to `get` to destructure each function parameter into the _initializer-list_. We can simply use the [implicit slice](../universal#implicit-slice) syntax to turn the operand into a pack of elements, and expand that right into the return statement's _initializer-list_.
