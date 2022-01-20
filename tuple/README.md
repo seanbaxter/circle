@@ -424,4 +424,4 @@ tuple_cat2(Tuples&&... tpls) {
 }
 ```
 
-But this function is _even easier_ with Circle's [first-class tuple support](#first-class-tuple-support). We don't have to form a call to `get` to destructure each function parameter into the _initializer-list_. We can simply use the [implicit slice](../universal#implicit-slice) syntax to turn the operand into a pack of elements, and expand that right into the return statement's _initializer-list_.
+But this function is _even easier_ with Circle's [first-class tuple support](#first-class-tuple-support). We don't have to form a call to `get` to destructure each function parameter into the _initializer-list_. We can simply use the [implicit slice](../universal#implicit-slices) syntax to turn the operand into a pack of elements, and expand that right into the return statement's _initializer-list_.
