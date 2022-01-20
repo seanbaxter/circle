@@ -382,17 +382,21 @@ The builtin takes N template arguments, one for each dimension, and N + 1 functi
 
 Note that the visitor expression is not put into a lambda. There is no closure. In the code above, the expression is substituted 10 * 5 * 6 = 300 times, all in the scope of the `main` function. Making n-dimensional visitation a builtin allows the compiler to most efficiently implement this intricate control flow.
 
+[**variant.hxx**](variant.hxx)
 ```cpp
 template <class Visitor, class... Variants>
 constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
   if((... || vars.valueless_by_exception()))
     throw bad_variant_access("variant visit has valueless index");
 
-  return __visit<variant_size_v<Variants.remove_reference>...>(
-    vis(std::forward<Variants>(vars).template get<indices>()...),
+  return __visit<Variants.remove_reference.variant_size...>(
+    std::invoke(
+      std::forward<Visitor>(vis), 
+      std::forward<Variants>(vars).template get<indices>()...
+    ),
     vars.index()...
   );  
 }
 ```
 
-The variant `std::visit` function now has a trivial implementation. We return the result of a call to `__visit`, and that's all. The n-dimensional collection of variant sizes is expressed with `variant_size_v<Variants.remove_reference>...`. The corresponding collection of runtime index values is expressed with `vars.index()...`. The result expression extracts each combination of indices by calling the `get` member function on each forwarded variant (to maintain its value category), passing the implicitly-declared `indices` pack as the `get` template argument, and expanding this pack in the callable's function argument list.
+The variant `std::visit` function now has a trivial implementation. We return the result of `__visit`, and that's all. The n-dimensional collection of variant sizes is expressed with `variant_size_v<Variants.remove_reference>...`. The corresponding collection of runtime index values is expressed with `vars.index()...`. The result expression extracts each combination of indices by calling the `get` member function on each forwarded variant (to maintain its value category), passing the implicitly-declared `indices` pack as the `get` template argument, and expanding this pack in the callable's function argument list.

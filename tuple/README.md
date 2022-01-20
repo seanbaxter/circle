@@ -23,15 +23,15 @@ As documented [here](../universal#tuple-subscripts-and-slices),
 
 
 
-[**access.cxx**](access.cxx)
+[**access.cxx**](access.cxx) - [Compiler Explorer](https://godbolt.org/z/jhYjozqvs)
 ```cpp
-#include "tuple.hxx"
+#include <tuple>
 #include <array>
 #include <iostream>
 
 int main() {
-  circle::tuple<int, double, const char*> x1(
-    100, 3.14, "Hello circle::tuple"
+  std::tuple<int, double, const char*> x1(
+    100, 3.14, "Hello sd::tuple"
   );
 
   // Print out by subscript.
@@ -46,18 +46,18 @@ int main() {
 
   // Print out by slice.
   std::cout<< "Print by slice:\n";
-  std::cout<< "  " + int....string + ": "<< x2.[:]<< "\n" ...;
+  std::cout<< "  "<< int...<< ": "<< x2.[:]<< "\n" ...;
 
   std::pair<const char*, long> x3(
     "A pair's string",
     42
   );
   std::cout<< "Works with pairs:\n";
-  std::cout<< "  " + int....string + ": "<< x3.[:]<< "\n" ...;
+  std::cout<< "  "<< int...<< ": "<< x3.[:]<< "\n" ...;
 
-  std::cout<< "Even works with builtin arrays:\n";
   int primes[] { 2, 3, 5, 7, 11 };
-  std::cout<< "  " + int....string + ": "<< primes.[:]<< "\n" ...;
+  std::cout<< "Even works with builtin arrays:\n";
+  std::cout<< "  "<< int...<< ": "<< primes.[:]<< "\n" ...;
 }
 ```
 ```
@@ -65,7 +65,7 @@ $ circle access.cxx && ./access
 Print by subscript:
   0: 100
   1: 3.14
-  2: Hello circle::tuple
+  2: Hello std::tuple
 Print by slice:
   0: 50
   1: 1.618

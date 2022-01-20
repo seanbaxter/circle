@@ -12,6 +12,7 @@
 #include <utility>
 #include <compare>
 #include <variant> // common std::variant_size and std::variant_alternative
+#include <functional>
 
 namespace circle {
 
@@ -632,7 +633,10 @@ constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
     throw bad_variant_access("variant visit has valueless index");
 
   return __visit<Variants.remove_reference.variant_size...>(
-    vis(std::forward<Variants>(vars).template get<indices>()...),
+    std::invoke(
+      std::forward<Visitor>(vis), 
+      std::forward<Variants>(vars).template get<indices>()...
+    ),
     vars.index()...
   );  
 }
@@ -643,7 +647,10 @@ constexpr R visit(Visitor&& vis, Variants&&... vars) {
     throw bad_variant_access("variant visit has valueless index");
 
   return __visit_r<R, Variants.remove_reference.variant_size...>(
-    vis(std::forward<Variants>(vars).template get<indices>()...),
+    std::invoke(
+      std::forward<Visitor>(vis), 
+      std::forward<Variants>(vars).template get<indices>()...
+    ),
     vars.index()...
   );
 }

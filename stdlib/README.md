@@ -23,7 +23,7 @@ The implementations draw on lots of features unique to Circle, some even motivat
 * [Generic comparisons](https://github.com/seanbaxter/circle/tree/master/imperative#is_specialization)
 * [_argument-for_](https://github.com/seanbaxter/circle/tree/master/imperative#argument-for)
 * [`__visit`](https://github.com/seanbaxter/circle/tree/master/variant#visit) compiler builtin
-* [`__preferred_copy_init`](https://github.com/seanbaxter/circle/tree/master/variant#converting-constructor) and [`__preferred_assignment`](https://github.com/seanbaxter/circle/tree/master/variant#converting-assignment) builtins
+* [`__preferred_copy_init`](https://github.com/seanbaxter/circle/tree/master/variant#converting-constructor) and [`__preferred_assignment`](https://github.com/seanbaxter/circle/tree/master/variant#converting-assignment) compiler builtins
 * [Pack `static_assert`](https://github.com/seanbaxter/circle/tree/master/variant#comparison-and-relational-operators)
 
 ## Contents.
@@ -37,6 +37,7 @@ The implementations draw on lots of features unique to Circle, some even motivat
     * [Tuple cat](#tuple-cat)
 3. [Deduced forwarding references](#deduced-forwarding-references)
 4. [Visit](#visit)
+5. [Builtins for overload resolution](#builtins-for-overload-resolution)
 
 ## 1. Member pack declarations.
 
@@ -44,7 +45,7 @@ Declare a pack of non-static data members with the member pack declaration synta
 
 ### Basic tuple.
 
-[**tuple1.cxx**](tuple1.cxx) - [Compiler Explorer](https://godbolt.org/z/5srsvdTqb)
+[**tuple1.cxx**](tuple1.cxx) - [Compiler Explorer](https://godbolt.org/z/nMb4jz7d8)
 ```cpp
 #include <iostream>
 
@@ -202,7 +203,7 @@ struct extents {
 
 The heart of the Circle mdspan [implementation](https://github.com/seanbaxter/mdspan#mdspan-circle) is a `[[no_unique_address]]` member pack declaration of `storage_t` types. When the `Extent` template parameter equals `dynamic_extent`, then the extent is stored by the non-static data member `extent`. Otherwise, the extent is indicated by the static data member of the same name. `_storage_t` classes specialized on static extents are _empty classes_, and we arrange that they take no space in the `extents` class by using the `[[no_unique_address]]` attribute and by making their types unique, specializing the class templates with the index of the extent within its collection. Empty unique types marked `[[no_unique_address]]` alias to the same layout offset, effectively requiring no space.
 
-[**extent1.cxx**](extent1.cxx)
+[**extent1.cxx**](extent1.cxx) - [Compiler Explorer](https://godbolt.org/z/rz8jKKeGe)
 ```cpp
 #include <type_traits>
 #include <limits>
@@ -357,7 +358,7 @@ std::tuple<CTypes...> tuple_cat(Tuples&&... args);
 
 [std::tuple_cat](https://en.cppreference.com/w/cpp/utility/tuple/tuple_cat) is a generic function that concatenates all tuple elements in all of its arguments. It's [hard to implement](https://github.com/gcc-mirror/gcc/blob/7adcbafe45f8001b698967defe682687b52c0007/libstdc%2B%2B-v3/include/std/tuple#L1693)!
 
-[**tuple_cat1.cxx**](tuple_cat1.cxx)
+[**tuple_cat1.cxx**](tuple_cat1.cxx) - [Compiler Explorer](https://godbolt.org/z/W3nqYd5jb)
 ```cpp
 #include <tuple>
 #include <string>
@@ -467,3 +468,87 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
 The Circle tuple [implementation](../tuple/tuple.hxx) reduces the eight `get` overloads declared in the Standard to just two function definitions. This 4:1 replacement can be observed in many scenarios in the Standard Library as well as user code. It plays nicely with [P0847R7 - Deducing 'this'](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), also implemented in Circle. That proposal exposes the implicit object argument as an explicit function parameter. You could already use a C++11 forwarding reference with that. But now you can use a deduced forwarding reference to further constrain it to the class type, getting around the ["shadowing problem"](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2481r0.html#the-shadowing-mitigation-private-inheritance-problem).
 
 ## 4. Visit
+
+By far the most troublesome function in the C++ variant is the [std::visit](http://eel.is/c++draft/variant.visit) function. Experience with variant inspired a Circle builtin for generating an n-dimensional visitor pattern. Michael Park [documented](https://mpark.github.io/programming/2019/01/22/variant-visitation-v2/) the struggles of implementing even a one-dimensional visitor with ISO C++.
+
+[**visit.hxx**](../variant/variant.hxx)
+```cpp
+template <class Visitor, class... Variants>
+constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
+  if((... || vars.valueless_by_exception()))
+    throw bad_variant_access("variant visit has valueless index");
+
+  return __visit<Variants.remove_reference.variant_size...>(
+    std::invoke(
+      std::forward<Visitor>(vis), 
+      std::forward<Variants>(vars).template get<indices>()...
+    ),
+    vars.index()...
+  );  
+}
+```
+
+The [`__visit`](../variant#visit) and `__visit_r` builtins take N template arguments, which indicate the _extent_ of each dimension. The first function parameter is the callable. The subsequence N function parameters indicate the runtime values for each dimension. The compiler generates the N-dimensional switch.
+
+The `__visit` builtin is also reflection-aware, allowing specialization over enums (where it visits all enumerators), and on specializations of `integer_sequence`, where it visits all template parameters.
+
+## 5. Builtins for overload resolution
+
+Variant inspired two extensions for accessing the compiler's overload resolution capabilities. 
+
+`__preferred_copy_init` takes an argument type and a set of target types, and finds the target type with the best viable copy initialization given the argument type. If there is no viable initialization, or there are ambiguous best viable conversions, the builtin yields -1.
+
+This makes for an easy implementation of the [variant converting constructor](http://eel.is/c++draft/variant#ctor-14).
+[**variant.hxx**](../variant/variant.hxx)
+```cpp
+  template<typename T, int j = __preferred_copy_init(T, Types...)>
+  requires(
+    -1 != j &&
+    T.remove_cvref != variant && 
+    T.template != std::in_place_type_t &&
+    T.template != std::in_place_index_t && 
+    std::is_constructible_v<Types...[j], T>
+  )
+  constexpr variant(T&& arg) 
+    noexcept(std::is_nothrow_constructible_v<Types...[j], T>) :
+    m...[j](std::forward<T>(arg)), _index(j) { }
+```
+
+`__preferred_assignment` has the same parameterization as `__preferred_copy_init`, but finds the best viable assignment operator. This makes implementing the [variant converting assignment](http://eel.is/c++draft/variant#assign-11) very easy.
+
+```cpp
+  template<class T, size_t j = __preferred_assignment(T&&, Types...)>
+  requires(T.remove_cvref != variant && -1 != j &&
+    std::is_constructible_v<Types...[j], T>)
+  constexpr variant& operator=(T&& t) 
+  noexcept(std::is_nothrow_assignable_v<Types...[j], T> &&
+    std::is_nothrow_constructible_v<Types...[j], T>) {
+ 
+    if(_index == j) {
+      // If *this holds Tj, assigns std::forward<T>(t) to the value contained
+      // in *this.
+      m...[j] = std::forward<T>(t);
+ 
+    } else if constexpr(std::is_nothrow_constructible_v<Types...[j], T> ||
+      !std::is_nothrow_move_constructible_v<Types...[j]>) {
+ 
+      // Otherwise, if is_nothrow_constructible_v<Tj, T> || 
+      // !is_nothrow_move_constructible_v<Tj> is true, equivalent to
+      // emplace<j>(Tj(std::forward<T>(t))).
+      reset();
+      new(&m...[j]) Types...[j](std::forward<T>(t));
+      _index = j;
+ 
+    } else {
+      // Otherwise, equivalent to emplace<j>(Tj(std::forward<T>(t))).
+      Types...[j] temp(std::forward<T>(t));
+      reset();
+      new(&m...[j]) Types...[j](std::move(temp));
+      _index = j;
+    }
+ 
+    return *this;
+  }
+```
+
+## 6. 
