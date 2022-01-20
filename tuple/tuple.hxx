@@ -10,6 +10,7 @@
 
 #include <tuple>
 #include <memory>
+#include <functional>
 
 namespace circle {
 
@@ -55,7 +56,6 @@ auto&& get(Tuple&& t : tuple<Types...>) noexcept {
   constexpr size_t I = T == Types ...?? int... : -1;
   return std::forward<Tuple>(t).template _get<I>();
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.creation]
@@ -135,7 +135,6 @@ constexpr auto operator<=>(const tuple<TTypes...>& t,
   return Result::equivalent;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.special]
 
@@ -146,20 +145,17 @@ noexcept(noexcept(x.swap(y))) {
   x.swap(y);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.apply]
 
 template<class F, class Tuple>
 constexpr decltype(auto) apply(F&& f, Tuple&& t) {
-  constexpr size_t N = Tuple.remove_reference.tuple_size;
-  return std::forward<F>(f)(get<int...(N)>(std::forward<Tuple>(t))...);
+  return std::invoke(std::forward<F>(f), std::forward<Tuple>(t)...);
 }
 
 template<class T, class Tuple>
 constexpr T make_from_tuple(Tuple&& t) {
-  constexpr size_t N = Tuple.remove_reference.tuple_size;
-  return T(get<int...(N)>(std::forward<Tuple>(t))...);
+  return T(std::forward<Tuple>(t)...);
 }
 
 template<class... Types>
