@@ -7,9 +7,10 @@ Download [here](https://www.circle-lang.org/)
 
 Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler updates.
 
-**NEW** [Member packs and 'std::tuple'](tuple#circle-tuple)  
-**NEW** [Member packs and `std::variant`](variant#circle-variant)  
-**NEW** [Member packs and `mdspan`](https://github.com/seanbaxter/mdspan/tree/circle#mdspan-circle)  
+[Circle implementations of Standard Library classes](stdlib#circle-implementations-of-standard-library-classes)  
+    * [Member packs and 'std::tuple'](tuple#circle-tuple)  
+    * [Member packs and `std::variant`](variant#circle-variant)  
+    * [Member packs and `mdspan`](https://github.com/seanbaxter/mdspan/tree/circle#mdspan-circle)  
 [CUDA](cuda/README.md)  
 [Pattern Matching](pattern/README.md)  
 [Circle Imperative Arguments](imperative/README.md)  
