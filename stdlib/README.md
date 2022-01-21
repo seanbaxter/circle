@@ -499,7 +499,8 @@ My experience implementing `variant` inspired two extensions for exposing more o
 
 [`__preferred_copy_init`](../variant#converting-constructor) takes an argument type and a set of target types, and finds the target type with the best viable copy initialization given the argument type. If there is no viable initialization, or there are ambiguous best viable conversions, the builtin yields -1.
 
-This makes for an easy implementation of the [variant converting constructor](http://eel.is/c++draft/variant#ctor-14).
+This makes for an easy implementation of the variant [converting constructor](http://eel.is/c++draft/variant#ctor-14).
+
 [**variant.hxx**](../variant/variant.hxx)
 ```cpp
   template<typename T, int j = __preferred_copy_init(T, Types...)>
