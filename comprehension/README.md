@@ -1357,7 +1357,7 @@ The static slice operator `...[begin:end:step]` transforms the template paramete
 
 ### Static slices on tuple-like objects
 
-The static slice operator `.[begin:end:step]` also works when applied to non-pack expressions with array, tuple-like or class types. It presents busts up the entity and exposes it as a _heterogeneous_ non-type static pack. The same semantic rules for fixing structured bindings to initializers is at play here:
+The static slice operator `.[begin:end:step]` also works when applied to non-pack expressions with array, tuple-like or class types. It busts up the entity and exposes it as a _heterogeneous_ non-type static pack. The same semantic rules for fixing structured bindings to initializers is at play here:
 
 1. If the operand is an array, each element in the static parameter pack is one array element.
 1. If specializing `std::tuple_size` on the operand's type finds a partial template specialization (or technically a specialization that's not incomplete), the object is treated as "tuple-like." `std::tuple_element` breaks the object apart into elements. `std::array`, `std::pair` and `std::tuple` all provide specializations for these class templates.
