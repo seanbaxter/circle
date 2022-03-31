@@ -45,13 +45,13 @@ namespace circle {
 // [tuple.elem]
 
 template<size_t I, class Tuple, class...Types>
-auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
+constexpr auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
   static_assert(I < sizeof...(Types));
   return t.template _get<I>();
 }
 
 template<class T, class Tuple, class... Types>
-auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
+constexpr auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
   static_assert(1 == (0 + ... + (T == Types)));
   constexpr size_t I = T == Types ...?? int... : -1;
   return t.template _get<I>();
