@@ -1,7 +1,7 @@
 #pragma once
 
 #if !defined(__circle_build__) || __circle_build__ < 152
-  #error Must compile with Circle build 152 or later
+  #error Must compile with Circle build 165 or later
 #endif
 
 #if __cplusplus < 202002L
@@ -45,29 +45,29 @@ namespace circle {
 // [tuple.elem]
 
 template<size_t I, class Tuple, class...Types>
-auto&& get(Tuple&& t : tuple<Types...>) noexcept {
+auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
   static_assert(I < sizeof...(Types));
-  return std::forward<Tuple>(t).template _get<I>();
+  return t.template _get<I>();
 }
 
 template<class T, class Tuple, class... Types>
-auto&& get(Tuple&& t : tuple<Types...>) noexcept {
+auto&& get(Tuple&& t forward : tuple<Types...>) noexcept {
   static_assert(1 == (0 + ... + (T == Types)));
   constexpr size_t I = T == Types ...?? int... : -1;
-  return std::forward<Tuple>(t).template _get<I>();
+  return t.template _get<I>();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // [tuple.creation]
 
 template<class... TTypes>
-constexpr tuple<TTypes.unwrap_ref_decay...> make_tuple(TTypes&&... t) {
-  return { std::forward<TTypes>(t)... };
+constexpr tuple<TTypes.unwrap_ref_decay...> make_tuple(TTypes&&... t forward) {
+  return { t... };
 }
 
 template<class... TTypes>
-constexpr tuple<TTypes&&...> forward_as_tuple(TTypes&&... t) noexcept {
-  return { std::forward<TTypes>(t)... };
+constexpr tuple<TTypes&&...> forward_as_tuple(TTypes&&... t forward) noexcept {
+  return { t... };
 }
 
 template<class... TTypes>
@@ -77,14 +77,11 @@ constexpr tuple<TTypes&...> tie(TTypes&... t) noexcept {
 
 template<class... Tuples>
 constexpr tuple<
-  for typename Ti : Tuples => 
-    Ti.remove_reference.tuple_elements...
+  for typename Tuple : Tuples => 
+    Tuple.remove_reference.tuple_elements...
 >
-tuple_cat(Tuples&&... tpls) {
-  return { 
-    for i, typename Ti : Tuples =>
-      std::forward<Ti>(tpls...[i]) ...
-  };
+tuple_cat(Tuples&&... tpls forward) {
+  return { for tpl : tpls => tpl... };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,13 +133,13 @@ noexcept(noexcept(x.swap(y))) {
 // [tuple.apply]
 
 template<class F, class Tuple>
-constexpr decltype(auto) apply(F&& f, Tuple&& t) {
-  return std::invoke(std::forward<F>(f), std::forward<Tuple>(t)...);
+constexpr decltype(auto) apply(F&& f forward, Tuple&& t forward) {
+  return std::invoke(f, t...);
 }
 
 template<class T, class Tuple>
-constexpr T make_from_tuple(Tuple&& t) {
-  return T(std::forward<Tuple>(t)...);
+constexpr T make_from_tuple(Tuple&& t forward) {
+  return T(t...);
 }
 
 template<class... Types>
@@ -193,8 +190,7 @@ public:
     )
   )
   constexpr explicit((... && std::is_convertible_v<UTypes&&, Types>))
-  tuple(UTypes&&... u) :
-    m(std::forward<UTypes>(u))... { }
+  tuple(UTypes&&... u forward) : m(u)... { }
 
   // Copy and move constructors are defaulted.
   constexpr tuple(const tuple& u) = default;
@@ -214,8 +210,7 @@ public:
     )
   )
   constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
-  tuple(T&& u : tuple<UTypes...>) :
-    m(get<int...>(std::forward<T>(u)))... { }
+  tuple(T&& u forward : tuple<UTypes...>) : m(get<int...>(u))... { }
 
   // Conversion constructor from std::pair.
   template<class T, class U1, class U2>
@@ -228,8 +223,7 @@ public:
     !std::is_convertible_v<__copy_cvref(T&&, U1), Types...[0]> || 
     !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   )
-  tuple(T&& u : std::pair<U1, U2>) :
-    m((get<int...>(std::forward<T>(u))))... { }
+  tuple(T&& u forward : std::pair<U1, U2>) : m((get<int...>(u)))... { }
 
   //////////////////////////////////////////////////////////////////////////////
   // Allocator-aware constructors.
@@ -256,8 +250,8 @@ public:
     (sizeof...(Types) != 1 ||| UTypes...[0].remove_cvref != tuple)
   )
   constexpr explicit((... && std::is_convertible_v<UTypes&&, Types>))
-  tuple(std::allocator_arg_t, const Alloc& a, UTypes&&... x) :
-    m(std::make_obj_using_allocator<Types>(a, std::forward<UTypes>(x)))... { }
+  tuple(std::allocator_arg_t, const Alloc& a, UTypes&&... x forward) :
+    m(std::make_obj_using_allocator<Types>(a, x))... { }
 
   // Converting allocator-aware constructor from tuple.
   template<class Alloc, class T, class... UTypes>
@@ -273,8 +267,8 @@ public:
     )
   )
   constexpr explicit(!(... && std::is_convertible_v<__copy_cvref(T&&, UTypes), Types>))
-  tuple(std::allocator_arg_t, const Alloc& a, T&& u : tuple<UTypes...>) :
-    m(std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))))... { }
+  tuple(std::allocator_arg_t, const Alloc& a, T&& u forward : tuple<UTypes...>) :
+    m(std::make_obj_using_allocator<Types>(a, get<int...>(u)))... { }
 
   // Converting allocator-aware constructor from std::pair.
   template<class Alloc, class T, class U1, class U2>
@@ -287,8 +281,8 @@ public:
     !std::is_convertible_v<__copy_cvref(T&&, U1), Types...[0]> || 
     !std::is_convertible_v<__copy_cvref(T&&, U2), Types...[1]>
   ) 
-  tuple(std::allocator_arg_t, const Alloc& a, T&& u : std::pair<U1, U2>) :
-    m(std::make_obj_using_allocator<Types>(a, get<int...>(std::forward<T>(u))))... { }
+  tuple(std::allocator_arg_t, const Alloc& a, T&& u forward : std::pair<U1, U2>) :
+    m(std::make_obj_using_allocator<Types>(a, get<int...>(u)))... { }
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -300,8 +294,8 @@ public:
 
   template<class... UTypes, typename T>
   requires((... && std::is_assignable_v<Types, __copy_cvref(T&&, UTypes)>))
-  constexpr tuple& operator=(T&& u : tuple<UTypes...>) {
-    m = get<int...>(std::forward<T>(u)) ...;
+  constexpr tuple& operator=(T&& u forward : tuple<UTypes...>) {
+    m = get<int...>(u) ...;
     return *this;
   }
 
@@ -311,8 +305,8 @@ public:
     std::is_assignable_v<Types...[0]&, __copy_cvref(T&&, U1)> &&
     std::is_assignable_v<Types...[1]&, __copy_cvref(T&&, U2)>
   )
-  constexpr tuple& operator=(T&& u : std::pair<U1, U2>) {
-    m = get<int...>(std::forward<T>(u)) ...;
+  constexpr tuple& operator=(T&& u forward : std::pair<U1, U2>) {
+    m = get<int...>(u) ...;
     return *this;
   }
 

@@ -1,5 +1,5 @@
 #if !defined(__circle_build__) || __circle_build__ < 147
-#error Must compile with Circle build 147 or later
+#error Must compile with Circle build 165 or later
 #endif
 
 #if !defined(__cplusplus) || __cplusplus < 202002
@@ -50,36 +50,22 @@ template<class... Types>
 class variant {
   static_assert(sizeof...(Types) > 0 && sizeof...(Types) < 256);
 
-  static constexpr bool copy_constructible = 
-    (... && std::is_copy_constructible_v<Types>);
-  static constexpr bool move_constructible =
-    (... && std::is_move_constructible_v<Types>);
-  static constexpr bool copy_assignable = 
-    (... && std::is_copy_assignable_v<Types>);
-  static constexpr bool move_assignable =
-    (... && std::is_move_assignable_v<Types>);
+  static constexpr bool copy_constructible           = (... && Types.is_copy_constructible);
+  static constexpr bool move_constructible           = (... && Types.is_move_constructible);
+  static constexpr bool copy_assignable              = (... && Types.is_copy_assignable);
+  static constexpr bool move_assignable              = (... && Types.is_move_assignable);
 
-  static constexpr bool trivially_copy_constructible =
-    (... && std::is_trivially_copy_constructible_v<Types>);
-  static constexpr bool trivially_move_constructible =
-    (... && std::is_trivially_move_constructible_v<Types>);
-  static constexpr bool trivially_copy_assignable =
-    (... && std::is_trivially_copy_assignable_v<Types>);
-  static constexpr bool trivially_move_assignable = 
-    (... && std::is_trivially_move_assignable_v<Types>);
-  static constexpr bool trivially_destructible = 
-    (... && std::is_trivially_destructible_v<Types>);
+  static constexpr bool trivially_copy_constructible = (... && Types.is_trivially_copy_constructible);
+  static constexpr bool trivially_move_constructible = (... && Types.is_trivially_move_constructible);
+  static constexpr bool trivially_copy_assignable    = (... && Types.is_trivially_copy_assignable);
+  static constexpr bool trivially_move_assignable    = (... && Types.is_trivially_move_assignable);
+  static constexpr bool trivially_destructible       = (... && Types.is_trivially_destructible);
 
-  static constexpr bool nothrow_copy_constructible =
-    (... && std::is_nothrow_copy_constructible_v<Types>);
-  static constexpr bool nothrow_move_constructible =
-    (... && std::is_nothrow_move_constructible_v<Types>);
-  static constexpr bool nothrow_copy_assignable =
-    (... && std::is_nothrow_copy_assignable_v<Types>);
-  static constexpr bool nothrow_move_assignable = 
-    (... && std::is_nothrow_move_assignable_v<Types>);
-  static constexpr bool nothrow_swappable =
-    (... && std::is_nothrow_swappable_v<Types>);
+  static constexpr bool nothrow_copy_constructible   = (... && Types.is_nothrow_copy_constructible);
+  static constexpr bool nothrow_move_constructible   = (... && Types.is_nothrow_move_constructible);
+  static constexpr bool nothrow_copy_assignable      = (... && Types.is_nothrow_copy_assignable);
+  static constexpr bool nothrow_move_assignable      = (... && Types.is_nothrow_move_assignable);
+  static constexpr bool nothrow_swappable            = (... && Types.is_nothrow_swappable);
 
   // If all member types are nothrow assignable, we can't get into a 
   // valueless state.
@@ -134,8 +120,8 @@ public:
 
   // Default ctor.
   constexpr variant() 
-  noexcept(std::is_nothrow_default_constructible_v<Types...[0]>) 
-  requires(std::is_default_constructible_v<Types...[0]>) : 
+  noexcept(Types...[0].is_nothrow_default_constructible) 
+  requires(Types...[0].is_default_constructible) : 
     m...[0](), _index(0) { }
 
   // Copy ctors.
@@ -160,12 +146,12 @@ public:
   constexpr variant(variant&& w) 
   requires(trivially_move_constructible) = default;
 
-  constexpr variant(variant&& w)
+  constexpr variant(variant&& w move)
   noexcept(nothrow_move_constructible)
   requires(move_constructible && !trivially_move_constructible) {
     if(!w.valueless_by_exception()) {
       int... == w._index ...? 
-        (void)new(&m) Types(std::move(w. ...m)) : 
+        (void)new(&m) Types(w. ...m) : 
         __builtin_unreachable();
       _index = w._index;
     }
@@ -186,24 +172,24 @@ public:
     T.template != std::in_place_index_t && 
     std::is_constructible_v<Types...[j], T>
   )
-  constexpr variant(T&& arg) 
+  constexpr variant(T&& arg forward) 
     noexcept(std::is_nothrow_constructible_v<Types...[j], T>) :
-    m...[j](std::forward<T>(arg)), _index(j) { }
+    m...[j](arg), _index(j) { }
 
   // Construct a specific type.
   template<class T, class... Args, size_t j = find_index<T> >
   requires(is_single_usage<T> && std::is_constructible_v<T, Args...>) 
-  explicit constexpr variant(std::in_place_type_t<T>, Args&&... args)
+  explicit constexpr variant(std::in_place_type_t<T>, Args&&... args forward)
   noexcept(std::is_nothrow_constructible_v<T, Args...>):
-    m...[j](std::forward<Args>(args)), _index(j) { }
+    m...[j](args), _index(j) { }
 
   template<class T, class U, class... Args, size_t j = find_index<T> >
   requires(is_single_usage<T> && 
     std::is_constructible_v<T, std::initializer_list<U>, Args...>)
   explicit constexpr variant(std::in_place_type_t<T>, 
-    std::initializer_list<U> il, Args&&... args)
+    std::initializer_list<U> il, Args&&... args forward)
   noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>, Args...>) :
-    m...[j](il, std::forward<Args>(args)...), _index(j) { }
+    m...[j](il, args...), _index(j) { }
 
   // Construct at a specific index.
   template<size_t I, typename... Args>
@@ -211,9 +197,9 @@ public:
     (I < sizeof...(Types)) && 
     std::is_constructible_v<Types...[I], Args...>
   )
-  explicit constexpr variant(std::in_place_index_t<I>, Args&&... args)
+  explicit constexpr variant(std::in_place_index_t<I>, Args&&... args forward)
     noexcept(std::is_nothrow_constructible_v<Types...[I], Args...>) :
-    m...[I](std::forward<Args>(args)...), _index(I) { }
+    m...[I](args...), _index(I) { }
 
   template<size_t I, class U, typename... Args>
   requires(
@@ -221,10 +207,10 @@ public:
     std::is_constructible_v<Types...[I], std::initializer_list<U>, Args...>
   )
   explicit constexpr variant(std::in_place_index_t<I>, 
-    std::initializer_list<U> il, Args&&... args)
+    std::initializer_list<U> il, Args&&... args forward)
     noexcept(std::is_nothrow_constructible_v<Types...[I], 
       std::initializer_list<U>, Args...>) :
-    m...[I](std::forward<Args>(args)...), _index(I) { }
+    m...[I](args...), _index(I) { }
 
   //////////////////////////////////////////////////////////////////////////////
   // [variant.dtor]
@@ -259,8 +245,8 @@ public:
 
       } else {
         int... == rhs._index ...? 
-          std::is_nothrow_copy_constructible_v<Types> ||
-          !std::is_nothrow_move_constructible_v<Types> ?? 
+          Types.is_nothrow_copy_constructible ||
+          !Types.is_nothrow_move_constructible ?? 
             // Otherwise, if is_nothrow_copy_constructible<Tj> is true or 
             // is_nothrow_move_constructible_v<Tj> is false, 
             // emplace<j>(get<j>(rhs)).
@@ -278,7 +264,7 @@ public:
   constexpr variant& operator=(variant&& rhs) 
   requires(move_assign_trivial) = default;
 
-  constexpr variant& operator=(variant&& rhs) 
+  constexpr variant& operator=(variant&& rhs move) 
   noexcept(move_assign_nothrow) requires(!move_assign_trivial) {
     if(!valueless_by_exception() || !rhs.valueless_by_exception()) {
       // If neither *this nor rhs holds a value, there is no effect.
@@ -292,14 +278,14 @@ public:
         // Otherwise, if index() == j, assign get<j>(std::move(rhs)) to the
         // value contained in *this.
         int... == _index ...? 
-          (void)(m = std::move(rhs. ...m)) : 
+          (void)(m = rhs. ...m) : 
           __builtin_unreachable();
  
       } else {
         // Otherwise, equivalent to emplace<j>(get<j>(std::move(rhs))).
         reset();
         int... == rhs._index ...? 
-          (void)new (&m) Types(std::move(rhs. ...m)) :
+          (void)new (&m) Types(rhs. ...m) :
           __builtin_unreachable();
         _index = rhs._index;
       }
@@ -317,14 +303,14 @@ public:
   template<class T, size_t j = __preferred_assignment(T&&, Types...)>
   requires(T.remove_cvref != variant && -1 != j &&
     std::is_constructible_v<Types...[j], T>)
-  constexpr variant& operator=(T&& t) 
+  constexpr variant& operator=(T&& t forward) 
   noexcept(std::is_nothrow_assignable_v<Types...[j], T> &&
     std::is_nothrow_constructible_v<Types...[j], T>) {
  
     if(_index == j) {
       // If *this holds Tj, assigns std::forward<T>(t) to the value contained
       // in *this.
-      m...[j] = std::forward<T>(t);
+      m...[j] = t;
  
     } else if constexpr(std::is_nothrow_constructible_v<Types...[j], T> ||
       !std::is_nothrow_move_constructible_v<Types...[j]>) {
@@ -333,12 +319,12 @@ public:
       // !is_nothrow_move_constructible_v<Tj> is true, equivalent to
       // emplace<j>(Tj(std::forward<T>(t))).
       reset();
-      new(&m...[j]) Types...[j](std::forward<T>(t));
+      new(&m...[j]) Types...[j](t);
       _index = j;
  
     } else {
       // Otherwise, equivalent to emplace<j>(Tj(std::forward<T>(t))).
-      Types...[j] temp(std::forward<T>(t));
+      Types...[j] temp(t);
       reset();
       new(&m...[j]) Types...[j](std::move(temp));
       _index = j;
@@ -350,35 +336,35 @@ public:
   // [variant.mod]
   template<class T, class... Args, size_t j = find_index<T> >
   requires(-1 != j && std::is_constructible_v<T, Args...> && is_single_usage<T>)
-  constexpr T& emplace(Args&&... args) 
+  constexpr T& emplace(Args&&... args forward) 
   noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-    return emplace<j>(std::forward<Args>(args)...);
+    return emplace<j>(args...);
   }
 
   template<class T, class U, class... Args, size_t j = find_index<T> >
   requires(-1 != j && is_single_usage<T> && 
     std::is_constructible_v<T, std::initializer_list<U>&, Args...>)
-  constexpr T& emplace(std::initializer_list<U> il, Args&&... args)
+  constexpr T& emplace(std::initializer_list<U> il, Args&&... args forward)
   noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>, Args...>) {
-    return emplace<j>(il, std::forward<Args>(args)...);
+    return emplace<j>(il, args...);
   }
 
   template<size_t I, class... Args>
   requires(std::is_constructible_v<Types...[I], Args...>)
-  constexpr Types...[I]& emplace(Args&&... args) 
+  constexpr Types...[I]& emplace(Args&&... args forward) 
   noexcept(std::is_nothrow_constructible_v<Types...[I], Args...>) {
     reset();
-    new (&m...[I]) Types...[I](std::forward<Args>(args)...);
+    new (&m...[I]) Types...[I](args...);
     _index = I;
     return m...[I];
   }
 
   template<size_t I, class U, class... Args>
   requires(std::is_constructible_v<Types...[I], std::initializer_list<U>&, Args...>)
-  constexpr Types...[I]& emplace(std::initializer_list<U> il, Args&&... args)
+  constexpr Types...[I]& emplace(std::initializer_list<U> il, Args&&... args forward)
   noexcept(std::is_nothrow_constructible_v<Types...[I], std::initializer_list<U>, Args...>) {
     reset();
-    new (&m...[I]) Types...[I](il, std::forward<Args>(args)...);
+    new (&m...[I]) Types...[I](il, args...);
     _index = I;
     return m...[I];
   }
@@ -423,9 +409,9 @@ public:
   }
 
   template<size_t I, typename Self>
-  constexpr auto&& get(this Self&& self) noexcept {
+  constexpr auto&& get(this Self&& self forward) noexcept {
     static_assert(I < sizeof...(Types));
-    return std::forward<Self>(self). ...m...[I];
+    return self. ...m...[I];
   }
 };
 
@@ -437,18 +423,18 @@ constexpr bool holds_alternative(const variant<Types...>& v) noexcept {
 }
 
 template<size_t I, class Var, class... Types>
-constexpr auto&& get(Var&& v : variant<Types...>) {
+constexpr auto&& get(Var&& v forward : variant<Types...>) {
   return I == v.index() ? 
-    std::forward<Var>(v).template get<I>() : 
+    v.template get<I>() : 
     throw bad_variant_access("variant get has valueless index");
 }
 
 template<class T, class Var, class... Types>
-constexpr auto&& get(Var&& v : variant<Types...>) {
+constexpr auto&& get(Var&& v forward : variant<Types...>) {
   static_assert(1 == (0 + ... + (Var.type_args == T)));
   constexpr size_t I = Var.type_args == T ...?? int... : -1;
   return I == v.index() ? 
-    std::forward<Var>(v).template get<I>() : 
+    v.template get<I>() : 
     throw bad_variant_access("variant get has valueless index");
 }
 
@@ -628,28 +614,28 @@ operator<=>(const variant<Types...>& v, const variant<Types...>& w) {
 
 // [variant.visit]
 template <class Visitor, class... Variants>
-constexpr decltype(auto) visit(Visitor&& vis, Variants&&... vars) {
+constexpr decltype(auto) visit(Visitor&& vis forward, Variants&&... vars forward) {
   if((... || vars.valueless_by_exception()))
     throw bad_variant_access("variant visit has valueless index");
 
   return __visit<Variants.remove_reference.variant_size...>(
     std::invoke(
-      std::forward<Visitor>(vis), 
-      std::forward<Variants>(vars).template get<indices>()...
+      vis, 
+      vars.template get<indices>()...
     ),
     vars.index()...
   );  
 }
 
 template <class R, class Visitor, class... Variants>
-constexpr R visit(Visitor&& vis, Variants&&... vars) {
+constexpr R visit(Visitor&& vis forward, Variants&&... vars forward) {
   if((... || vars.valueless_by_exception()))
     throw bad_variant_access("variant visit has valueless index");
 
   return __visit_r<R, Variants.remove_reference.variant_size...>(
     std::invoke(
-      std::forward<Visitor>(vis), 
-      std::forward<Variants>(vars).template get<indices>()...
+      vis, 
+      vars.template get<indices>()...
     ),
     vars.index()...
   );
