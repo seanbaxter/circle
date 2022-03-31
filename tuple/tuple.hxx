@@ -313,7 +313,7 @@ public:
   // Give the internal function the name _get so it doesn't break ADL for
   // getters of other types.
   template<size_t I, class Self>
-  auto&& _get(this Self&& self : tuple) noexcept {
+  constexpr auto&& _get(this Self&& self : tuple) noexcept {
     return self. ...m...[I];
   }
 
