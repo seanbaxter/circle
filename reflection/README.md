@@ -163,7 +163,7 @@ These attributes apply to [typed enums](#typed-enums):
 * **@base_value**(_object_, _ordinal_ [, _access-flags_]) - Base object lvalue. 
 * _object_.**@base_value**(_ordinal_ [, _access-flags_])
 * **@base_values**(_object_ [, _access-flags_]) - Pack of base object lvalues.
-* _object_.**@base_values**([_access-flags_])
+* _object_.**@base_values**
 
 ### Non-static data members introspection
 
@@ -185,7 +185,7 @@ These attributes apply to [typed enums](#typed-enums):
 * **@member_value**(_object, ordinal_ [, _access-flags_]) - Data member lvalue.
 * _object_.**@member_value**(_ordinal_ [, _access-flags_])
 * **@member_values**(_object_ [, _access-flags_]) - Pack of data member lvalues.
-* _object_.**@member_values**([_access-flags_])
+* _object_.**@member_values**
 
 ### Virtual functions introspection
 
