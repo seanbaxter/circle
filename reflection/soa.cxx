@@ -12,10 +12,10 @@ struct vectors_t {
 template<typename type_t>
 vectors_t<type_t> aos_to_soa(const type_t* objects, size_t count) {
   vectors_t<type_t> vec;
-  vec.@member_values().resize(count)...;
+  vec.@member_values.resize(count)...;
 
   for(size_t i = 0; i < count; ++i)
-    vec.@member_values()[i] = objects[i].@member_values()...;
+    vec.@member_values[i] = objects[i].@member_values...;
 
   return vec;
 }
@@ -36,7 +36,7 @@ template<typename type_t>
 void print_vectors(const type_t& vecs) {
   printf("%s\n", @type_string(type_t));
   printf("  %s: %s\n", @member_names(type_t), 
-    print_vector(vecs.@member_values()).c_str())...;
+    print_vector(vecs.@member_values).c_str())...;
 }
 
 struct vec3_t {

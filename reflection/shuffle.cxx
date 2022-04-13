@@ -15,8 +15,8 @@ void subgroupShuffle(type_t& x, uint id) {
 
   } else if constexpr(std::is_class_v<type_t>) {
     // Shuffle all public base classes and data members of class objects.
-    subgroupShuffle(x.@base_values(), id)...;
-    subgroupShuffle(x.@member_values(), id)...;
+    subgroupShuffle(x.@base_values, id)...;
+    subgroupShuffle(x.@member_values, id)...;
 
   } else {
     // Plain shuffle scalars.
