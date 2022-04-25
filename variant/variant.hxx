@@ -1,4 +1,4 @@
-#if !defined(__circle_build__) || __circle_build__ < 147
+#if !defined(__circle_build__) || __circle_build__ < 168
 #error Must compile with Circle build 165 or later
 #endif
 
@@ -103,10 +103,10 @@ class variant {
     nothrow_swappable;
 
   template<typename T>
-  static constexpr bool is_single_usage = 1 == (0 + ... + (T == Types));
+  static constexpr bool is_single_usage = Types.count(T);
 
   template<typename T>
-  static constexpr size_t find_index = T == Types ...?? int... : -1;
+  static constexpr size_t find_index = Types.find(T);
 
   union {
     Types ...m;
@@ -154,6 +154,33 @@ public:
         (void)new(&m) Types(w. ...m) : 
         __builtin_unreachable();
       _index = w._index;
+    }
+  }
+
+  // Subsumption constructors. Types must contain everything in Types2.
+  template<typename... Types2>
+  requires(Types.contains_all(Types2...))
+  constexpr variant(const variant<Types2...>& w)
+  noexcept((... && Types2.is_nothrow_copy_constructible))
+  requires((... && Types2.is_copy_constructible)) {
+    if(!w.valueless_by_exception()) {
+      int... == w._index ...?
+        (void)new(&m...[Types.find(Types2)]) Types2(w. ...m),
+        _index = Types.find(Types2) :
+        __builtin_unreachable();
+    }
+  }
+
+  template<typename... Types2>
+  requires(Types.contains_all(Types2...))
+  constexpr variant(variant<Types2...>&& w move)
+  noexcept((... && Types2.is_nothrow_move_constructible))
+  requires((... && Types2.is_move_constructible)) {
+    if(!w.valueless_by_exception()) {
+      int... == w._index ...?
+        (void)new(&m...[Types.find(Types2)]) Types2(w. ...m),
+        _index = Types.find(Types2) :
+        __builtin_unreachable();
     }
   }
 
@@ -418,12 +445,13 @@ public:
 // [variant.get]
 template<class T, class... Types>
 constexpr bool holds_alternative(const variant<Types...>& v) noexcept {
-  static_assert(1 == (0 + ... + (Types == T)));
-  return T == Types ...?? int... == v.index() : __builtin_unreachable();
+  static_assert(1 == Types.count(T));
+  return Types.find(T) == v.index();
 }
 
 template<size_t I, class Var, class... Types>
 constexpr auto&& get(Var&& v forward : variant<Types...>) {
+  static_assert(I < sizeof...(Types));
   return I == v.index() ? 
     v.template get<I>() : 
     throw bad_variant_access("variant get has valueless index");
@@ -431,8 +459,8 @@ constexpr auto&& get(Var&& v forward : variant<Types...>) {
 
 template<class T, class Var, class... Types>
 constexpr auto&& get(Var&& v forward : variant<Types...>) {
-  static_assert(1 == (0 + ... + (Var.type_args == T)));
-  constexpr size_t I = Var.type_args == T ...?? int... : -1;
+  static_assert(1 == Types.count(T));
+  constexpr size_t I = Types.find(T);
   return I == v.index() ? 
     v.template get<I>() : 
     throw bad_variant_access("variant get has valueless index");
@@ -453,16 +481,16 @@ constexpr auto get_if(const variant<Types...>* v) {
 
 template<class T, class... Types>
 constexpr auto get_if(variant<Types...>* v) {
-  static_assert(1 == (0 + ... + (Types == T)));
-  constexpr size_t I = Types == T ...?? int... : -1;
+  static_assert(1 == Types.count(T));
+  constexpr size_t I = Types.find(T);
   return I == v.index() ? 
     v->template get<I>() : 
     nullptr;
 }
 template<class T, class...Types>
 constexpr auto get_if(const variant<Types...>* v) {
-  static_assert(1 == (0 + ... + (Types == T)));
-  constexpr size_t I = Types == T ...?? int... : -1;
+  static_assert(1 == Types.count(T));
+  constexpr size_t I = Types.find(T);
   return I == v.index() ? 
     v->template get<I>() : 
     nullptr;

@@ -43,7 +43,7 @@ The Circle [mdspan implementation](https://github.com/seanbaxter/mdspan#mdspan-c
 template<class... Types>
 class variant {
   static constexpr bool trivially_destructible = 
-    (... && std::is_trivially_destructible_v<Types>);
+    (... && Types.is_trivially_destructible);
 
   union {
     Types ...m;
@@ -53,8 +53,8 @@ class variant {
 
 public:
   constexpr variant() 
-  noexcept(std::is_nothrow_default_constructible_v<Types...[0]>) 
-  requires(std::is_default_constructible_v<Types...[0]>) : 
+  noexcept(Types...[0].is_nothrow_default_constructible) 
+  requires(Types...[0].is_default_constructible) : 
     m...[0](), _index(0) { }
 
   constexpr ~variant() requires(trivially_destructible) = default;
@@ -102,7 +102,7 @@ If any variant member has a non-trivial destructor, like an `std::string` that s
 
 `reset` is where the choice of a member pack union starts paying off. We want to switch over all valid indices (that is, all indices except `variant_npos`, which indicates the _valueless by exception_ state) and call the destructor of the corresponding variant member. Using the [multi-conditional operator](https://github.com/seanbaxter/circle/blob/master/conditional/README.md#multi-conditional---) `...?:`, this is performed with a single expression:
 ```cpp
-      _index == int... ...? m.~Types() : __builtin_unreachable();
+      int... == _index ...? m.~Types() : __builtin_unreachable();
 ```
 
 `_index` is the scalar index of the currently-set variant member. `int...` is a pack expression yielding the index of expansion when during substitution. Therefore, `_index == int...` is a pack of comparison expressions. In a variant with four alternatives, it'll expand out like this:
@@ -210,10 +210,10 @@ Circle's [type trait syntax](https://github.com/seanbaxter/circle/blob/master/im
 template<class... Types>
 class variant {
   template<typename T>
-  static constexpr bool is_single_usage = 1 == (... + (T == Types));
+  static constexpr bool is_single_usage = Types.count(T);
 
   template<typename T>
-  static constexpr size_t find_index = T == Types ...?? int... : -1;
+  static constexpr size_t find_index = Types.find(T);
 
 public:
   template<class T, class... Args, size_t j = find_index<T> >
@@ -225,10 +225,6 @@ public:
 ```
 
 The `in_place_type_t` constructor receives the variant alternative to initialize as a template parameter. The variant implementation has to map this to the index of the variant member, so that it can be selected with `...[I]` during subobject construction.
-
-The variable template `find_index` performs a linear search, and yields the index of the first type in `Types` that matches the argument type `T`. The [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) `...??` chains conditional expressions, but short-circuits _during substitution_. That is, as soon as the predicate is satisfied, pack expansion stops, and the result term is substituted. 
-
-The `is_single_usage` variable template uses a C++ fold expresion to count the number of occurrences of the argument type among the variant alternatives. If it occurs exactly once, and the variant member is constructible given the function arguments, the constraint passes, and the active subobject is initialized.
 
 ## Converting assignment.
 
