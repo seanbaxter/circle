@@ -1,5 +1,5 @@
 #if !defined(__circle_build__) || __circle_build__ < 168
-#error Must compile with Circle build 165 or later
+#error Must compile with Circle build 168 or later
 #endif
 
 #if !defined(__cplusplus) || __cplusplus < 202002
