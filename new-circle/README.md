@@ -3402,6 +3402,12 @@ When you name an object you get an lvalue expression. When you name an object wi
 
 I think this implies either new reference types (called `ref` and `refmut`) or [parameter directives](#parameter-directives), so that the borrowed state of an object or subobject is communicated between function calls.
 
+Objects may be declared `safe`, which denies the user the ability to access it by lvalue. Additionally, a scope can be declared `safe` (or by `safe` by default depending on a feature), so that all objects declared in the scope are `safe`.
+
+I think we need a two-pronged approach for introducing borrow checking:
+1. Make it opt-in, so that users can dip their toe in and write their new code with checking.
+1. Provide a safe-by-default feature, to create a migration path for existing code. Set the safe-by-default feature in your project's [**pragma.feature** file](#pragmafeature-file), and resolve the "can't access lvalue in a safe scope" errors until your files are fully borrow-checked.
+
 ## `[context_free_grammar]`
 
 Most modern languages have syntaxes that are context free (or more precisely, [LALR](https://en.wikipedia.org/wiki/LALR_parser)), effectively meaning that a parse tree can be produced without the compiler needing to perform semantic analysis. C++ is very context sensitive. That makes writing compilers hard, and writing non-compiler tooling very very difficult. 
