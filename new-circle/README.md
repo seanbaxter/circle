@@ -591,6 +591,8 @@ Is there a way to make a separate toolchain really work? That hasn't been demons
 
 In my opinion, the real value in Carbon is the big folder of proposals submitted by team members. These are numbered like C++ proposals. Many of them describe fine-grained, self-contained features similar to Circle's feature pragmas. For example, [P0845](https://github.com/carbon-language/carbon-lang/blob/trunk/proposals/p0845.md) describes _as-expressions_, already in Circle as [`[as]`](#as). These proposals can be immediately implemented in an existing C++ toolchain and start gathering usage experience. Carbon's missing compiler is blocking the deployment of Carbon's ideas.
 
+Compared to C++, Carbon is a very restrictive language. Can C++ programmers remain productive after moving to Carbon? Nobody knows. We need to gather experience. And the way to do that is to launch a compiler and get developres to try it. Circle can be amended quickly. The fine-grained treatment of features means it's easy to explore a continuum of language candidates. Building on an existing platform gets your technology into the hands of users quickly and inexpensively.
+
 I believe the best way to evolve C++ is to hang features off a C++ compiler. It's easy for people to reject this way as inelegant. They'll say they want something "designed from the ground up." This is an irrelevant philosophical objection. Humans evolved from synapsids, which evolved from bony fish, which evolved from bags of goo that exhibited bilateral symmetry, which evolved from single-celled prokaryotes. We are built on a platform billions of years old. The C/C++ platform is only fifty years old. It has many years of productive use ahead of it.
 
 # Feature catalog
