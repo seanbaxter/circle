@@ -11,7 +11,7 @@ Follow me on Twitter [@seanbax](https://www.twitter.com/seanbax) for compiler up
 
 * [New Circle notes](new-circle/README.md)
 
-New Circle is a major transformation of the Circle compiler, intended as a response to recent [successor language announcements](https://accu.org/journals/overload/30/172/teodorescu/). It focuses on a novel [fine-grained versioning mechanism](new-circle/README.md#versioning-with-feature-pragmas) that allows the language to **fix defects** and make the language **safer** and **more productive** while maintaining **100% compatibility** with existing code assets.
+New Circle is a major transformation of the Circle compiler, intended as a response to recent [successor language announcements](https://accu.org/journals/overload/30/172/teodorescu/). It focuses on a novel [fine-grained versioning mechanism](new-circle/README.md#versioning-with-feature-pragmas) that allows the compiler to **fix defects** and make the language **safer** and **more productive** while maintaining **100% compatibility** with existing code assets.
 
 New Circle is the richest C++ compiler yet. Try out:
 
