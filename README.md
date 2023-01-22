@@ -21,7 +21,7 @@ New Circle is the richest C++ compiler yet. Try out:
 * [language type erasure](new-circle/README.md#language-type-erasure),
 * [_as-expressions_](new-circle/README.md#as) for safer conversions,
 * [a modern declaration syntax](new-circle/README.md#new_decl_syntax) with `fn` and `var` keywords to make clearer, less ambiguous declarations,
-* [a simpler syntax for binary expressions](new-circle/README.md#simpler_precedence), greatly reducing the liklihood of bugs caused by confusing operator precedences,
+* [a simpler syntax for binary expressions](new-circle/README.md#simpler_precedence), greatly reducing the likelihood of bugs caused by confusing operator precedences,
 * [a `forward` keyword](new-circle/README.md#forward) to take the complexity and bugginess out of forwarding references,
 * [safer initializer lists](new-circle/README.md#safer_initializer_list), which address ambiguities when calling std::initializer_list constructors and non-std::initializer_list constructors,
 * [lifting lambdas](new-circle/README.md#overload-sets-as-arguments) to pass overload sets as function arguments,
