@@ -3385,9 +3385,22 @@ x = 5
 
 Rust references represent a [borrow](https://doc.rust-lang.org/std/primitive.reference.html) of an owned value. You can borrow through any number of non-mutable references, or exactly one mutable reference. This system proves to the compiler's borrow checker that you aren't mutating an object from two different places, and that you aren't mutating or reading from a dead object.
 
-This functionality should be a high-priority for C++ extension. A hypothetical `[borrow_checker]` can introduce `ref` and `refmut` types, which represent these borrows. `safe` and `unsafe` modifiers can apply to objects and to lexical scopes, to indicate which objects can be accessed through the checked references. We can extend C++'s existing expression model, which carries a type, a value category, a potentially-throwing flag and a noreturn flag for each subexpression, with borrow checker information.
+This functionality should be a high-priority for C++ extension. A hypothetical `[borrow_checker]` can introduce `ref` and `refmut` types, which represent these borrows. `safe` and `unsafe` modifiers can apply to objects and to lexical scopes, to indicate which objects can be accessed through the checked references.
 
-In Rust, references are part of the object's type. In C++, the value categories are not part of the type, but rather exist beside the type. We should expect experiment with both models of borrow-checker annotations for a C++ `[borrow_checker]` feature.
+C++11 changed the fundamental expression model by codifying value categories. Currently there are three:
+* lvalues
+* xvalues
+* prvalues
+
+Naming an object, parameter or function produces an lvalue expression. Copying an object produces a prvalue. Materializing an object produces an xvalue.
+
+I'm not educated in this field, but I think it may be fruitful to add two more value categories for borrow checking:
+* ref
+* refmut
+
+When you name an object you get an lvalue expression. When you name an object with `ref` you get a ref expression. When you name an object with `refmut` you get a refmut expression. All value categories (except prvalue) are viral to their subobjects.
+
+I think this implies either new reference types (called `ref` and `refmut`) or [parameter directives](#parameter-directives), so that the borrowed state of an object or subobject is communicated between function calls.
 
 ## `[context_free_grammar]`
 
