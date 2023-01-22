@@ -18,9 +18,9 @@ variant_select(int index, Vars&&... vars forward : variant) {
 int main() {
   variant<int, double, char> v1 = 'x';
   variant<const char*, float, double, char, short>  v2 = 19i16;
+  variant<int, long> v3 = 101;
 
-  // If true, select v1. If false, select v2.
-  variant v = variant_select(true, v1, v2);
+  variant v = variant_select(1, v1, v2, v3);
 
   // Prints 'x'
   visit([](const auto& x) { std::cout<< x<< "\n"; }, v);
