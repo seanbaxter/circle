@@ -562,9 +562,9 @@ Deploying Val as a separate toolchain as opposed to a C++ extension creates a hi
 
 ![val.png](val.png)
 
-The authors started work on LLVM code generation, only to remove it three months later. LLVM has a steep learning curve. You can be defeated by it. You can be defeated by many demands of compiler engineering. What is their option now? Val will try emitting C++ code for transpilation instead of emitting LLVM IR. That's easier in the short run, but much harder in the long run. LLVM exists for a reason.
+The authors started work on LLVM code generation, only to remove it three months later. LLVM has a steep learning curve. You can be defeated by it. You can be defeated by many demands of compiler engineering. What is their option now? Val will try emitting C++ code for transpilation instead of emitting LLVM IR. That's easier in the short run, but much harder in the long run. LLVM exists for a reason. 
 
-If the authors had decided to extend another toolchain (not necessarily a C++ toolchain, there's Java, C#, Swift, Go, etc), they wouldn't be fighting all battles at once. They'd have a working compiler by now and we'd have usage experience with the Val flavor of mutable value semantics.
+It's hard to pursue research when you're battling the technical demands of tooling. If the authors had decided to extend another toolchain (not necessarily a C++ toolchain, there's Java, C#, Swift, Go, etc), they wouldn't be fighting all battles at once. They'd on a faster path to implementing mutable value semantics and deploying a compiler to users for feedback.
 
 ### Carbon
 
