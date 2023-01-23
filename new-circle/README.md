@@ -581,6 +581,8 @@ With much of C++'s foundation gone, how will Carbon achieve a high level of inte
 
 Overload resolution is a crucial part of C++. You can't use any Standard Library types or algorithms without it. Everything is overloaded. Carbon doesn't do overload resolution. How does a Carbon code call into C++ code? That overload resolution knowledge has reside somewhere.
 
+In my experience, an architecture with two separate type systems and two separate ASTs will prove irreconcilable. 
+
 Suppose the Carbon compiler interfaces with an existing toolchain like Clang. It can rely on Clang to find the best viable candidate for a function call. But now Clang needs to know about the template and function arguments provided to the call, which means it needs to know about Carbon. If a call to a Carbon function is instantiated from a C++ template compiled by Clang, Clang has to know about that Carbon function. So you'd "teach" Clang about Carbon by extending Clang's type system and AST to support the features in Carbon that aren't in C++. You'd have to teach it about late-checked generics and [interfaces](#interface) and [choice types](#choice) and [pattern matching](#pattern-matching).
 
 **In effect, although you start with a separate toolchain, you end up with a single toolchain.** Either evolve the Carbon compiler into a C++ compiler, or evolve the C++ compiler into a Carbon compiler. 
