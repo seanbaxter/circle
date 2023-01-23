@@ -192,7 +192,7 @@ Setting or clearing features _only effects the current file_. The active masks o
 [**features.cxx**](features.cxx) - [(Compiler Explorer)](https://godbolt.org/z/e3faaMTe8)
 ```cpp
 // Enable four features:
-// [interface] - Enables the dyn, interface, impl and make_dyn keywordcs.
+// [interface] - Enables the dyn, interface, impl and make_dyn keywords.
 // [tuple] - Enables new syntax for tuple expressions and types.
 // [choice] - Enables the choice and match keywords.
 // [self] - Retires 'this' and replaces it with the lvalue 'self'.
