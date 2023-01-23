@@ -3695,6 +3695,8 @@ Standard C++ doesn't permit the passing of function templates or overload sets a
 
 Circle implements the lifting lambda using N3617's _[]id-expression_ syntax. If the _id-expression_ names a non-member function, overload set or _using-declaration_, a new type is minted which can be passed by value and invoked.
 
+[Passing overload sets to functions](https://blog.tartanllama.xyz/passing-overload-sets/) documents the challenges of implementing lifting in Standard C++. A [LIFT macro](https://blog.tartanllama.xyz/passing-overload-sets/#lambdas-and-lift) is the best one can do. The demand for this capability is compelling. Circle makes it a first-class language feature.
+
 [**lifting1.cxx**](lifting1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/xqc58M7Tv)
 ```cpp
 #include <vector>
@@ -4432,6 +4434,12 @@ Circle Imperative Arguments are a set of compile-time control flow mechanisms, d
 ** UNDER CONSTRUCTION **
 
 ## Extending the language with traits and metafunctions
+
+Most of Circle's metaprogramming value is delivered with _traits_ and _metafunctions_. Traits are compiler builtins, expressed with a _postfix-expression_ of the form `~trait_name`. (Previous Circle versions used the form `.trait_name`, which conflicted with expression operands.) Metafunctions are traits that take additional arguments, like a list of entities or a value-dependent code fragment that serves as a predicate for an algorithm.
+
+
+
+
 
 ## Reflection traits
 
