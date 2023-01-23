@@ -1705,29 +1705,31 @@ I think it makes sense to let organizations do what they want, and avoid one-siz
 
 `Self` is a dependent type alias that's implicitly declared inside interfaces and interface templates. It's a placeholder for the to-be-determined receiver type. For interface templates, the interface's name is implicitly declared as an _injected-interface-name_, similar to the _injected-class-name_ in class templates. It behaves like an interface, unless given a _template-argument-list_, in which case it behaves like an interface template.
 
-To jump into the deep end, consider how to annotate a _clone_ function to deliver value semantics in a type erasure container like Rust's `Box` type. 
+To jump into the deep end, here's a peek at how to annotate a _clone_ function to deliver value semantics in a type erasure container like Rust's `Box` type. 
 
 ```cpp
+// Create a unique_ptr that wraps a dyn.
+template<typename Type, interface IFace>
+std::unique_ptr!dyn!IFace make_unique_dyn(forward auto... args) {
+  return std::unique_ptr!dyn!IFace(make_dyn<IFace>(new Type(forward args...)));
+}
+
+// Implicitly generate a clone interface for copy-constructible types.
 template<interface IFace>
 interface IClone auto : IFace {
-  // The injected-interface-name means that IClone is IClone when used like
-  // a template and IClone<IFace> when used like an interface. This is similar
-  // to injected-class-name in class templates.
-  std::unique_ptr<dyn<IClone>> clone() const 
-  default std::is_copy_constructible_v<Self> {
-    // Provide a default implementation for impls that don't implement clone.
-    return std::unique_ptr<dyn<IClone>>(new Self(self));
+  // The default-clause causes SFINAE failure to protect the program from
+  // being ill-foremd if IClone is attempted to be implicitly instantiated 
+  // for a non-copy-constructible type.
+  std::unique_ptr!dyn!IClone clone() const 
+  default(Self~is_copy_constructible) {
+    // Pass the const Self lvalue to make_unique_dyn, which causes copy
+    // construction.
+    return make_unique_dyn!<Self, IClone>(self);
   }
 };
 ```
 
-This interface does the right thing in all conceivable circumstances.
-
-* It's marked `auto`, so users don't have to provide their impl. 
-* The clone method is not marked `explicit`, so impls will look for compatible `clone` member functions in the receiver type. There's no risk of binding the wrong clone method, because the return type of clone is so specific: the member function would need to return `std::unique_ptr<dyn<IClone<IFace>>>`. If it's doing that, when else could it do besides clone?
-* Finally, the clone function's default implementation is guarded against failure by a _default-specifier_. If the type doesn't provide a `clone` member function, the compiler evaluates the _default-specifier_ after substituting in the receiver type for `Self`. If the expression evaluates false, or if there's a substitution failure, the type does _not_ satisfy the interface, and impl generation fails. Importantly, it fails in a SFINAE-friendly way. The program is not necessarilly ill-formed, like it would have been had it attempted to instantiate the body of the defaulted `clone` function. _default-specifier_ should be familiar to C++ programmers, because it's like the _requires-specifier_, but it is evaluated during a part of program translation.
-
-`IClone`'s definition is totally distinct from its template parameter's requirements. It doesn't know or care about `IFace`. `IFace` could be substituted with an `auto` interface, or not. `IFace`'s methods could have `explicit` methods, and it could have function definitions guarded by _default-specifiers_. This design encourages local reasoning, by placing all the dials for the explicit/implicit tradeoffs inside the interface definition.
+This interface does the right thing in all conceivable circumstances. We save the discussion of `IClone` and the advanced interface options for [Value semantics containers](#value-semantics-containers).
 
 ### Impls
 
