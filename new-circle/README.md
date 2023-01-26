@@ -611,7 +611,7 @@ The `[adl]` feature disables calling named functions found by [argument-dependen
 
 Use the `adl` reserved word before the unqualified function name to re-enable calling ADL candidates.
 
-[**adl1.cxx**](adl1.cxx)
+[**adl1.cxx**](adl1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/13rqEe6nW)
 ```cpp
 #pragma feature adl
 #include <tuple>
@@ -645,7 +645,7 @@ error: adl1.cxx:14:19
 
 ADL is a powerful but unpredictable tool. It's main drawback is that you don't really know when you're relying on it to find your functions. Most functions are called with unqualified lookup. There's nothing textual to signal that this complex apparatus is at work. The `adl` opt-in fixes that: now every expression that calls an ADL candidate is prefixed by the `adl` keyword, making it easily searchable. Additionally, the compiler errors point out the namespace of the best viable candidate, so you can qualify function names yourself, rather than relying on ADL to do so.
 
-[**adl2.cxx**](adl2.cxx)
+[**adl2.cxx**](adl2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/7MKPdzT7d)
 ```cpp
 #pragma feature adl
 
@@ -709,7 +709,7 @@ This convenience is illustrated by the failed call to #1 and the successful call
 
 The obligatory `adl` prefix makes the feature much safer while drawing attention to its use. All uses in your code base become easily searchable.
 
-[**adl3.cxx**](adl3.cxx)
+[**adl3.cxx**](adl3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/zsvq4cPec)
 ```cpp
 #pragma feature adl
 
