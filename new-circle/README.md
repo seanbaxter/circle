@@ -643,7 +643,7 @@ error: adl1.cxx:14:19
 * `x2`'s initializer compiles, because although the function called was found with argument-dependent lookup, the unqualified function name was preceded by the `adl` keyword. 
 * `x3`'s initializer is ill-formed, because the function called was found with ADL. The error message indicates the problem, suggests a fix (use the `adl` token before the unqualified name), and shows the specific function, including its source location, that the compiler attempted to call.
 
-ADL is a powerful but unpredictable tool. It's main drawback is that you don't really know when you're relying on it to find your functions. Most functions are called with unqualified lookup. There's nothing textual to signal that this complex aparatus is at work. The `adl` opt-in fixes that: now every expression that calls an ADL candidate is prefixed by the `adl` keyword, making it easily searchable. Additionally, the compiler errors point out the namespace of the best viable candidate, so you can qualify function names yourself, rather than relying on ADL to do so.
+ADL is a powerful but unpredictable tool. It's main drawback is that you don't really know when you're relying on it to find your functions. Most functions are called with unqualified lookup. There's nothing textual to signal that this complex apparatus is at work. The `adl` opt-in fixes that: now every expression that calls an ADL candidate is prefixed by the `adl` keyword, making it easily searchable. Additionally, the compiler errors point out the namespace of the best viable candidate, so you can qualify function names yourself, rather than relying on ADL to do so.
 
 [**adl2.cxx**](adl2.cxx)
 ```cpp
