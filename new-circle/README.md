@@ -66,7 +66,7 @@ Which programming language is this? Parts look like C++: it includes familiar he
 
 This example code is almost a perfect 1:1 copy of a [sample in the Carbon design document](
 https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#choice-types
-). It compiles with the Circle C++ toolchain, with [24 new features](#edition_carbon_2023) enabled. These new features are at the heart of the successor language goals. They make the language:
+). It compiles with the Circle C++ toolchain, with [25 new features](#edition_carbon_2023) enabled. These new features are at the heart of the successor language goals. They make the language:
 
 * **safer** by [disabling harmful implicit conversions](#no_implicit_integral_narrowing) and [initializing](#default_value_initialization) all objects,
 * **easier to read** with a [clearer declaration syntax](#new_decl_syntax) and new [bracing requirements](#require_control_flow_braces),
@@ -94,6 +94,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
         * [Val](#val)
         * [Carbon](#carbon)
 1. [Feature catalog](#feature-catalog)
+    1. [`[adl]`](#adl)
     1. [`[as]`](#as)
     1. [`[choice]`](#choice)
         * [Pattern matching](#pattern-matching)
@@ -396,6 +397,7 @@ To deliver shared C++ experiences, users should continue to expect features bund
 
 An edition is selection of low-controversy features that language developers consider to represent "best practice." The first Circle edition is `edition_2023`. It includes features which improve the richness and consistency of the language:
 
+1. [`[adl]`](#adl) - Disables argument dependent lookup. Introduce the `adl` keyword to opt in.
 1. [`[as]`](#as) - Enables the _as-expression_ for casting.
 1. [`[choice]`](#choice) - Choice types and pattern matching.
 1. [`[forward]`](#forward) - `forward` parameter directive and _forward-expression_.
@@ -546,7 +548,7 @@ One of the big problems with this design is that **it doesn't allow new language
 
 Another big problem is that it doesn't understand [overload resolution](http://eel.is/c++draft/over.match) or [implicit conversion sequences](http://eel.is/c++draft/over.best.ics), so it can't reliably modify language semantics, like Circle does with [`[no_implicit_user_conversions]`](#no_implicit_user_conversions), [`[no_implicit_pointer_to_bool]`](#no_implicit_pointer_to_bool), and [`[as]`](#as).
 
-Since it doesn't examine its C++ dependencies, it's impossible to introspect types with Cppfront. Circle provides [refleciton traits](#reflection-traits), which yield packs of entities describing enum types, class types, functions types, class specializations, and so on.
+Since it doesn't examine its C++ dependencies, it's impossible to introspect types with Cppfront. Circle provides [reflection traits](#reflection-traits), which yield packs of entities describing enum types, class types, functions types, class specializations, and so on.
 
 Investing in a compiler frontend is necessary if you want the flexibility to realize your language design.
 
@@ -598,6 +600,173 @@ Compared to C++, Carbon is a very restrictive language. Can C++ programmers rema
 I believe the best way to evolve C++ is to hang features off a C++ compiler. It's easy for people to reject this way as inelegant. They'll say they want something "designed from the ground up." This is an irrelevant philosophical objection. Humans evolved from synapsids, which evolved from bony fish, which evolved from bags of goo that exhibited bilateral symmetry, which evolved from single-celled prokaryotes. We are built on a platform billions of years old. The C/C++ platform is only fifty years old. It has many years of productive use ahead of it.
 
 # Feature catalog
+
+## `[adl]`
+
+* Reserved words: `adl`
+* Interactions: [Overload sets as arguments](#overload-sets-as-arguments)
+* Editions: [`[edition_2023]`](#edition_2023)
+
+The `[adl]` feature disables calling named functions found [argument-dependent lookup](https://eel.is/c++draft/basic.lookup.argdep) (and [here](https://en.cppreference.com/w/cpp/language/adl)). Following the principle of least surprise, if you turn on this feature, _the meaning of your code will not change_, but it may become ill-formed. That is, ADL is still performed when calling a function by its unqualified name, but if a function found by ADL, rather than by ordinary unqualified name lookup, is the best viable candidate, then the program is ill-formed.
+
+Use the `adl` reserved word before the unqualified function name to re-enable calling ADL candidates.
+
+[**adl1.cxx**](adl1.cxx)
+```cpp
+#pragma feature adl
+#include <tuple>
+
+int main() {
+  auto tup = std::make_tuple(1, 2.2, "Three");
+
+  // Can call with qualified name lookup.
+  auto x1 = std::get<0>(tup);
+
+  // OK. the adl keyword enables the ADL candidate.
+  auto x2 = adl get<0>(tup);
+
+  // Error: [adl]: adl candidate called without adl token before unqualified name
+  auto x3 = get<0>(tup);
+}
+```
+```
+$ circle adl1.cxx
+error: adl1.cxx:14:19
+[adl]: adl candidate called without adl token before unqualified name
+  best viable candidate int& std::get(std::tuple<int, double, const char*>&) noexcept was chosen by adl
+  function declared at /usr/include/c++/10/tuple:1299:5
+  auto x3 = get<0>(tup); 
+                  ^
+```
+
+* `x1`'s initializer compiles, because the function called was found with _qualified name lookup_, meaning the specific namespace was provided.
+* `x2`'s initializer compiles, because although the function called was found with argument-dependent lookup, the unqualified function name was preceded by the `adl` keyword. 
+* `x3`'s initializer is ill-formed, because the function called was found with ADL. The error message indicates the problem, suggests a fix (use the `adl` token before the unqualified name), and shows the specific function, including its source location, that the compiler attempted to call.
+
+ADL is a powerful but unpredictable tool. It's main drawback is that you don't really know when you're relying on it to find your functions. Most functions are called with unqualified lookup. There's nothing textual to signal that this complex aparatus is at work. The `adl` opt-in fixes that: now every expression that calls an ADL candidate is prefixed by the `adl` keyword, making it easily searchable. Additionally, the compiler errors point out the namespace of the best viable candidate, so you can qualify function names yourself, rather than relying on ADL to do so.
+
+[**adl2.cxx**](adl2.cxx)
+```cpp
+#pragma feature adl
+
+namespace ns {
+  struct obj_t { 
+    void f();
+
+    void func(int);      // #1
+  };
+
+  void func(obj_t obj);  // #2
+}
+
+void ns::obj_t::f() {
+  // Error: [adl]: no arguments in adl call have associated namespaces.
+  adl func(1, "Hello world");
+
+  // Tries to call #1
+  // Error: cannot convert lvalue ns::obj_t to int.
+  func(*this);
+
+  // [basic.lookup.argdep] dictates that if unqualified 
+  // lookup finds any of:
+  // * declaration of a class member, or
+  // * function declaration inhabiting a block scope, or
+  // * declaration not of a function or function template
+  // then ADL is not used.
+  // But we used the adl keyword, meaning we really want ADL!
+  // Therefore, when any of these three things is found by
+  // unqualified lookup, the compiler discards the declaration 
+  // and goes straight to ADL.
+
+  // Calls #2 successfully.
+  adl func(*this);
+}
+```
+```
+$ circle adl2.cxx
+error: adl2.cxx:15:11
+[adl]: no arguments in adl call have associated namespaces
+  adl func(1, "Hello world"); 
+          ^
+
+error: adl2.cxx:18:8
+cannot convert lvalue ns::obj_t to int
+  ns::obj_t declared at adl2.cxx:4:3
+  func(*this); 
+       ^
+```
+
+Like the [`[forward]`](#forward) extension, `[adl]` intends to prevent incorrect usage of the feature. When the `adl` prefix is used:
+
+1. If there are no [associated entities](https://eel.is/c++draft/basic.lookup.argdep#3) for any of the function arguments, no attempt to call a function is made and the program is ill-formed. Because there are no associated entities, there is nothing for ADL to do, and therefore the prefix was used in error. This test only occurs at definition; if the call has any dependent arguments, then ADL is assumed to occur at instantiation, and the call compiles.
+2. The [rules for ADL](https://eel.is/c++draft/basic.lookup.argdep#1) state that if unqualified name lookup finds any of:
+  * declaration of a class member, or  
+  * function declaration inhabiting a block scope, or  
+  * declaration not of a function or function template,  
+    then ADL is not used. But the user explicitly opted in to adl with the prefix. The feature responds by discarding the disqualifying declaration and going straight to argument-dependent lookup.
+
+The second rule is illustrated by the failed call to #1 and the successful call to #2. On both lines, the user intends to call #2. But on the first try, unqualified lookup finds the member function `obj_t::func`. This disqualifies ADL, leaving the candidate only with that member function. The compiler can't convert `obj_t` to `int` so translation fails. On the second try, the `adl` prefix tells the compiler to discard the disqualifying member function declaration and use ADL anyways.
+
+The obligatory `adl` prefix makes the feature much safer while drawing attention to its use. All uses in your code base become easily searchable.
+
+[**adl3.cxx**](adl3.cxx)
+```cpp
+#pragma feature adl
+
+namespace ns {
+  struct obj_t { };
+  void func(obj_t obj);   // #1
+}
+
+int main() {
+  // Ok. Unqualified lookup fails to find any declarations. ADL is not 
+  // disqualified, so will be attempted at the point of the call.
+  auto lift1 = [] func;
+
+  // Error. [adl]: adl candidate called without adl token before unqualified name
+  // The best viable candidate was found by ADL, but the adl prefix wasn't 
+  // used.
+  lift1(ns::obj_t());
+  
+  // A declaration to disqualify ADL, from [basic.lookup.argdep]/1.
+  using func = int;       // #2
+
+  // Error: func finds #2, which is not a function, so disqualifies 
+  // ADL. The lifting lambda cannot be created, because its set of
+  // candidates is empty.
+  auto lift2 = [] func;
+
+  // Ok. func finds #2, which is not a function. But because the adl prefix
+  // is used, that declaration is discarded. The lifting lambda is created
+  // ADL-capable. The actual lookup is deferred until its used.
+  auto lift3 = [] adl func;
+
+  // lift2 performs ADL at the point of the call. This is allowed, because
+  // we used the adl token at its creation.
+  lift3(ns::obj_t());
+}
+```
+```
+$ circle adl3.cxx
+error: adl3.cxx:16:8
+[adl]: adl candidate called without adl token before unqualified name
+  best viable candidate void ns::func(ns::obj_t) was chosen by adl
+  function declared at adl3.cxx:5:8
+  lift1(ns::obj_t()); 
+       ^
+
+error: adl3.cxx:24:23
+argument func is not an overload set
+  auto lift2 = [] func; 
+                      ^
+```
+
+[Overload sets as arguments](#overload-sets-as-arguments) introduces the _lifting lambda_, a new language entity, which may invoke argument-dependent lookup at the point of call. The `adl` prefix works the same way for creating lifting lambdas as it does for calling functions by unqualified names.
+
+* If the lifting lambda is created without the `adl` prefix and it calls an ADL candidate, the program is ill-formed.
+* If the lifting lambda finds a disqualifying declaration with unqualified lookup, ind it has the `adl` prefix, the declaration is discarded and the lifting lambda will perform ADL at the point of call.
+
+Because the lambda's arguments are not provided with the `adl` prefix at the lambda's creation, but rather deferred until a call, the compiler does not enforce the requirement that at least one of the function arguments have associated entities. The caller may have received the lambda generically; since it doesn't know how the lambda was created, it's not responsible for parsimonious usage. 
 
 ## `[as]`
 
@@ -3809,6 +3978,8 @@ There are a lot of considerations made when calling functions. When the name of 
 1. a declaration not of a function or function template,
 
 then [argument-dependent lookup (ADL)](http://eel.is/c++draft/basic.lookup.argdep) searches namespaces associated with the types of the call's arguments for additional candidates. Circle's lifting lambdas support this capability. If an _unqualified-id_ is specified after the `[]`, then ADL may produce additional candidates for overload resolution at the point of the call. Functions and overload sets named in _using-declarations_ are added to the candidate set _at the point of the lifting-expression_. This allows users to reproduce the [std::swap trick](http://ericniebler.com/2014/10/21/customization-point-design-in-c11-and-beyond/).
+
+If the [`[adl]`](#adl) feature is enabled, or if an [edition](#edition_2023) containing it is, there is an interaction with lifting lambdas. Use the `adl` prefix to enable calls to ADL candidates.
 
 Keep in mind that there is no actual _forwarding_ going on. This differs from the implementation suggestions in [N3617 "Lifting overload sets into function objects"](https://isocpp.org/files/papers/n3617.txt) (2013). Circle's lifting lambda is pure compiler magic. It allows the user to put some distance between naming an overload set and calling it.
 
