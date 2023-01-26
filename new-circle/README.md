@@ -611,6 +611,8 @@ The `[adl]` feature disables calling named functions found by [argument-dependen
 
 Use the `adl` reserved word before the unqualified function name to re-enable calling ADL candidates.
 
+* In short: The `[adl]` feature disables calls to ADL candidates. Use the `adl` keyword to enable them.
+
 [**adl1.cxx**](adl1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/13rqEe6nW)
 ```cpp
 #pragma feature adl
@@ -764,7 +766,7 @@ argument func is not an overload set
 [Overload sets as arguments](#overload-sets-as-arguments) introduces the _lifting lambda_, a new language entity, which may invoke argument-dependent lookup at the point of call. The `adl` prefix works the same way for creating lifting lambdas as it does for calling functions by unqualified names.
 
 * If the lifting lambda is created without the `adl` prefix and it calls an ADL candidate, the program is ill-formed.
-* If the lifting lambda finds a disqualifying declaration with unqualified lookup, ind it has the `adl` prefix, the declaration is discarded and the lifting lambda will perform ADL at the point of call.
+* If the lifting lambda finds a disqualifying declaration with unqualified lookup, and it has the `adl` prefix, the declaration is discarded and the lifting lambda will perform ADL at the point of call.
 
 Because the lambda's arguments are not provided with the `adl` prefix at the lambda's creation, but rather deferred until a call, the compiler does not enforce the requirement that at least one of the function arguments have associated entities. The caller may have received the lambda generically; since it doesn't know how the lambda was created, it's not responsible for parsimonious usage. 
 
