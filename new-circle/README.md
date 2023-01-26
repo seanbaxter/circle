@@ -696,14 +696,14 @@ cannot convert lvalue ns::obj_t to int
        ^
 ```
 
-Like the [`[forward]`](#forward) extension, `[adl]` intends to prevent incorrect usage of the feature. If there are no [associated entities](https://eel.is/c++draft/basic.lookup.argdep#3) for any of the function arguments, no attempt to call a function is made and the program is ill-formed. Because there are no associated entities, there is nothing for ADL to do, and therefore the prefix was used in error. This test only occurs at definition; if the call has any dependent arguments, then ADL is assumed to occur at instantiation, and the call compiles.
+Like the [`[forward]`](#forward) feature, `[adl]` guards against incorrect usage. If there are no [associated entities](https://eel.is/c++draft/basic.lookup.argdep#3) for any of the function arguments, the program is ill-formed. Because there are no associated entities, there would be nothing for ADL to search through, and therefore the prefix was used in error. This test only occurs at definition; if the call has any dependent arguments, then ADL is assumed to occur at instantiation, and the call compiles.
 
 The [rules for ADL](https://eel.is/c++draft/basic.lookup.argdep#1) state that if unqualified name lookup finds any of:
-* declaration of a class member, or  
-* function declaration inhabiting a block scope, or  
-* declaration not of a function or function template,  
+* a declaration of a class member, or  
+* a function declaration inhabiting a block scope, or  
+* a declaration not of a function or function template,  
 
-then ADL is not used. But the user explicitly opted in to adl with the prefix. As a convenience, the feature responds by discarding the disqualifying declaration and going straight to argument-dependent lookup.
+then ADL is not used. However, the user _explicitly opted in_ to adl with the prefix. As a convenience, the feature responds by discarding the disqualifying declaration and going straight to argument-dependent lookup.
 
 This convenience is illustrated by the failed call to #1 and the successful call to #2. On both lines, the user intends to call #2. But on the first try, unqualified lookup finds the member function `obj_t::func`. This disqualifies ADL, leaving the candidate only with that member function. The compiler can't convert `obj_t` to `int` so translation fails. On the second try, the `adl` prefix tells the compiler to discard the disqualifying member function declaration and use ADL anyways.
 
