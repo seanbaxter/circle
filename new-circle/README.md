@@ -607,7 +607,7 @@ I believe the best way to evolve C++ is to hang features off a C++ compiler. It'
 * Interactions: [Overload sets as arguments](#overload-sets-as-arguments)
 * Editions: [`[edition_2023]`](#edition_2023)
 
-The `[adl]` feature disables calling named functions found [argument-dependent lookup](https://eel.is/c++draft/basic.lookup.argdep) (and [here](https://en.cppreference.com/w/cpp/language/adl)). Following the principle of least surprise, if you turn on this feature, _the meaning of your code will not change_, but it may become ill-formed. That is, ADL is still performed when calling a function by its unqualified name, but if a function found by ADL, rather than by ordinary unqualified name lookup, is the best viable candidate, then the program is ill-formed.
+The `[adl]` feature disables calling named functions found by [argument-dependent lookup](https://eel.is/c++draft/basic.lookup.argdep) (and [here](https://en.cppreference.com/w/cpp/language/adl)). Following the principle of least surprise, if you turn on this feature, _the meaning of your code will not change_, but it may become ill-formed. That is, ADL is still performed when calling a function by its unqualified name, but if a function found by ADL, rather than by ordinary unqualified name lookup, is the best viable candidate, then the program is ill-formed.
 
 Use the `adl` reserved word before the unqualified function name to re-enable calling ADL candidates.
 
