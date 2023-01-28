@@ -149,6 +149,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [`[generic]`](#generic)
     1. [`[meta]`](#meta)
     1. [`[parameter_directives]`](#parameter_directives)
+    1. [`[relocate]`](#relocate)
 1. [Core extensions](#core-extensions)
     1. [Template parameter kinds](#template-parameter-kinds)
     1. [Overload sets as arguments](#overload-sets-as-arguments)
@@ -3557,6 +3558,7 @@ x = 5
 ## `[borrow_checker]`
 
 * Reserved words: `ref`, `refmut`, `safe` and `unsafe`.
+* Requirements: [`[relocate]`](#relocate)
 
 Rust references represent a [borrow](https://doc.rust-lang.org/std/primitive.reference.html) of an owned value. You can borrow through any number of non-mutable references, or exactly one mutable reference. This system proves to the compiler's borrow checker that you aren't mutating an object from two different places, and that you aren't mutating or reading from a dead object.
 
@@ -3582,6 +3584,8 @@ Objects may be declared `safe`, which denies the user the ability to access it b
 I think we need a two-pronged approach for introducing borrow checking:
 1. Make it opt-in, so that users can dip their toe in and write their new code with checking.
 1. Provide a safe-by-default feature, to create a migration path for existing code. Set the safe-by-default feature in your project's [**pragma.feature** file](#pragmafeature-file), and resolve the "can't access lvalue in a safe scope" errors until your files are fully borrow-checked.
+
+First-class relocation is necessary basis for a functional borrow checker. To _borrow_ a thing, someone has to _own_ it. See the [`[relocate]`](#relocate) feature for my thinking on ownership semantics.
 
 ## `[context_free_grammar]`
 
@@ -3692,6 +3696,91 @@ As Circle's [metaprogramming](#metaprogramming) became more sophisticated, many 
 There's long been a desire to use parameter directives to indicate the flow of data through a function. This would replace the role of reference types in doing this. References memory, they don't convey intent. A set of parameter-passing directives would help the user convey intent to the compiler, and the compiler would choose an efficient implementation.
 
 [D0708 Parameter passing](https://github.com/hsutter/708/blob/main/708.pdf) describes the problem and makes some first attempts at architecting a vocabulary of parameter directives. However, the semantics need to be nailed down, and wording has to be generated, before this functionality can be implemented as the `[parameter_directive]` feature.
+
+## `[relocate]`
+
+* Reserved words: `relocate`.
+* Required for: [`[borrow_checker]`](#borrow_checker)
+
+C++ should implement borrow checking. But in order to _borrow_ an object, someone has to _own_ an object. C++ doesn't have real ownership semantics. For automatic duration objects, the object's lifetime is determined by its scope, and there's no legitimate way to change that lifetime. There's no concept of transfer of ownership. There's a concept of _moving resources_, and that's been very helpful for choosing efficient code paths without weakening type safety, but it only effects the _contents_ of an object rather than the object itself.
+
+C++ needs a language _relocate_ operator, aka _destructive move_. Libraries that claim to do this won't cut it. Relocate changes the ownership of an object such that nobody can use the object by that name ever again. Relocation is the _last use_ of an object.
+
+My mental model is to introduce an operator `relocate`. The `relocate` operator takes an object and returns a prvalue to a relocated copy of that object. The original object is then considered inaccessible. Its destructor _is not executed_. Rather, as part of the relocation operation, members that are not relocated to the return value are destructed.
+
+Most C++ types, and all Rust types, can be made _trivially relocatable_. Trivially relocatable types can be moved with a simple memcpy. STL containers like vector, string, unique_ptr, shared_ptr can be annotated as _trivially relocatable_. A few containers like list and map hold pointers to themselves, meaning some additional operation is needed to move them; these are non-trivially relocatable.
+
+Implicit-generated `operator relocate` gets two forms:
+* For trivially relocatable types, just memcpy from the rhs to the lhs.
+* For non-trivally relocatable types, move-construct from the rhs to the lhs, then destruct the rhs.
+
+Non-trivially relocatable types that want to define a custom relocation should be permitted to do so:
+
+```cpp
+struct foo_t {
+  operator relocate() {
+    // Create and return a foo_t from the contents in *this.
+  }
+};
+```
+
+The body of the user-defined `operator relocate` is the last time that the object at `this` is used. It is permitted for the body to `relocate` its subobjects from `*this` to the return value. Subobjects of `*this` not relocated are destroyed at the end of the function.
+
+Use the `relocate` operator in a _relocate-expression_.
+
+```cpp
+obj_t a;
+obj_t b = relocate(a);
+```
+
+Normally naming `a` yields an lvalue expression, which is a non-checked access. This kind of access must be prohibited in a safe context. Naming `a` as the operand of a `relocate` call invokes the relocation and returns a prvalue. As soon as the `relocate` call returns, `a` is inaccessible. Its destructor will never be called.
+
+prvalue elision causes the `relocate` return object to be initialized straight into `b`'s storage. We've just _transferred_ ownership of the object from `a` to `b`. As an optimization, in this case the compiler can emit a no-op and simply reassign the label and lifetime from `a` to `b`.
+
+```cpp
+obj_t a, b;
+b = relocate(b);
+```
+
+Here, `b` is already initialized. We assign a prvalue to it, which follows the normal C++ move path: the prvalue temporary is materialized to an xvalue, `b`'s move constructor is called, and at the end of the full statement, the temporary is destroyed. It seems bad that we're destroying the result object of `relocate`, but we have the effect of moving the point of the destruction up from the end of `b`'s scope to the point of its last use. That's something!
+
+### Temporary materialization
+
+There may be an optimization for the case above. The compiler should not be eager to perform materialization, turning a prvalue into an xvalue. Expressions are routinely cast to xvalue (with std::move and std::forward), and that's a non-destructive operation. Users expect to be able to keep using the operand after a move. We can't perform destructive moves given xvalues. There is too much precedent against that. 
+
+Instead, consider changing the rules of materialization. Before materialization, attempt trivial relocation. When copy-initializing or assigning a prvalue:
+
+* If the rhs is trivially relocatable:
+    * If the lhs has a non-trivial destructor, call that.
+    * memcpy the rhs data into the lhs.
+* Otherwise, decay the rhs temporary to an xvalue. Do overload resolution as normal and destruct the temporary at the end of the full expression.
+
+### Parameter passing is hard
+
+One question is how to transfer ownership across a function.
+
+```cpp
+void f(obj_t a) {
+  obj_t b = relocate(a);
+}
+
+void g() {
+  obj_t obj;
+  f(relocate(obj));
+}
+```
+
+Let's say that `obj_t` has a non-trivial destructor, which makes it [non-trivial for the purpose of calls](https://itanium-cxx-abi.github.io/cxx-abi/abi.html#non-trivial-parameters). Let's also say that it's trivially relocatable. The perfect example of this is std::unique_ptr. It's just an 8-byte memcpy to relocate them, but if you don't relocate them, it's critical to call the destructor.
+
+`relocate(obj)` returns a prvalue, putting it in stack memory of `g`. A pointer to that stack memory is passed to `f`. Naming `a` in `f` produces an lvalue to an object, but it's a different quality of lvalue than the lvalue produced by naming `obj` in `g`. It gives an lvalue holding the address of the object in `g`. In fact, when `f` returns, that object is destructed. Even though we passed the object to `f` _by value_, it's still owned by `g`! We didn't transfer ownership!
+
+How does the compiler implement `relocate(a)`? Since that function doesn't actually own `a`, it would have to move-construct a temporary and return that. This counts as the last use of `a` inside `f`. But the underlying object will still be destructed when `f` returns.
+
+Does this actually matter? I don't know. It's not any worse than what we do now because it is in practice what do now.
+
+Clang has an experimental feature [clang::trivial_abi](https://clang.llvm.org/docs/AttributeReference.html#trivial-abi) for changing parameter passing ABI for trivially-relocatable types. I think the community isn't very motivated to put this into practice, because breaking ABI is a big deal. Can we avoid ABI breaking and adopt the trivial-abi convention only for inline functions? I don't think that would cause binary incompatibilites. All the translation units going into an executable or shared object file would have to be rebuilt, because linkonce_odr just chooses one instance of inline across all translation units in a binary, and they'd all have to agree. But generally inline functions aren't interfacial.
+
+Are the issues raised in this section important? Notionally the compiler has formal knowledge of lifetime transfer via the _relocate-expression_. Even though relocation is faked via a move constructor, and even though the relocated thing is still destructed, we have the relocation semantics. And from that way, we have ownership semantics, and some basis for exploring borrow checking.
 
 # Core extensions
 
