@@ -3724,7 +3724,7 @@ struct foo_t {
 };
 ```
 
-The body of the user-defined `operator relocate` is the last time that the object at `this` is used. It is permitted for the body to `relocate` its subobjects from `*this` to the return value. Subobjects of `*this` not relocated are destroyed at the end of the function.
+The body of the user-defined `operator relocate` is the last time that the object at `this` is used. It is permitted for the body to `relocate` its subobjects from `*this` to the return value. Subobjects of `*this` not relocated are destroyed at the end of the function. The user-defined `relocate` operator rolls both move constructor and destructor into one function.
 
 Use the `relocate` operator in a _relocate-expression_.
 
