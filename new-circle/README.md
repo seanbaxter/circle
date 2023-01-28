@@ -3720,11 +3720,31 @@ Non-trivially relocatable types that want to define a custom relocation should b
 struct foo_t {
   operator relocate() {
     // Create and return a foo_t from the contents in *this.
+    foo_t ret;
+    ret.a = relocate(a);
+    ret.b = relocate(b);
+    ret.c = relocate(c);
+    return ret;
   }
+  T a, b, c;
 };
 ```
 
 The body of the user-defined `operator relocate` is the last time that the object at `this` is used. It is permitted for the body to `relocate` its subobjects from `*this` to the return value. Subobjects of `*this` not relocated are destroyed at the end of the function. The user-defined `relocate` operator rolls both move constructor and destructor into one function.
+
+It may look less magical if `operator relocate` took an output pointer rather than implicitly relying on return value optimization to prevent infinite relocation recursion.
+
+```cpp
+struct foo_t {
+  operator relocate(foo_t* output) {
+    // Placement new the output.
+    new (output) foo_t;
+    output->a = relocate(a);
+    output->b = relocate(b);
+    output->c = relocate(c);
+  }
+  T a, b, c;
+}
 
 Use the `relocate` operator in a _relocate-expression_.
 
