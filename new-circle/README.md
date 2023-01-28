@@ -3745,6 +3745,7 @@ struct foo_t {
   }
   T a, b, c;
 }
+```
 
 Use the `relocate` operator in a _relocate-expression_.
 
