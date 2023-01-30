@@ -3725,7 +3725,7 @@ struct foo_t {
 };
 ```
 
-The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
+The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. It's written as a by-value parameter, because the parameter is now "owned" by the relocation constructor. The parameter's destructor is called at the end of constructor, unless the paremeter is first _dissolved_. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
 
 Implicitly-generated relocation constructors take one of four forms:
 1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
