@@ -3710,60 +3710,78 @@ My mental model is to introduce an operator `relocate`. The `relocate` operator 
 
 Most C++ types, and all Rust types, can be made _trivially relocatable_. Trivially relocatable types can be moved with a simple memcpy. STL containers like vector, string, unique_ptr, shared_ptr can be annotated as _trivially relocatable_. A few containers like list and map hold pointers to themselves, meaning some additional operation is needed to move them; these are non-trivially relocatable.
 
-Implicit-generated `operator relocate` gets two forms:
-* For trivially relocatable types, just memcpy from the rhs to the lhs.
-* For non-trivally relocatable types, move-construct from the rhs to the lhs, then destruct the rhs.
-
-Non-trivially relocatable types that want to define a custom relocation should be permitted to do so:
+Non-trivially relocatable types that want to define a custom relocation should be permitted to do so by defining a _relocation constructor_.
 
 ```cpp
 struct foo_t {
-  operator relocate() {
-    // Create and return a foo_t from the contents in *this.
-    foo_t ret;
-    ret.a = relocate(a);
-    ret.b = relocate(b);
-    ret.c = relocate(c);
-    return ret;
+  foo_t(relocate foo_t rhs) :
+    a(relocate rhs.a),
+    b(relocate rhs.b),
+    c(relocate rhs.c) {
+    puts("relocation for foo_t was called.");
   }
+
   T a, b, c;
 };
 ```
 
-The body of the user-defined `operator relocate` is the last time that the object at `this` is used. It is permitted for the body to `relocate` its subobjects from `*this` to the return value. Subobjects of `*this` not relocated are destroyed at the end of the function. The user-defined `relocate` operator rolls both move constructor and destructor into one function.
+The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
 
-It may look less magical if `operator relocate` took an output pointer rather than implicitly relying on return value optimization to prevent infinite relocation recursion.
+Implicitly-generated relocation constructors take one of four forms:
+1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
+2. For types without a user-defined destructor, the rhs is memberwise relocated into the lhs.
+3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is desturcted.
+4. The relocation constructor is deleted.
 
-```cpp
-struct foo_t {
-  operator relocate(foo_t* output) {
-    // Placement new the output.
-    new (output) foo_t;
-    output->a = relocate(a);
-    output->b = relocate(b);
-    output->c = relocate(c);
-  }
-  T a, b, c;
-}
-```
-
-Use the `relocate` operator in a _relocate-expression_.
+Use the `relocate` operator in a _relocate-expression_. This has the precedence of a _unary-expression_.
 
 ```cpp
 obj_t a;
-obj_t b = relocate(a);
+obj_t b = relocate a;
 ```
 
-Normally naming `a` yields an lvalue expression, which is a non-checked access. This kind of access must be prohibited in a safe context. Naming `a` as the operand of a `relocate` call invokes the relocation and returns a prvalue. As soon as the `relocate` call returns, `a` is inaccessible. Its destructor will never be called.
+Normally naming `a` yields an lvalue expression, which is a non-checked access. Lvalues that escape must be prohibited in a safe context. Naming `a` as the operand of a `relocate` call invokes the relocation and returns a prvalue. As soon as the `relocate` call returns, `a` is inaccessible. Its destructor will never be called.
 
 prvalue elision causes the `relocate` return object to be initialized straight into `b`'s storage. We've just _transferred_ ownership of the object from `a` to `b`. As an optimization, in this case the compiler can emit a no-op and simply reassign the label and lifetime from `a` to `b`.
 
 ```cpp
 obj_t a, b;
-b = relocate(b);
+b = relocate b;
 ```
 
 Here, `b` is already initialized. We assign a prvalue to it, which follows the normal C++ move path: the prvalue temporary is materialized to an xvalue, `b`'s move constructor is called, and at the end of the full statement, the temporary is destroyed. It seems bad that we're destroying the result object of `relocate`, but we have the effect of moving the point of the destruction up from the end of `b`'s scope to the point of its last use. That's something!
+
+Relocating a complete object ends the lifetime of that object. Relocating a subobject ends the lifetime of the subobject and _dissolves_ the complete object. Types with user-defined destructors may not be dissolved. You may not call member functions of dissolved objects. When they go out of scope, the destructor for a dissolved object is not called, but the destructors for all of its unrelocated subobjects are called.
+
+This is a recursive operation. Relocating a subobject causes dissolution of all containing objects. I expect that you'll be able to relocate back into a subobject to un-dissolve an object, returning it to a complete state.
+
+```cpp
+struct foo_t {
+  foo_t(relocate foo_t rhs) :
+    a(relocate rhs.a),
+    b(relocate rhs.b),
+    c(relocate rhs.c) {
+    puts("relocation for foo_t was called.");
+  }
+
+  T a, b, c;
+};
+```
+
+The dissolve model works even inside relocation constructors. The _relocate-expression_ on `rhs.a` _dissolves_ rhs, so that its destructor is not called when it goes out of scope at the end of the constructor.
+
+```cpp
+struct foo_t {
+  foo_t(relocate foo_t rhs) {
+    self = std::move(this);
+    puts("relocation for foo_t was called.");
+    // rhs is destructed here
+  }
+  T a, b, c;
+};
+```
+
+In this implementation the relocation parameter is move-assigned to the lhs. This _does not dissolve_ the relocation parameter. That's still a complete object. At the end of the constructor, rhs's destructor is called.
 
 ### Temporary materialization
 
