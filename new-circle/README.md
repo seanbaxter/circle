@@ -3730,7 +3730,7 @@ The `relocate` token on the function parameter is not part of the type. It's a d
 Implicitly-generated relocation constructors take one of four forms:
 1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
 2. For types without a user-defined destructor, the rhs is memberwise relocated into the lhs.
-3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is desturcted.
+3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is destructed.
 4. The relocation constructor is deleted.
 
 Use the `relocate` operator in a _relocate-expression_. This has the precedence of a _unary-expression_.
