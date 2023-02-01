@@ -150,6 +150,9 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [`[meta]`](#meta)
     1. [`[parameter_directives]`](#parameter_directives)
     1. [`[relocate]`](#relocate)
+        * [Relocation constructor](#relocation-constructor)
+        * [Temporary materialization](#temporary-materialization)
+        * [Parameter passing is hard](#parameter-passing-is-hard)
 1. [Core extensions](#core-extensions)
     1. [Template parameter kinds](#template-parameter-kinds)
     1. [Overload sets as arguments](#overload-sets-as-arguments)
@@ -159,6 +162,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [String constant operators](#string-constant-operators)
         * [String constant formatting](#string-constant-formatting)
     1. [Backtick identifiers](#backtick-identifiers)
+    1. [Trivial relocation](#trivial-relocation)
 1. [Metaprogramming](#metaprogramming)
     1. [Pack subscripts and slices](#pack-subscripts-and-slices)
     1. [Tuple subscripts and slices](#tuple-subscripts-and-slices)
@@ -4384,6 +4388,11 @@ Backtick identifiers:
 
 1. solve the keyword shadowing problem, so you can activate features which define new reserved words without cutting yourself off from those same identifiers, and
 1. allows the program to use user-facing strings to declare data members and enumerators internally, and programmatically generate serialization code with reflection.
+
+## Trivial relocation
+
+** Under construction **
+See [`[relocation]`](#relocate).
 
 # Metaprogramming
 
