@@ -3710,29 +3710,6 @@ My mental model is to introduce an operator `relocate`. The `relocate` operator 
 
 Most C++ types, and all Rust types, can be made _trivially relocatable_. Trivially relocatable types can be moved with a simple memcpy. STL containers like vector, string, unique_ptr, shared_ptr can be annotated as _trivially relocatable_. A few containers like list and map hold pointers to themselves, meaning some additional operation is needed to move them; these are non-trivially relocatable.
 
-Non-trivially relocatable types that want to define a custom relocation should be permitted to do so by defining a _relocation constructor_.
-
-```cpp
-struct foo_t {
-  foo_t(relocate foo_t rhs) :
-    a(relocate rhs.a),
-    b(relocate rhs.b),
-    c(relocate rhs.c) {
-    puts("relocation for foo_t was called.");
-  }
-
-  T a, b, c;
-};
-```
-
-The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. It's written as a by-value parameter, because the parameter is now "owned" by the relocation constructor. The parameter's destructor is called at the end of constructor, unless the paremeter is first _dissolved_. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
-
-Implicitly-generated relocation constructors take one of four forms:
-1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
-2. For types without a user-defined destructor, the rhs is memberwise relocated into the lhs.
-3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is destructed.
-4. The relocation constructor is deleted.
-
 Use the `relocate` operator in a _relocate-expression_. This has the precedence of a _unary-expression_.
 
 ```cpp
@@ -3782,6 +3759,33 @@ struct foo_t {
 ```
 
 In this implementation the relocation parameter is move-assigned to the lhs. This _does not dissolve_ the relocation parameter. That's still a complete object. At the end of the constructor, rhs's destructor is called.
+
+### Relocation constructor
+
+Non-trivially relocatable types that want to define a custom relocation should be permitted to do so by defining a _relocation constructor_.
+
+```cpp
+struct foo_t {
+  foo_t(relocate foo_t rhs) :
+    a(relocate rhs.a),
+    b(relocate rhs.b),
+    c(relocate rhs.c) {
+    puts("relocation for foo_t was called.");
+  }
+
+  T a, b, c;
+};
+```
+
+The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. It's written as a by-value parameter, because the parameter is now "owned" by the relocation constructor. The parameter's destructor is called at the end of constructor, unless the paremeter is first _dissolved_. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
+
+Implicitly-generated relocation constructors take one of four forms:
+1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
+2. For types without either a user-defined destructor or user-defined move constructor, and with all subobjects relocatable, the rhs is memberwise relocated into the lhs.
+3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is destructed.
+4. The relocation constructor is deleted.
+
+Implicitly-declared relocation constructors have the more restrictive _access-specifier_ of the move constructor and destructor.
 
 ### Temporary materialization
 
