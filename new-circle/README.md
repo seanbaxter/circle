@@ -3591,6 +3591,14 @@ I think we need a two-pronged approach for introducing borrow checking:
 
 First-class relocation is necessary basis for a functional borrow checker. To _borrow_ a thing, someone has to _own_ it. See the [`[relocate]`](#relocate) feature for my thinking on ownership semantics.
 
+The Chromium people produced a document [_Borrowing Trouble: The Difficulties of a C++ Borrow-Checker_](https://docs.google.com/document/d/e/2PACX-1vSt2VB1zQAJ6JDMaIA9PlmEgBxz2K5Tx6w2JqJNeYCy0gU4aoubdTxlENSKNSrQ2TXqPWcuwtXe6PlO/pub), which describes a borrow checker as a state machine.
+
+> We attempted to represent ownership and borrowing through the C++ type system, however the language does not lend itself to this. Thus memory safety in C++ would need to be achieved through runtime checks.
+>
+> -- [_Borrowing Trouble: The Difficulties of a C++ Borrow-Checker_](https://docs.google.com/document/d/e/2PACX-1vSt2VB1zQAJ6JDMaIA9PlmEgBxz2K5Tx6w2JqJNeYCy0gU4aoubdTxlENSKNSrQ2TXqPWcuwtXe6PlO/pub)
+
+The strategy of the `[borrow_checker]` feature is to embed Rust's lifetime semantics into C++. Modeling the borrow-checking semantics with C++ libraries, as considered by that document, is a non-starter, and I agree with their conclusion. We need fundamental compiler enhancements for this important functionality to work.
+
 ## `[context_free_grammar]`
 
 Most modern languages have syntaxes that are context free (or more precisely, [LALR](https://en.wikipedia.org/wiki/LALR_parser)), effectively meaning that a parse tree can be produced without the compiler needing to perform semantic analysis. C++ is very context sensitive. That makes writing compilers hard, and writing non-compiler tooling very very difficult. 
