@@ -3705,6 +3705,7 @@ There's long been a desire to use parameter directives to indicate the flow of d
 
 * Reserved words: `relocate`.
 * Required for: [`[borrow_checker]`](#borrow_checker)
+* Requires: [Trivial relocation](#trivial-relocation)
 
 C++ should implement borrow checking. But in order to _borrow_ an object, someone has to _own_ an object. C++ doesn't have real ownership semantics. For automatic duration objects, the object's lifetime is determined by its scope, and there's no legitimate way to change that lifetime. There's no concept of transfer of ownership. There's a concept of _moving resources_, and that's been very helpful for choosing efficient code paths without weakening type safety, but it only effects the _contents_ of an object rather than the object itself.
 
@@ -3712,7 +3713,7 @@ C++ needs a language _relocate_ operator, aka _destructive move_. Libraries that
 
 My mental model is to introduce an operator `relocate`. The `relocate` operator takes an object and returns a prvalue to a relocated copy of that object. The original object is then considered inaccessible. Its destructor _is not executed_. Rather, as part of the relocation operation, members that are not relocated to the return value are destructed.
 
-Most C++ types, and all Rust types, can be made _trivially relocatable_. Trivially relocatable types can be moved with a simple memcpy. STL containers like vector, string, unique_ptr, shared_ptr can be annotated as _trivially relocatable_. A few containers like list and map hold pointers to themselves, meaning some additional operation is needed to move them; these are non-trivially relocatable.
+Most C++ types, and all Rust types, can be made [_trivially relocatable_](#trivial-relocation). Trivially relocatable types can be moved with a simple memcpy. STL containers like vector, string, unique_ptr, shared_ptr can be annotated as _trivially relocatable_. A few containers like list and map hold pointers to themselves, meaning some additional operation is needed to move them; these are non-trivially relocatable.
 
 Use the `relocate` operator in a _relocate-expression_. This has the precedence of a _unary-expression_.
 
