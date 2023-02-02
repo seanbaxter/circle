@@ -3640,7 +3640,7 @@ void call(obj_t obj) {
   func(ref obj);
 
   // Pass a mutable ref to #3.
-  func(refmut);
+  func(refmut obj);
 }
 ```
 
