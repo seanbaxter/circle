@@ -143,6 +143,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
         * [Abbreviated template arguments](#abbreviated-template-arguments)
     1. [`[tuple]`](#tuple)
 1. [Research catalog](#research-catalog)
+    1. [`[argument_directives]`](#argument_directives)
     1. [`[borrow_checker]`](#borrow_checker)
     1. [`[context_free_grammar]`](#context_free_grammar)
     1. [`[cyclone_pointers]`](#cyclone_pointers)
@@ -3559,10 +3560,96 @@ x = 5
 
 # Research catalog
 
+## `[argument_directives]`
+
+* Reserved words: `copy`, `move`, `ref`, `refmut` and `relocate`.
+* Requirements: [`[borrow_checker]`](#borrow_checker).
+
+[Parameter-passing directives](#parameter_directives) have been a long-sought feature for C++. They de-emphasize the role of reference types in parameter passing by introducing directives (reserved words) that prefix parameter types. The directives are declarative: they indicate not only the mechanism of the parameter but also its intent.
+
+During my development of the research features [`[relocate]`](#relocate) and [`[borrow_checker]`](#borrow_checker), I've developed a desire to go the opposite way: directives on the arguments rather than on the parameters.
+
+Modern language design usually prefers **explicitness over implicitness**. 
+
+Parameter directives are **implicit**: at the point of the call, the user doesn't know which parameter directives are in play. Name lookup finds the candidate set and overload resolution finds the best viable candidate (which may involve the parameter directives of the candidates). But when the best viable candidate is found, the user still doesn't know what the semantics for the call are.
+
+Argument directives are **explicit**. Write them in the argument expressions. You effectively overload the function at the point of the call rather than the point of its definition. This is design chosen by Rust and most other languages. Because C++'s overload resolution is so sophisticated, it's become a habit to continue shoveling responsibilities on that, since we know it can be extended. But I think that impulse is as trap.
+
+Consider a function that takes an argument _by value_:
+
+```cpp
+void func(obj_t obj);
+
+void call(obj_t obj) {
+  // Copy-construct the object into the argument. The local copy is unchanged
+  // after the call returns.
+  func(copy obj);
+
+  // Move-construct the object into the argument. The local copy has its
+  // resources stripped, but is otherwise defined, after the call returns.
+  func(move obj);
+
+  // Relocate the object into the argument. The local copy's lifetime is 
+  // terminated when the call returns. Further access of obj is a compile-time
+  // error.
+  func(relocate obj);
+}
+```
+
+The parameter directive approach would place these three reserved words on
+three overloads of `func`. Here, we put them on three invocations of it. This
+makes the code searchable: you can grep all performance-compromising class 
+object copies and you can grep all bug-introducing moves.
+
+```cpp
+// ref and refmut are part of the type, not parameter directives.
+void func(obj_t ref obj);     // #1
+void func(obj_t refmut obj);  // #2
+
+void call(obj_t obj) {
+  // Get a non-mutable ref to the object and call #1.
+  func(ref obj);
+
+  // Get a mutable ref to the object and call #2.
+  func(refmut obj);
+}
+```
+
+The argument directive design is the only way to implement the [`[borrow_checker]`](#borrow_checker) model, where the checked reference entities `ref` and `refmut` are part of a type, not just options in an expression's value category. At the call site the user explicitly requires a `ref` or `refmut` from an object and passes that to a compatible function.
+
+Pass by value, pass by ref and pass by refmut provide a memory-safe parameter strategy, and all are best annotated at the call site. Circle's feature pragmas, the ability to establish source domains with per-file scope, let's us go further in modernization.
+
+Consider making **relocation the default**. Rather than implicitly copy to a per-value parameter, implicitly relocate. This is Rust's default. It makes the cheap operation (relocation) the one you're naturally going to use in preference to the potentially expensive operation (copy).
+
+```cpp
+void func(obj_t obj);        // #1
+void func(obj_t ref obj);    // #2
+void func(obj_t refmut obj); // #3
+
+void call(obj_t obj) {
+  // Copy-construct the object and call #1.
+  func(copy obj);
+
+  // Move-construct the object and call #1.
+  func(move obj);
+
+  // Implicitly relocate the object and call #1.
+  func(obj);
+
+  // Pass a non-mutable ref to #2.
+  func(ref obj);
+
+  // Pass a mutable ref to #3.
+  func(refmut);
+}
+```
+
+I think this is a big improvement in consistency, ease of use, and clarity. And it's consistent with two features already available in Circle: [`[adl]`](#adl) which makes argument-dependent lookup explicit and [`[forward]`](#forward) which makes forwarding a parameter explicit.
+
 ## `[borrow_checker]`
 
 * Reserved words: `ref`, `refmut`, `safe` and `unsafe`.
-* Requirements: [`[relocate]`](#relocate)
+* Requirements: [`[relocate]`](#relocate).
 
 Rust references represent a [borrow](https://doc.rust-lang.org/std/primitive.reference.html) of an owned value. You can borrow through any number of non-mutable references, or exactly one mutable reference. This system proves to the compiler's borrow checker that you aren't mutating an object from two different places, and that you aren't mutating or reading from a dead object.
 
