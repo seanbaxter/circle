@@ -3866,7 +3866,7 @@ Non-trivially relocatable types that want to define a custom relocation should b
 
 ```cpp
 struct foo_t {
-  foo_t(relocate foo_t rhs) :
+  relocate(foo_t rhs) noexcept :
     a(relocate rhs.a),
     b(relocate rhs.b),
     c(relocate rhs.c) {
@@ -3877,9 +3877,13 @@ struct foo_t {
 };
 ```
 
-The `relocate` token on the function parameter is not part of the type. It's a directive (like a [`[forward]`](#forward) directive) that indicates a special function. The parameter is internally passed by reference. It's written as a by-value parameter, because the parameter is now "owned" by the relocation constructor. The parameter's destructor is called at the end of constructor, unless the paremeter is first _dissolved_. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
+The relocation constructor is given the `relocate` name rather than the class's name, which is used for all other constructors. The intent is to separate this constructor so that it isn't considered when initializing a new object. It's only considered when invoked by a _relocate-expression_. Declaring a relocation constructor does not inhibit the declaration of a default constructor.
 
-Implicitly-generated relocation constructors take one of four forms:
+The relocation constructor's parameter is internally passed by reference. Textually it is passed like a by-value parameter, to indicate that the relocation constructor "owns" the object. When the constructor goes out of scope, so does the parameter, terminating its lifetime. The body of the user-defined relocation constructor is the last time that the parameter object is used. 
+
+If the user does not declare a relocation constructor, one will be implicitly declared as defaulted.
+
+Defaulted relocation constructors are assigned one of four implementations:
 1. For trivially relocatable types, the rhs is memcpy'd into the lhs.
 2. For types without either a user-defined destructor or user-defined move constructor, and with all subobjects relocatable, the rhs is memberwise relocated into the lhs.
 3. For types with accessible and non-deleted move or copy constructors, and accessible and non-deleted destructors, the rhs is move/copy constructed into the lhs, and the rhs is destructed.
