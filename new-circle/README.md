@@ -152,6 +152,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [`[parameter_directives]`](#parameter_directives)
     1. [`[relocate]`](#relocate)
         * [Relocation constructor](#relocation-constructor)
+        * [Non-nullable smart pointers](#non-nullable-smart-pointers)
         * [Temporary materialization](#temporary-materialization)
         * [Parameter passing is hard](#parameter-passing-is-hard)
 1. [Core extensions](#core-extensions)
@@ -3890,6 +3891,82 @@ Defaulted relocation constructors are assigned one of four implementations:
 4. The relocation constructor is deleted.
 
 Implicitly-declared relocation constructors have the more restrictive _access-specifier_ of the move constructor and destructor.
+
+### Non-nullable smart pointers
+
+The relocation constructor opens new design paradigms for C++. You can author non-movable types that are relocatable. A deleted move constructor deletes the _defaulted_ relocation constructor. However, a user-defined relocation constructor will enable relocation.
+
+The Standard Library's primary smart pointer is _designed to be moved_. Move semantics were really introduced in C++11 to facilitate [`unique_ptr`](https://en.cppreference.com/w/cpp/memory/unique_ptr)'s design, and the non-movable [`auto_ptr`](https://en.cppreference.com/w/cpp/memory/auto_ptr) was removed from the Standard Library accordingly. While `unique_ptr` is an important class, the idea of moving to transfer out a resource leaves pointers in a null state.
+
+> I call it my billion-dollar mistake. It was the invention of the null reference in 1965. At that time, I was designing the first comprehensive type system for references in an object oriented language (ALGOL W). My goal was to ensure that all use of references should be absolutely safe, with checking performed automatically by the compiler. But I couldn't resist the temptation to put in a null reference, simply because it was so easy to implement. This has led to innumerable errors, vulnerabilities, and system crashes, which have probably caused a billion dollars of pain and damage in the last forty years.
+>
+> -- [Tony Hoare](https://en.wikipedia.org/wiki/Null_pointer#History)
+
+If you are concerned about letting null pointers into your program, relocation offers some solution. 
+
+```cpp
+template<typename T>
+class nonnull_unique_ptr {
+public:
+  // A factory function to create a new object inside a smart pointer.
+  template<typename... Args>
+  static nonnull_unique_ptr make_new(forward Args... args) {
+    // Call the private constructor.
+    return nonnull_unique_ptr(new T(forward args...));
+  }
+
+  // unique_ptr can't copy, neither can we.
+  nonnull_unique_ptr(const nonnull_unique_ptr&) = delete;
+  nonnull_unique_ptr& operator=(const nonnull_unique_ptr&) = delete;
+
+  // don't allow move, because the rhs would then have a nullptr.
+  nonnull_unique_ptr(nonnull_unique_ptr&&) = delete;
+  nonnull_unique_ptr& operator=(nonnull_unique_ptr&&) = delete;
+
+  // Free the resource on destruction.
+  ~nonnull_unique_ptr() {
+    delete p;
+  }
+
+  // A user-defined relocation constructor enables relocation.
+  relocate(nonnull_unique_ptr rhs) noexcept : p(rhs.p) {
+    rhs.p = nullptr;
+    // rhs is dead when it goes out of scope.
+  }
+
+  const T* operator->() const noexcept { return p; }
+  T* operator->() noexcept { return p; }
+
+private:
+  // Users must call make_new to create nonnull_unique_ptr.
+  nonnull_unique_ptr(T* p) noexcept : p(p) { }
+
+  T* p;
+};
+
+int main() { 
+  // Create a new object.
+  auto ptr = nonnull_unique_ptr<obj_t>(x1, x2);
+
+  // Error: move is deleted.
+  auto ptr2 = std::move(ptr2);
+
+  // Ok: relocate is defined.
+  auto ptr3 = relocate ptr;
+
+  // Error: ptr's lifetime ended at its relocation.
+  ptr->func();
+
+  // Ok.
+  ptr3->func();
+}
+```
+
+Consider this non-nullable `unique_ptr` implementation. The move constructor and assignment operators are deleted. The only way to create an instance is with the integrated `make_new` factory function. The smart pointer is always created with a non-null raw pointer, and since it's move constructor and assignment operator are deleted, there's no route to nulling that pointer. 
+
+In Standard C++, this design is pointless, because you can't move the smart pointer to some other scope. But the `[relocate]` feature lets _relocate_ the pointer to different ownership. The old object, which would normally be assigned a null pointer, is here invalidated, inaccessible, gone. We're effectively moving the smart pointer, not just transfering its contents.
+
+As part of borrow checking, relocation provides a different kind of object model, which uses stricter ownership semantics and static analysis to prevent your program from entering undesirable states.
 
 ### Temporary materialization
 
