@@ -153,6 +153,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [`[relocate]`](#relocate)
         * [Relocation constructor](#relocation-constructor)
         * [Non-nullable smart pointers](#non-nullable-smart-pointers)
+        * [Trivial relocatability](#trivial-relocatability)
         * [Temporary materialization](#temporary-materialization)
         * [Parameter passing is hard](#parameter-passing-is-hard)
 1. [Core extensions](#core-extensions)
@@ -164,7 +165,6 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [String constant operators](#string-constant-operators)
         * [String constant formatting](#string-constant-formatting)
     1. [Backtick identifiers](#backtick-identifiers)
-    1. [Trivial relocation](#trivial-relocation)
 1. [Metaprogramming](#metaprogramming)
     1. [Pack subscripts and slices](#pack-subscripts-and-slices)
     1. [Tuple subscripts and slices](#tuple-subscripts-and-slices)
@@ -1959,7 +1959,7 @@ impl double : IScale {
   }
 };
 
-// A partial template that will undergo successfull argument 
+// A partial template that will undergo successful argument 
 // deduction for arithmetic types.
 template<typename T> requires(T~is_arithmetic)
 impl T : IPrint {
@@ -3746,7 +3746,24 @@ C++ can be extended with run-time bounds checking under a `[cyclone_pointers]` f
 
 * Reserved words: `generic`.
 
-In C++, templates are _late-checked_, meaning the semantic requirements of statements may be deferred until instantiation when the constituent types are dependent on template parameters. By contrast, Rust generics are _early-checked_, meaning the user must define an implementation, including relating dependent types of generic parameters (called _associated types_). The primary goal of early-checking is to move error checking closer to definition, so that error messages show what the user did wrong, rather than pointing deep within library code. The downside of early-checking is that it doesn't handle variadics, non-type template parameters, or interface template parameters.
+In C++, templates are _late-checked_, meaning the semantic requirements of statements may be deferred until instantiation when the constituent types are dependent on template parameters. By contrast, Rust generics are _early-checked_, meaning the user must define an implementation, including relating dependent types of generic parameters (called _associated types_). 
+
+The primary goal of early-checking is to move error checking closer to definition, so that error messages show what the user did wrong, rather than pointing deep within library code. 
+
+The downside of early-checking is that it doesn't handle anything other than basic type parameters. There's no:
+* variadics
+* forwarding parameters
+* non-type parameters
+* type template parameters
+* interface parameters
+* interface template parameters
+* concept parameters
+* variable template parameters
+* universal parameters
+
+Additionally, it doesn't permit usage of ordinary C++ templates, because those may be partially or explicitly specialized, and the specialization can only be known at instantiation.
+
+The Rust project logged a [variadic generic TODO](https://github.com/rust-lang/rust/issues/10124) in 2013 and abandoned it in 2021 without resolution. 
 
 In the 2000s, early-checked generics [N2773 Proposed Wording for Concepts](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2773.pdf) were added to the C++ working draft before being removed prior to C++11. A research feature, `[generic]`, would add a `generic` keyword and support early-checked versions of all the language entities that now support templates:
 
@@ -3756,7 +3773,7 @@ In the 2000s, early-checked generics [N2773 Proposed Wording for Concepts](https
 * variable generics
 * interface generics
 
-I made a big effort in this direction, but there were [too many open questions](https://gist.github.com/seanbaxter/74580fe39601eafaf9644c40ad98f606) to close the loop.
+I made a big effort in this direction, but there were [too many open questions](https://gist.github.com/seanbaxter/74580fe39601eafaf9644c40ad98f606) to close the loop. I'm skeptical that we should expect early-checked generics to land in a C++ compiler, given their inflexibility. I believe Rust and Swift would be stronger languages with late-checked templates.
 
 ## `[meta]`
 
@@ -3967,6 +3984,10 @@ Consider this non-nullable `unique_ptr` implementation. The move constructor and
 In Standard C++, this design is pointless, because you can't move the smart pointer to some other scope. But the `[relocate]` feature lets _relocate_ the pointer to different ownership. The old object, which would normally be assigned a null pointer, is here invalidated, inaccessible, gone. We're effectively moving the smart pointer, not just transfering its contents.
 
 As part of borrow checking, relocation provides a different kind of object model, which uses stricter ownership semantics and static analysis to prevent your program from entering undesirable states.
+
+### Trivial relocatability
+
+** UNDER CONSTRUCTION **
 
 ### Temporary materialization
 
@@ -4565,8 +4586,6 @@ Backtick identifiers:
 
 1. solve the keyword shadowing problem, so you can activate features which define new reserved words without cutting yourself off from those same identifiers, and
 1. allows the program to use user-facing strings to declare data members and enumerators internally, and programmatically generate serialization code with reflection.
-
-## Trivial relocation
 
 ** Under construction **
 See [`[relocation]`](#relocate).
