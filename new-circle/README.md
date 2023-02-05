@@ -3582,6 +3582,14 @@ fn main() -> int {
   std::cout<< values.[:]<< "\n" ...;  // 10 22 33
 }
 ```
+```
+$ circle tuple2.cxx
+$ ./tuple2
+std::tuple<int, float, double>
+10
+22
+33
+```
 
 With the [`[new_decl_syntax]`](#new_decl_syntax), write the tuple kind as a _trailing-return-type_. Return a _tuple-expression_. Even if you don't get the tuple element types exactly right, the converting constructor for `std::tuple` will perform the conversions for you.
 
