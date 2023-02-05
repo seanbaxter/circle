@@ -3559,6 +3559,32 @@ Hello not a tuple
 x = 5
 ```
 
+The convenience of `[tuple]` provides the apperance of multiple return values
+from a function.
+
+[**tuple2.cxx**](tuple2.cxx) - [(Compiler Explorer)](
+https://godbolt.org/z/n6jaYEb1P)
+```cpp
+#pragma feature new_decl_syntax tuple
+#include <tuple>
+#include <iostream>
+
+// [tuple] allows a convenient way to do multiple return values.
+fn func(x: int) -> (int, float, double) {
+  // Return a tuple of type (int, float, double). The [tuple] feature
+  // gives us multiple return value syntax.
+  return (x, 2.2f * x, 3.3 * x);
+}
+
+fn main() -> int {
+  var values := func(10);
+  std::cout<< decltype(values)~string + "\n";
+  std::cout<< values.[:]<< "\n" ...;  // 10 22 33
+}
+```
+
+With the [`[new_decl_syntax]`](#new_decl_syntax), write the tuple kind as a _trailing-return-type_. Return a _tuple-expression_. Even if you don't get the tuple element types exactly right, the converting constructor for `std::tuple` will perform the conversions for you.
+
 # Research catalog
 
 ## `[argument_directives]`
