@@ -138,7 +138,7 @@ fn main() -> int {
 }
 ```
 
-This examples is almost a 1:1 transliteration from a [Rust traits example](https://doc.rust-lang.org/rust-by-example/trait.html). Circle's [interfaces](#interface) are very close to Rust traits, and provide the same organizational alternative to member functions and function overloading. 
+This example is almost a 1:1 transliteration from a [Rust traits example](https://doc.rust-lang.org/rust-by-example/trait.html). Circle's [interfaces](#interface) are very close to Rust traits, and provide the same organizational alternative to member functions and function overloading. 
 
 These new features are at the heart of the successor language goals. They make the language:
 
