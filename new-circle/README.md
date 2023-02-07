@@ -62,11 +62,85 @@ fn main() -> int {
 }
 ```
 
-Which programming language is this? Parts look like C++: it includes familiar header files and uses C++'s standard output. Parts look like Rust or Carbon: it uses `fn` and `var` declarations, which are completely different from C++'s declarations, and it has choice types and pattern matching.
+Which programming language is this? Parts look like C++: it includes familiar header files and uses C++'s standard output. Parts look like Rust or Carbon: it uses `fn` and `var` declarations, which are completely different from C++'s declarations, and it has [choice types](#choice) and [pattern matching](#pattern-matching).
 
-This example code is almost a perfect 1:1 copy of a [sample in the Carbon design document](
+This example code is almost a perfect copy of a [sample in the Carbon design document](
 https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#choice-types
-). It compiles with the Circle C++ toolchain, with [25 new features](#edition_carbon_2023) enabled. These new features are at the heart of the successor language goals. They make the language:
+). It compiles with the Circle C++ toolchain, with [25 new features](#edition_carbon_2023) enabled.
+
+[**rust1.cxx**](rust1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5c1qbb49f)
+```cpp
+#pragma feature edition_carbon_2023
+#include <string_view>
+#include <iostream>
+
+using str = std::string_view;
+
+interface IAnimal {
+  fn static make_new(name: str) -> Self;
+
+  fn name() const -> str;
+  fn noise() const -> str;
+
+  // Traits can provide default method definitions.
+  fn talk() const {
+    std::cout<< name()<< " says "<< noise()<< " \n";
+  }
+}
+
+struct Sheep { 
+  var naked : bool;
+  var name : str;
+
+  fn is_naked() const noexcept -> bool { return naked; }
+  fn shear() noexcept { 
+    if(naked) {
+      std::cout<< name<< " is already naked...\n";
+    } else {
+      std::cout<< name<< " gets a haircut!\n";
+      naked = true; 
+    }
+  }
+}
+
+impl Sheep : IAnimal {
+  fn static make_new(name: str) -> Sheep {
+    return { .naked=false, .name=name };
+  }
+
+  fn name() const -> str {
+    return self.name;
+  }
+
+  fn noise() const -> str {
+    return self.naked ?
+      "baaaaah?" :
+      "baaaaah!";
+  }
+
+  // Default trait methods can be overriden.
+  fn talk() const {
+    std::cout<< name()<< " pauses briefly... "<< noise()<< "\n";
+  }
+}
+
+fn main() -> int {
+  // Create a Sheep instance through IAnimal's static method.
+  var dolly := impl!<Sheep, IAnimal>::make_new("Dolly");
+
+  // Put the Sheep : IAnimal impl in scope so member lookup works.
+  using impl Sheep : IAnimal;
+
+  // Call a mix of interface methods and class member functions.
+  dolly.talk();
+  dolly.shear();
+  dolly.talk();
+}
+```
+
+This examples is almost a 1:1 transliteration from a [Rust traits example](https://doc.rust-lang.org/rust-by-example/trait.html). Circle's [interfaces](#interface) are very close to Rust traits, and provide the same organizational alternative to member functions and function overloading. 
+
+These new features are at the heart of the successor language goals. They make the language:
 
 * **safer** by [disabling harmful implicit conversions](#no_implicit_integral_narrowing) and [initializing](#default_value_initialization) all objects,
 * **easier to read** with a [clearer declaration syntax](#new_decl_syntax) and new [bracing requirements](#require_control_flow_braces),
