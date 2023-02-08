@@ -1959,6 +1959,55 @@ I think it makes sense to let organizations do what they want, and avoid one-siz
 
 `Self` is a dependent type alias that's implicitly declared inside interfaces and interface templates. It's a placeholder for the to-be-determined receiver type. For interface templates, the interface's name is implicitly declared as an _injected-interface-name_, similar to the _injected-class-name_ in class templates. It behaves like an interface, unless given a _template-argument-list_, in which case it behaves like an interface template.
 
+[**interface.cxx**](interface.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5PYhafqc3)
+```cpp
+#include <iostream>
+
+// interface and impl are identifiers.
+int interface = 0;
+int impl = 1;
+
+// Bring interface, impl, dyn, make_dyn and self in as keywords.
+#pragma feature interface self
+
+// interface is a keyword. Define an interface that allows implicit impls.
+interface IPrint auto {
+  void print() const default (Self~is_arithmetic) {
+    std::cout<< self<< "\n";
+  }
+};
+
+int main() {
+  // Bring impl<int, IPrint> and impl<double, IPrint> into scope.
+  using impl int, double : IPrint;
+
+  // Call the interface method for impl<double, IPrint>.
+  int x = 101;
+  double y = 1.618;
+
+  // It looks like we're calling member functions on builtin types!
+  // These are interface method calls. Name lookup finds them, because
+  // we brought their impls into scope.
+  x.print();
+  y.print();
+
+  // We can still access the interface and impl object declarations from 
+  // the top, using backtick identifiers.
+  `interface` = 2;
+  `impl` = 3;
+}
+```
+```
+$ circle interface.cxx
+$ ./interface
+101
+1.618
+```
+
+This simple example activates the `[interface]` and [`[self]`](#self) features, bringing five new keywords into the language: `interface`, `impl`, `dyn`, `make_dyn` and `self`. The interface `IPrint` specifies one method, `print`, which also has a defaulted definition for arithmetic types. This just uses `cout` to send the contents of `self` (or `*this`) to the terminal.
+
+A [_using-impl-declaration_](#interface-name-lookup) in main brings two impls into scope. This effectively extends the interfaces of `int` and `double` to include `IPrint`. You can call `.print()` on builtins as if they had member functions!
+
 To jump into the deep end, here's a peek at how to annotate a _clone_ function to deliver value semantics in a type erasure container like Rust's `Box` type. 
 
 ```cpp
