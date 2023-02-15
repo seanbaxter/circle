@@ -1959,7 +1959,7 @@ I think it makes sense to let organizations do what they want, and avoid one-siz
 
 `Self` is a dependent type alias that's implicitly declared inside interfaces and interface templates. It's a placeholder for the to-be-determined receiver type. For interface templates, the interface's name is implicitly declared as an _injected-interface-name_, similar to the _injected-class-name_ in class templates. It behaves like an interface, unless given a _template-argument-list_, in which case it behaves like an interface template.
 
-[**interface.cxx**](interface.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5PYhafqc3)
+[**interface.cxx**](interface.cxx) - [(Compiler Explorer)](https://godbolt.org/z/4GhbPPcE1)
 ```cpp
 #include <iostream>
 
@@ -1981,20 +1981,13 @@ int main() {
   // Bring impl<int, IPrint> and impl<double, IPrint> into scope.
   using impl int, double : IPrint;
 
-  // Call the interface method for impl<double, IPrint>.
-  int x = 101;
-  double y = 1.618;
-
   // It looks like we're calling member functions on builtin types!
   // These are interface method calls. Name lookup finds them, because
   // we brought their impls into scope.
+  int x = 101;
+  double y = 1.618;
   x.print();
   y.print();
-
-  // We can still access the interface and impl object declarations from 
-  // the top, using backtick identifiers.
-  `interface` = 2;
-  `impl` = 3;
 }
 ```
 ```
@@ -3813,20 +3806,7 @@ Rust references represent a [borrow](https://doc.rust-lang.org/std/primitive.ref
 
 This functionality should be a high-priority for C++ extension. A hypothetical `[borrow_checker]` can introduce `ref` and `refmut` types, which represent these borrows. `safe` and `unsafe` modifiers can apply to objects and to lexical scopes, to indicate which objects can be accessed through the checked references.
 
-C++11 changed the fundamental expression model by codifying value categories. Currently there are three:
-* lvalues
-* xvalues
-* prvalues
-
-Naming an object, parameter or function produces an lvalue expression. Copying an object produces a prvalue. Materializing an object produces an xvalue.
-
-I'm not educated in this field, but I think it may be fruitful to add two more value categories for borrow checking:
-* ref
-* refmut
-
-When you name an object you get an lvalue expression. When you name an object with `ref` you get a ref expression. When you name an object with `refmut` you get a refmut expression. All value categories (except prvalue) are viral to their subobjects.
-
-I think this implies either new reference types (called `ref` and `refmut`) or [parameter directives](#parameter-directives), so that the borrowed state of an object or subobject is communicated between function calls.
+When you name an object you get an lvalue expression. When you name an object with `ref` you get a ref-valued expression. When you name an object with `refmut` you get a refmut-valued expression.
 
 Objects may be declared `safe`, which denies the user the ability to access it by lvalue. Additionally, a scope can be declared `safe` (or by `safe` by default depending on a feature), so that all objects declared in the scope are `safe`.
 
