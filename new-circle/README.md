@@ -266,6 +266,7 @@ Per-file feature scoping allows language modification without putting requiremen
 C++ should not be versioned with command-line options, as those apply to the whole translation unit, including system and library dependencies not owned by the programmer. Command-line version allows us to only evolve the language so far. New syntax must fill the gaps in existing syntax. Defects cannot be fixed, because doing so may change the meaning of existing code. 
 
 This section describes Circle's file-scope versioning. During lexing, each file is given its own active feature mask, initially cleared.
+
 * `#feature on X Y Z` - set fields in the active feature mask.
 * `#feature off X Y Z` - clear fields in the active feature mask.
 * `#feature reset [X Y Z]` - reset the active feature mask and optionally set new fields.
@@ -464,13 +465,20 @@ Not only can we fix broken aspects of the language, we can fuse off access to fe
 
 ## Feature files
 
-**I don't want you to mark files with directives.** `#feature on` is mostly for demonstration purposes and to give curious programmers an easy way to probe the effects of each feature. Marking up every source file with features creates its own kind of dependency issue: in most cases you'd prefer a way to keep them all in sync. There's a solution:
+**I don't want you to mark files with features directives.** `#feature on` is mostly for demonstration purposes and to give curious programmers an easy way to probe the effects of each feature. Marking up every source file with features creates its own kind of dependency issue: in most cases you'd prefer a way to keep them all in sync. How do we get a _single point of definition_ to control a project's features?
 
-* `feature include "path"` loads the project's _feature file_
+* `#feature include "path"` loads the project's _feature file_.
 
-For each source file opened, Circle looks in that file's folder for a file named **pragma.feature**. Each line of this file indicates one feature. The feature mask of each file is initialized to the features listed in **pragma.feature**.
+Create a single _feature file_ somewhere special in your project. Perhaps in the root `inc` folder. Then `#feature include` it with a relative path from all the files in your project. The including file activates all the features listed in the feature file.
 
-When a project lead says it's time to upgrade to a new feature (and this may be a frequent thing, as fine-grained safety-related features get deployed on a rapid schedule), a build engineer can simply insert a new line in each `pragma.feature` file in the folders of interest, and go through the compile/test/edit cycle until the issues are resolved. Push those changes and you've updated your project to satisfy the new set of requirements. This is a path to strengthen your confidence _in existing code_ by increasing strictness in the language.
+There are three things I like about feature inclusion:
+1. It's explicit. You know you're using Circle's feature system, because right at the top, your file opts in.
+1. There's a single point of definition. Files won't get out of sync as developers add or remove features. If you add a feature to the feature file, it propagates to all C++ files that include it.
+1. It accommodates multiple feature files. Do you want a different feature file for debug or safety builds? Do you have legacy files and new source in the same folder? Do you want the files in each folder to share a feature file, as opposed to all f iles in the project? That's all supported. You can include _different feature files_.
+
+Feature files are loaded with Circle's preprocessor subsystem. Feature files undergo the [first three phases of translation](https://en.cppreference.com/w/cpp/language/translation_phases). This means `//` and `/* */` comments are supported, so you can document your selection of features. There should be one identifier token per feature.
+
+When a project lead says it's time to upgrade to a new feature (and this may be a frequent thing, as fine-grained safety-related features get deployed on a rapid schedule), a build engineer can simply insert a new line in the project's feature file in the folders of interest, and go through the compile/test/edit cycle until the issues are resolved. Push those changes and you've updated your project to satisfy the new set of requirements. This is a path to strengthen your confidence _in existing code_ by increasing strictness in the language.
 
 What's the migration vision for Carbon or Cpp2? Rewrite all your code in Carbon or Cpp2! I don't want people to have to rewrite anything. Instead, enable one feature at a time and keep at your compile/test cycle until you've resolved any conflicts created by these new "bubbles of code."
 
@@ -564,7 +572,7 @@ Circle implements a collection of feature directives that allow it to look and o
 
 This is not an exhaustive catalog of differences between Carbon's capabilities and C++'s. However, the feature directive design allows a C++ toolchain to very quickly transform to accommodate design ideas as they roll out. 
 
-## Pragma.feature philosophy
+## Feature directive philosophy
 
 ### This creates incentives for stakeholders to contribute to the C++ ecosystem
 
@@ -1534,7 +1542,7 @@ For the move assignment operator to be generated, make sure to have a non-throwi
 
 The default-initializer for builtin types and class types with trivial default constructors are uninitialized when given automatic storage duration. These uninitialized objects are a major driver of bugs. [P2723: Zero-initialize objects of automatic storage duration](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2723r0.html) proposes to zero-initialize those objects. That proposal estimates the bug-squashing impact this would have on the software industry.
 
-The `[default_value_initialization]` feature implements this propsal, but scoped according to the feature pragma. I am calling it _value-initialization_ rather than _zero-initialization_, because not all builtin types are cleared to 0 for their default state. Namely, pointers-to-data-members should be set to -1! I think this was a bad ABI choice, but it's one we have to deal with. The C++ Standard is pretty unclear what [_zero-initialization_](http://eel.is/c++draft/dcl.init#general-6) really means, but a generous reading of it could include setting the bits of builtin types rather than clearing them. (In practice, "zero-initialization" does set pointers-to-data-members to -1.)
+The `[default_value_initialization]` feature implements this propsal, but scoped according to the feature directive. I am calling it _value-initialization_ rather than _zero-initialization_, because not all builtin types are cleared to 0 for their default state. Namely, pointers-to-data-members should be set to -1! I think this was a bad ABI choice, but it's one we have to deal with. The C++ Standard is pretty unclear what [_zero-initialization_](http://eel.is/c++draft/dcl.init#general-6) really means, but a generous reading of it could include setting the bits of builtin types rather than clearing them. (In practice, "zero-initialization" does set pointers-to-data-members to -1.)
 
 [**default_value_initialization.cxx**](default_value_initialization.cxx) - [(Compiler Explorer)](https://godbolt.org/z/eabfj8dao)
 ```cpp
@@ -1563,7 +1571,7 @@ int main() {
 
 Objects with arithmetic types, pointers-to-member-functions and class types with trivial default constructors get zero initialized. Pointer-to-data-member objects get initialized with -1, because that's the null value according to the ABI. Class types with non-trivial default constructors get initialized as normal: their default constructor is called.
 
-To turn off default value initialization, assign `void` into it. Note that you can only do this for objects that would otherwise be value-initialized under this feature pragma. We can't void-initialize a `bar_t` object, because that has a non-trivial default constructor, and the normal thing is to run that, rather than leave the object uninitialized. Likewise, you can't void-initialize an object that has static (or thread_local) storage duration.
+To turn off default value initialization, assign `void` into it. Note that you can only do this for objects that would otherwise be value-initialized under this feature directive. We can't void-initialize a `bar_t` object, because that has a non-trivial default constructor, and the normal thing is to run that, rather than leave the object uninitialized. Likewise, you can't void-initialize an object that has static (or thread_local) storage duration.
 
 ## `[forward]`
 
@@ -3771,7 +3779,7 @@ void call(obj_t obj) {
 
 The argument directive design is the only way to implement the [`[borrow_checker]`](#borrow_checker) model, where the checked reference entities `ref` and `refmut` are part of a type, not just options in an expression's value category. At the call site the user explicitly requires a `ref` or `refmut` from an object and passes that to a compatible function.
 
-Pass by value, pass by ref and pass by refmut provide a memory-safe parameter strategy, and all are best annotated at the call site. Circle's feature pragmas, the ability to establish source domains with per-file scope, let's us go further in modernization.
+Pass by value, pass by ref and pass by refmut provide a memory-safe parameter strategy, and all are best annotated at the call site. Feature directives establish source domains with per-file scope, letting us reach further towards this modernization.
 
 Consider making **relocation the default**. Rather than implicitly copy to a per-value parameter, implicitly relocate. This is Rust's default. It makes the cheap operation (relocation) the one you're naturally going to use in preference to the potentially expensive operation (copy).
 
@@ -3815,7 +3823,7 @@ Objects may be declared `safe`, which denies the user the ability to access it b
 
 I think we need a two-pronged approach for introducing borrow checking:
 1. Make it opt-in, so that users can dip their toe in and write their new code with checking.
-1. Provide a safe-by-default feature, to create a migration path for existing code. Set the safe-by-default feature in your project's [**pragma.feature** file](#pragmafeature-file), and resolve the "can't access lvalue in a safe scope" errors until your files are fully borrow-checked.
+1. Provide a safe-by-default feature, to create a migration path for existing code. Set the safe-by-default feature in your project's [feature file](#feature-files), and resolve the "can't access lvalue in a safe scope" errors until your files are fully borrow-checked.
 
 First-class relocation is necessary basis for a functional borrow checker. To _borrow_ a thing, someone has to _own_ it. See the [`[relocate]`](#relocate) feature for my thinking on ownership semantics.
 
@@ -3857,7 +3865,7 @@ From the [SPECS paper](https://users.monash.edu/~damian/papers/HTML/ModestPropos
 
 I think this is a definite improvement. Do we want to just replace C++'s awful _declarator_ syntax with a `[new_declarator_syntax]`, or is a completely new grammar worth the learning curve it puts on users? A big advantage would be to simplify tooling. In the long term, this will probably prove to be worth the retraining costs, but it's not necessarily high priority.
 
-SPECS is twenty-five years out of date. It would take more effort to amend and supplement this design to resyntax the current version of the language. But resyntaxing the language is not very difficult from a compiler engineering standpoint, and feature pragmas would support this without breaking any dependencies. Only new code would be written in the new syntax, and it would continue to operate with existing code in the old syntax.
+SPECS is twenty-five years out of date. It would take more effort to amend and supplement this design to resyntax the current version of the language. But resyntaxing the language is not very difficult from a compiler engineering standpoint, and feature directives would support this without breaking any dependencies. Only new code would be written in the new syntax, and it would continue to operate with existing code in the old syntax.
 
 ## `[cyclone_pointers]`
 
@@ -3921,7 +3929,7 @@ I made a big effort in this direction, but there were [too many open questions](
 
 _Circle classic_ focused on compile-time execution. It was an exercise rotating the language from the runtime to the compile-time domain: the compiler integrated a complete ABI-aware interpreter, and could execute any code during translation, including making foreign function calls to compiled libaries. This allowed configuration-driven program generation, where a translation unit could open a file (like a .json or .csv file), read the contents at compile time, and programmatically generate types and AST by branching on the loaded data.
 
-The keyword for activating this behavior was `@meta`. I used the `@` character to prefix reserved tokens without clashing with identifiers in existing code. With the pragma feature mechanism, this is no longer necessary. A `[meta]` feature can reserved ordinary identifiers. 
+The keyword for activating this behavior was `@meta`. I used the `@` character to prefix reserved tokens without clashing with identifiers in existing code. With the feature directive mechanism, this is no longer necessary. A `[meta]` feature can reserved ordinary identifiers. 
 
 ```cpp
 template<typename... Ts>
