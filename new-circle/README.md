@@ -1144,7 +1144,7 @@ pattern:             declaration-pattern
                      _
 
 declaration-pattern: auto binding-pattern
-                     var binding-pattern  (with [`)
+                     var binding-pattern  (with [new_decl_syntax])
 
 binding-pattern:     name 
                      ... name
