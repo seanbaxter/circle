@@ -253,7 +253,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [Non-type traits](#non-type-traits)
     1. [Universal traits](#universal-traits)
 
-# Versioning with feature direcwives
+# Versioning with feature directives
 
 > If we had an alternate C++ syntax, it would give us a "bubble of new code that doesn't exist today" where we could make arbitrary improvements (e.g., change defaults, remove unsafe parts, make the language context-free and order-independent, and generally apply 30 years' worth of learnings), free of backward source compatibility constraints.
 > 
