@@ -474,7 +474,7 @@ Create a single _feature file_ somewhere special in your project. Perhaps in the
 There are three things I like about feature inclusion:
 1. It's explicit. You know you're using Circle's feature system, because right at the top, your file opts in.
 1. There's a single point of definition. Files won't get out of sync as developers add or remove features. If you add a feature to the feature file, it propagates to all C++ files that include it.
-1. It accommodates multiple feature files. Do you want a different feature file for debug or safety builds? Do you have legacy files and new source in the same folder? Do you want the files in each folder to share a feature file, as opposed to all f iles in the project? That's all supported. You can include _different feature files_.
+1. It accommodates multiple feature files. Do you want a different feature file for debug or safety builds? Do you have legacy files and new source in the same folder? Do you want the files in each folder to share a feature file, as opposed to all files in the project? That's all supported. You can include _different feature files_.
 
 Feature files are loaded with Circle's preprocessor subsystem. Feature files undergo the [first three phases of translation](https://en.cppreference.com/w/cpp/language/translation_phases). This means `//` and `/* */` comments are supported, so you can document your selection of features. There should be one identifier token per feature.
 
