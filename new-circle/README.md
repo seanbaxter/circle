@@ -18,9 +18,9 @@ Many C++ detractors claim that the language is _inherently_ broken. That it's _i
 
 The techniques documented here extend C++ toolchains to **fix language defects** and make the language **safer** and **more productive** while maintaining **100% compatibility** with existing code assets.
 
-[**carbon1.cxx**](carbon1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/nb5WzdYhW)
+[**carbon1.cxx**](carbon1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/6q8e8rxM9)
 ```cpp
-#pragma feature edition_carbon_2023
+#feature on edition_carbon_2023
 #include <string>
 #include <iostream>
 
@@ -68,9 +68,9 @@ This example code is almost a perfect copy of a [sample in the Carbon design doc
 https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#choice-types
 ). It compiles with the Circle C++ toolchain, with [25 new features](#edition_carbon_2023) enabled.
 
-[**rust1.cxx**](rust1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5c1qbb49f)
+[**rust1.cxx**](rust1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/9j17arWbs)
 ```cpp
-#pragma feature edition_carbon_2023
+#feature on edition_carbon_2023
 #include <string_view>
 #include <iostream>
 
@@ -155,14 +155,14 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
 
 ## Table of contents
 
-1. [Versioning with feature pragmas](#versioning-with-feature-pragmas)
+1. [Versioning with feature directives](#versioning-with-feature-directives)
     1. [To err is human, to fix divine](#to-err-is-human-to-fix-divine)
-    1. [`pragma.feature` file](#pragmafeature-file)
+    1. [Feature files](#feature-files)
     1. [`[edition_2023]`](#edition_2023)
     1. [Editions in Rust](#editions-in-rust)
     1. [`__future__` in Python](#__future__-in-python)
     1. [`[edition_carbon_2023]`](#edition_carbon_2023)
-    1. [Pragma.feature philosophy](#pragmafeature-philosophy)
+    1. [Feature directive philosophy](#feature-directive-philosophy)
     1. [The case for evolver languages](#the-case-for-evolver-languages)
         * [Cppfront](#cppfront)
         * [Val](#val)
@@ -253,7 +253,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [Non-type traits](#non-type-traits)
     1. [Universal traits](#universal-traits)
 
-# Versioning with feature pragmas
+# Versioning with feature direcwives
 
 > If we had an alternate C++ syntax, it would give us a "bubble of new code that doesn't exist today" where we could make arbitrary improvements (e.g., change defaults, remove unsafe parts, make the language context-free and order-independent, and generally apply 30 years' worth of learnings), free of backward source compatibility constraints.
 > 
@@ -266,19 +266,21 @@ Per-file feature scoping allows language modification without putting requiremen
 C++ should not be versioned with command-line options, as those apply to the whole translation unit, including system and library dependencies not owned by the programmer. Command-line version allows us to only evolve the language so far. New syntax must fill the gaps in existing syntax. Defects cannot be fixed, because doing so may change the meaning of existing code. 
 
 This section describes Circle's file-scope versioning. During lexing, each file is given its own active feature mask, initially cleared.
-* `#pragma feature` - set fields in the active feature mask.
-* `#pragma feature_off` - clear fields in the active feature mask.
+* `#feature on X Y Z` - set fields in the active feature mask.
+* `#feature off X Y Z` - clear fields in the active feature mask.
+* `#feature reset [X Y Z]` - reset the active feature mask and optionally set new fields.
+* `#feature include "feature-file"` - load a file and activate the features listed there.
 
 Setting or clearing features _only effects the current file_. The active masks of all other files in the translation unit are unaffected.
 
-[**features.cxx**](features.cxx) - [(Compiler Explorer)](https://godbolt.org/z/e3faaMTe8)
+[**features.cxx**](features.cxx) - [(Compiler Explorer)](https://godbolt.org/z/75x87vcbq)
 ```cpp
 // Enable four features:
 // [interface] - Enables the dyn, interface, impl and make_dyn keywordcs.
 // [tuple] - Enables new syntax for tuple expressions and types.
 // [choice] - Enables the choice and match keywords.
 // [self] - Retires 'this' and replaces it with the lvalue 'self'.
-#pragma feature interface tuple choice self
+#feature on interface tuple choice self
 
 // These files are included after the features have been activated, but are
 // unaffected by them. Every file on disk gets its own feature mask.
@@ -374,7 +376,7 @@ double: 400.400000
 
 One miraculous line at the top of [**features.cxx**](features.cxx),
 ```
-#pragma feature interface tuple choice self
+#feature on interface tuple choice self
 ```
 enables a new world of functionality. 
 
@@ -389,11 +391,11 @@ These changes won't conflict with any of the program's dependencies. The source 
 * old features disabled
 * language semantics changed
 
-The `#pragma feature` directive adjusts a _feature mask_ which extends to the end of the **features.cxx** files. It _only_ effects that file. All other files included in the translation unit, either directly or indirectly from **features.cxx**, are unaffected by **features.cxx**'s feature mask, and they each have their own feature masks. Every file is versioned independently of every other file.
+The `#feature` directive adjusts a _feature mask_ which extends to the end of the **features.cxx** files. It _only_ effects that file. All other files included in the translation unit, either directly or indirectly from **features.cxx**, are unaffected by **features.cxx**'s feature mask, and they each have their own feature masks. Every file is versioned independently of every other file.
 
 We can finally innovate without restriction and be secure in the knowledge that we aren't creating incompatibilities with our existing code.
 
-Does the existence of per-file features mean each file is translated with a different "version" of the compiler? Definitely not. There is one compiler. The feature pragmas simply control if features are picked up in a region of text. This is classic monolithic compiler development. We have one type system and one AST. The goal is to incrementally evolve the language towards productivity, improved safety, readibility, simpler tooling, and so on, without introducing incompatibilities with project dependencies or requiring extensive training for developers.
+Does the existence of per-file features mean each file is translated with a different "version" of the compiler? Definitely not. There is one compiler. The feature directives simply control if features are picked up in a region of text. This is classic monolithic compiler development. We have one type system and one AST. The goal is to incrementally evolve the language towards productivity, improved safety, readibility, simpler tooling, and so on, without introducing incompatibilities with project dependencies or requiring extensive training for developers.
 
 Compiler warnings may detect a lot of conditions, but they're often turned off or ignored, because they detect things in lines of code that you don't own, and therefore don't care about. Per-file features let engineers select contracts that error when violated, scoped to their own source files. For example, by erroring on implicit narrowing, implicit widening, C-style downcasts, uninitialized automatic variable declarations, etc. Programs, or even just files, that deal with a public network or with user data, have a larger attack surface and may opt into more strict settings than processes that run only internally.
 
@@ -401,7 +403,7 @@ Importantly, we can use per-file features to _fix defects_ in the language. For 
 
 It's even in scope to replace the entire C++ grammar with a modern, name-on-the-left [context-free syntax](#context_free_grammar), which is parsable from a simple [PEG grammar](https://en.wikipedia.org/wiki/Parsing_expression_grammar). The point is, we don't have to go all-in at once. We can start work on features when they're needed and deploy them when they're ready. Unlike Herb Sutter's Cpp2 design, we don't need an all-new syntax, completely distinct from Standard C++, to introduce these bubbles of new code.
 
-Proposals that aim to fix defects are usually rebuffed with comments like "we can't, because it would break or change the meaning of existing code." That's not true with feature pragmas. Only _your_ source files are effected by _your_ features pragmas.
+Proposals that aim to fix defects are usually rebuffed with comments like "we can't, because it would break or change the meaning of existing code." That's not true with feature directives. Only _your_ source files are effected by _your_ features directives.
 
 ### How are the features actually applied by the compiler? 
 
@@ -442,9 +444,9 @@ Here's a non-exhaustive list of C++ "wrong defaults":
 1. [0 shouldn't be a null pointer constant.](http://eel.is/c++draft/expr#conv.ptr-1)
 1. [`this` shouldn't be a pointer.](http://eel.is/c++draft/expr.prim.this#1)
 
-We should fix all these "wrong defaults." A system that cannot fix its mistakes is a broken system. The feature pragma mechanism allows us to patch the language for new code, and keep the existing syntax and semantics of the existing language for code already written.
+We should fix all these "wrong defaults." A system that cannot fix its mistakes is a broken system. The feature directive mechanism allows us to patch the language for new code, and keep the existing syntax and semantics of the existing language for code already written.
 
-Circle already has feature pragmas that target each of these defects. By keeping the scope of our features narrow, we make them easy to document and to think about. What they do is evident from their names:
+Circle already has feature directives that target each of these defects. By keeping the scope of our features narrow, we make them easy to document and to think about. What they do is evident from their names:
 
 1. [`[default_value_initialization]`](#default_value_initialization) - [Uninitialized automatic variables.](http://eel.is/c++draft/dcl.init#general-7.3)
 1. [`[no_integral_promotions]`](#no_integral_promotions) - [Integral promotions.](http://eel.is/c++draft/conv.prom)
@@ -460,11 +462,13 @@ Circle already has feature pragmas that target each of these defects. By keeping
 
 Not only can we fix broken aspects of the language, we can fuse off access to features that aren't wanted anymore, for any reason. [`[edition_carbon_2023]`](#edition_carbon_2023) fuses off function overloading, which is perhaps the most complex part of C++. The compiler still knows how to perform function overloading, and it needs to know to compile your project's dependencies, but the ability to declare overloads while the feature is active is denieds. There is concern about C++ becoming an ever-increasing ball of complexity. Judicious pruning of features that aren't wanted or have been superceded is possible in new [editions](#edition_2023).
 
-## **pragma.feature** file
+## Feature files
 
-**I don't want you to mark files with pragmas.** The textual pragma is for demonstration purposes and to give curious programmers an easy way to probe the effects of each feature. Marking up every source file with feature pragmas creates its own kind of dependency issue: in most cases you'd prefer a way to keep them all in sync. There's a solution:
+**I don't want you to mark files with directives.** `#feature on` is mostly for demonstration purposes and to give curious programmers an easy way to probe the effects of each feature. Marking up every source file with features creates its own kind of dependency issue: in most cases you'd prefer a way to keep them all in sync. There's a solution:
 
-* For each source file opened, Circle looks in that file's folder for a file named **pragma.feature**. Each line of this file indicates one feature. The feature mask of each file is initialized to the features listed in **pragma.feature**.
+* `feature include "path"` loads the project's _feature file_
+
+For each source file opened, Circle looks in that file's folder for a file named **pragma.feature**. Each line of this file indicates one feature. The feature mask of each file is initialized to the features listed in **pragma.feature**.
 
 When a project lead says it's time to upgrade to a new feature (and this may be a frequent thing, as fine-grained safety-related features get deployed on a rapid schedule), a build engineer can simply insert a new line in each `pragma.feature` file in the folders of interest, and go through the compile/test/edit cycle until the issues are resolved. Push those changes and you've updated your project to satisfy the new set of requirements. This is a path to strengthen your confidence _in existing code_ by increasing strictness in the language.
 
@@ -474,7 +478,7 @@ What's the migration vision for Carbon or Cpp2? Rewrite all your code in Carbon 
 
 To deliver shared C++ experiences, users should continue to expect features bundled in big packages, as C++11, 14, 17 and 20 have been. I'm calling these bundles editions.
 
-`#pragma feature edition_2023` - Enable all edition 2023 features.
+`#feature on edition_2023` - Enable all edition 2023 features.
 
 An edition is selection of low-controversy features that language developers consider to represent "best practice." The first Circle edition is `edition_2023`. It includes features which improve the richness and consistency of the language:
 
@@ -511,7 +515,7 @@ Rust has supported a [similar edition system](https://doc.rust-lang.org/edition-
 >
 > -- [_Editions do not split the ecosystem_](https://doc.rust-lang.org/edition-guide/editions/index.html#editions-do-not-split-the-ecosystem)
 
-Even in the absence of crates, Circle's feature pragmas deliver the same value. The headers and translation unit files (.cpp/.cxx files) in a folder are conceptually like a crate, and they are often linked together. The [**pragma.feature** file](#pragmafeature-file) specifies the edition for that folder's source code. As with Rust's editions, the decision to migrate to a new edition does not affect the source in other folders.
+Even in the absence of crates, Circle's feature directives deliver the same value. The headers and translation unit files (.cpp/.cxx files) in a folder are conceptually like a crate, and they are often linked together. The [feature file](#feature-files) specifies the edition for that folder's source code. As with Rust's editions, the decision to migrate to a new edition does not affect the source in other folders.
 
 ## `__future__` in Python
 
@@ -547,7 +551,7 @@ Like Circle, Python uses fine-grained versioning to package small, self-containe
 
 ## `[edition_carbon_2023]`
 
-Circle implements a collection of feature pragmas that allow it to look and operate like the language described in the [Carbon design documents](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#language-design). This is not an exact recreation of that project. This is an attempt to cover the major design points in a **single C++ toolchain**, rather than writing a completely new compiler.
+Circle implements a collection of feature directives that allow it to look and operate like the language described in the [Carbon design documents](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#language-design). This is not an exact recreation of that project. This is an attempt to cover the major design points in a **single C++ toolchain**, rather than writing a completely new compiler.
 
 `[edition_carbon_2023]` includes all features from [`[edition_2023]`](#edition_2023). It builds on these by activating:
 
@@ -558,7 +562,7 @@ Circle implements a collection of feature pragmas that allow it to look and oper
 1. [`[no_user_defined_ctors]`](#no_user_defined_ctors) - [Carbon does not support C++ constructors.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#class-functions-and-factory-functions)
 1. [`[no_virtual_inheritance]`](#no_virtual_inheritance) - [Carbon does not support virtual inheritance.](https://github.com/carbon-language/carbon-lang/blob/trunk/docs/design/classes.md#virtual-base-classes)
 
-This is not an exhaustive catalog of differences between Carbon's capabilities and C++'s. However, the feature pragma design allows a C++ toolchain to very quickly transform to accommodate design ideas as they roll out. 
+This is not an exhaustive catalog of differences between Carbon's capabilities and C++'s. However, the feature directive design allows a C++ toolchain to very quickly transform to accommodate design ideas as they roll out. 
 
 ## Pragma.feature philosophy
 
@@ -608,16 +612,16 @@ https://github.com/carbon-language/carbon-lang/blob/trunk/docs/project/goals.md#
 
 How do you honor the 50 billion lines of revenue-generating C++ code that exists now? 
 * First, guarantee source compatibility, something not possible with separate toolchain successor languages.
-* Second, provide a reasonable plan for strengthening existing code with features that represent best practice: update [**pragma.feature**](#pragmafeature-file), one feature at a time, and resolve build issues until all files compile and all tests pass.
+* Second, provide a reasonable plan for strengthening existing code with features that represent best practice: update [feature files](#feature-files), one feature at a time, and resolve build issues until all files compile and all tests pass.
 
 As a language developer, I always want to have a working toolchain. Similarly, as an application developer, you always want to have a working application. A feature-by-feature migration keeps you close to home. Rewriting your program in Cppfront, Val or Carbon pushes you out to terra incognita.
 
 | Language  | Lines of code  | Has compiler? |
 | --------- | -------------- | ------------- |
 | Cppfront  | 12,000         | ❌            |
-| Val       | 27,000         | ❌            |
+| Val       | 28,000         | ❌            |
 | Carbon    | 42,000         | ❌            |
-| Circle    | 282,000        | :heavy_check_mark: |
+| Circle    | 284,000        | :heavy_check_mark: |
 
 It's good to leverage an existing toolchain. It's better to have a working compiler than not to have one. By building on Circle, I enjoyed a huge headstart over the successor language projects, which started from scratch. Every day I had a working toolchain. Every day I could evaluate the merits of features, test how they interacted with standard library code, and discard ones that felt uninspiring in practice.
 
@@ -651,7 +655,7 @@ It's hard to pursue research when you're battling the technical demands of tooli
 
 ### Carbon
 
-[Carbon](https://github.com/carbon-language/carbon-lang) is the successor language effort with a lot of staffing, experience and investment behind it. Its design principles motivated many of Circle's new feature pragmas, bundled together in [`[edition_carbon_2023]`](#edition_carbon_2023).
+[Carbon](https://github.com/carbon-language/carbon-lang) is the successor language effort with a lot of staffing, experience and investment behind it. Its design principles motivated many of Circle's new feature directives, bundled together in [`[edition_carbon_2023]`](#edition_carbon_2023).
 
 Carbon has stuck down some of C++'s most complicated aspects:
 * [No C++ exception handling.](https://github.com/carbon-language/carbon-lang/blob/trunk/docs/project/principles/error_handling.md#applications-of-these-principles)
@@ -674,7 +678,7 @@ Is there a way to make a separate toolchain really work? That hasn't been demons
 
 [![carbon_proposals](carbon_proposals.png)](https://github.com/carbon-language/carbon-lang/tree/trunk/proposals)
 
-In my opinion, the real value in Carbon is the big folder of proposals submitted by team members. These are numbered like C++ proposals. Many of them describe fine-grained, self-contained features similar to Circle's feature pragmas. For example, [P0845](https://github.com/carbon-language/carbon-lang/blob/trunk/proposals/p0845.md) describes _as-expressions_, already in Circle as [`[as]`](#as). These proposals can be immediately implemented in an existing C++ toolchain and start gathering usage experience. Carbon's missing compiler is blocking the deployment of Carbon's ideas.
+In my opinion, the real value in Carbon is the big folder of proposals submitted by team members. These are numbered like C++ proposals. Many of them describe fine-grained, self-contained features similar to Circle's feature directives. For example, [P0845](https://github.com/carbon-language/carbon-lang/blob/trunk/proposals/p0845.md) describes _as-expressions_, already in Circle as [`[as]`](#as). These proposals can be immediately implemented in an existing C++ toolchain and start gathering usage experience. Carbon's missing compiler is blocking the deployment of Carbon's ideas.
 
 Compared to C++, Carbon is a very restrictive language. Can C++ programmers remain productive after moving to Carbon? Nobody knows. We need to gather experience. And the way to do that is to launch a compiler and get developres to try it. Circle can be amended quickly. The fine-grained treatment of features means it's easy to explore a continuum of language candidates. Building on an existing platform gets your technology into the hands of users quickly and inexpensively.
 
@@ -694,9 +698,9 @@ Use the `adl` reserved word before the unqualified function name to re-enable ca
 
 * In short: The `[adl]` feature disables calls to ADL candidates. Use the `adl` keyword to enable them.
 
-[**adl1.cxx**](adl1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/13rqEe6nW)
+[**adl1.cxx**](adl1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/7ca8P55vc)
 ```cpp
-#pragma feature adl
+#feature on adl
 #include <tuple>
 
 int main() {
@@ -728,9 +732,9 @@ error: adl1.cxx:14:19
 
 ADL is a powerful but unpredictable tool. It's main drawback is that you don't really know when you're relying on it to find your functions. Most functions are called with unqualified lookup. There's nothing textual to signal that this complex apparatus is at work. The `adl` opt-in fixes that: now every expression that calls an ADL candidate is prefixed by the `adl` keyword, making it easily searchable. Additionally, the compiler errors point out the namespace of the best viable candidate, so you can qualify function names yourself, rather than relying on ADL to do so.
 
-[**adl2.cxx**](adl2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/7MKPdzT7d)
+[**adl2.cxx**](adl2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/WvTa7TvqE)
 ```cpp
-#pragma feature adl
+#feature on adl
 
 namespace ns {
   struct obj_t { 
@@ -792,9 +796,9 @@ This convenience is illustrated by the failed call to #1 and the successful call
 
 The obligatory `adl` prefix makes the feature much safer while drawing attention to its use. All uses in your code base become easily searchable.
 
-[**adl3.cxx**](adl3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/zsvq4cPec)
+[**adl3.cxx**](adl3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Pn3hTvT7T)
 ```cpp
-#pragma feature adl
+#feature on adl
 
 namespace ns {
   struct obj_t { };
@@ -859,7 +863,7 @@ Because the lambda's arguments are not provided with the `adl` prefix at the lam
 The `as` keyword enables the _as-expression_ operator with the precedence of _postfix-expression_. The _as-expression_ has two uses:
 
 1. _expr_ `as` _type-id_ - This is shorthand for `static_cast<`_type-id_`>(`_expr_`)`.
-1. _expr_ `as _` - This enables implicit conversions which have been disabled by other feature pragmas. This meaning is borrowed from Rust's [as keyword](https://doc.rust-lang.org/std/keyword.as.html): 
+1. _expr_ `as _` - This enables implicit conversions which have been disabled by other feature directives. This meaning is borrowed from Rust's [as keyword](https://doc.rust-lang.org/std/keyword.as.html): 
     
     > as can also be used with the _ placeholder when the destination type can be inferred. Note that this can cause inference breakage and usually such code should use an explicit type for both clarity and stability. 
 
@@ -874,9 +878,9 @@ The `as` keyword enables the _as-expression_ operator with the precedence of _po
     * [`[no_implicit_user_conversions]`](#no_implicit_user_conversions)
     * [`[no_implicit_widening]`](#no_implicit_widening)
 
-[**as.cxx**](as.cxx) - [(Compiler Explorer)](https://godbolt.org/z/d6MoMbK5M)
+[**as.cxx**](as.cxx) - [(Compiler Explorer)](https://godbolt.org/z/brxETE5Ts)
 ```cpp
-#pragma feature as        // Permit any implicit conversion with "x as _".
+#feature on as        // Permit any implicit conversion with "x as _".
 void f_short(short x);
 void f_int(int x);
 void f_unsigned(unsigned x);
@@ -886,26 +890,26 @@ void f_double(double x);
 void f_bool(bool x);
 
 int main() {
-  #pragma feature no_implicit_integral_narrowing
+  #feature on no_implicit_integral_narrowing
   int x_int = 100;
   f_short(x_int);              // Error
   f_short(x_int as _);         // OK
-  #pragma feature_off no_implicit_integral_narrowing
+  #feature off no_implicit_integral_narrowing
 
-  #pragma feature no_implicit_floating_narrowing
+  #feature on no_implicit_floating_narrowing
   double x_double = 100;
   f_float(x_double);           // Error
   f_float(x_double as _);      // Ok
-  #pragma feature_off no_implicit_floating_narrowing
+  #feature off no_implicit_floating_narrowing
 
-  #pragma feature no_implicit_signed_to_unsigned
+  #feature on no_implicit_signed_to_unsigned
   f_unsigned(x_int);           // Error
   f_unsigned(x_int as _);      // OK
   f_unsigned(x_double);        // Error
   f_unsigned(x_double as _);   // OK
-  #pragma feature_off no_implicit_signed_to_unsigned
+  #feature off no_implicit_signed_to_unsigned
 
-  #pragma feature no_implicit_widening
+  #feature on no_implicit_widening
   char x_char = 'x';
   f_short(x_char);             // Error
   f_short(x_char as _);        // OK
@@ -914,9 +918,9 @@ int main() {
   float x_float = 1;  
   f_double(x_float);           // Error
   f_double(x_float as _);      // OK
-  #pragma feature_off no_implicit_widening
+  #feature off no_implicit_widening
 
-  #pragma feature as no_implicit_enum_to_underlying
+  #feature on no_implicit_enum_to_underlying
   enum numbers_t : int {
     Zero, One, Two, Three,
   };
@@ -926,7 +930,7 @@ int main() {
 
   f_int(numbers_t::Zero);      // Error
   f_int(numbers_t::Zero as _); // OK 
-  #pragma feature_off no_implicit_enum_to_underlying 
+  #feature off no_implicit_enum_to_underlying 
 
   // Use as _ to allow implicit narrowing conversions inside 
   // braced-initializer.
@@ -934,12 +938,11 @@ int main() {
   short s2 { x_int as _ };      // OK
   f_short({ x_int });           // Error
   f_short({ x_int as _});       // OK
-  #pragma feature_off no_implicit_enum_to_underlying
 
   // Implicit conversions from pointers to bools are permitted by C++.
   const char* p = nullptr;
   f_bool(p);                    // OK
-  #pragma feature no_implicit_pointer_to_bool
+  #feature on no_implicit_pointer_to_bool
   // They are disabled by [no_implicit_pointer_to_bool]
   f_bool(p);                    // Error
   f_bool(p as bool);            // OK
@@ -949,9 +952,9 @@ int main() {
 
 [**as.cxx**](as.cxx) shows how to use the _as-expression_ to enable implicit arithmetic and enum-to-int conversions. This is a form that stands out in text, and can be easily searched for. 
 
-[**user_conversions.cxx**](user_conversions.cxx) - [(Compiler Explorer)](https://godbolt.org/z/4jsEjzsKP)
+[**user_conversions.cxx**](user_conversions.cxx) - [(Compiler Explorer)](https://godbolt.org/z/o4KE13Knn)
 ```cpp
-#pragma feature as    // Enable as-expression.
+#feature on as    // Enable as-expression.
 
 struct S {
   // [no_implicit_user_conversion] only applies to non-explicit 
@@ -971,7 +974,7 @@ int main() {
   int x1 = s;
   const char* pc1 = s;
 
-  #pragma feature no_implicit_user_conversions
+  #feature on no_implicit_user_conversions
 
   // Contextual conversions are permitted to use user-defined conversions.
   if(s) { }
@@ -999,7 +1002,7 @@ int main() {
 
 The [`[no_implicit_user_conversions]`](#no_implicit_user_conversions) feature disables implicit use of user-defined conversion operators. The _as-expression_ will re-enable these implicit conversions.
 
-[**ctor_conversions.cxx**](ctor_conversions.cxx) - [(Compiler Explorer)](https://godbolt.org/z/8forsGYaf)
+[**ctor_conversions.cxx**](ctor_conversions.cxx) - [(Compiler Explorer)](https://godbolt.org/z/zK4rPofMo)
 ```cpp
 struct S {
   // [no_implicit_ctor_conversions] only applies to non-explicit
@@ -1010,7 +1013,7 @@ struct S {
 void func(S);
 
 int main() {
-  #pragma feature as no_implicit_ctor_conversions
+  #feature on as no_implicit_ctor_conversions
 
   // Applies to implicit conversion sequences.
   func(1);       // Error
@@ -1057,9 +1060,9 @@ Accessing choice alternatives is most cleanly accomplished with `match` statemen
 
 ### Pattern matching
 
-[**choice1.cxx**](choice1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/TohPe8sje)
+[**choice1.cxx**](choice1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/zMExoM6fd)
 ```cpp
-#pragma feature choice
+#feature on choice
 #include <iostream>
 
 choice IntResult {
@@ -1167,9 +1170,9 @@ In [choice1.cxx](choice1.cxx), the .Success and .Failure _choice-patterns_ recur
 
 ### Structured binding patterns
 
-[**choice2.cxx**](choice2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/1ecjK1dY9)
+[**choice2.cxx**](choice2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/nMW5oT8j6)
 ```cpp
-#pragma feature choice new_decl_syntax
+#feature on choice new_decl_syntax
 #include <string>
 #include <tuple>
 #include <iostream>
@@ -1240,9 +1243,9 @@ The pattern in the last clause is just `_`. Underscore is the scalar wildcard, a
 
 ### Test patterns
 
-[**choice3.cxx**](choice3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/qh6TrG1sT)
+[**choice3.cxx**](choice3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5zzGzfrcz)
 ```cpp
-#pragma feature choice new_decl_syntax
+#feature on choice new_decl_syntax
 #include <iostream>
 #include <concepts>
 
@@ -1290,9 +1293,9 @@ You can freely combine scalar tests, relational tests, ranges and function calls
 
 ### Designated binding patterns
 
-[**choice4.cxx**](choice4.cxx) - [(Compiler Explorer)](https://godbolt.org/z/jsTKzaj6P)
+[**choice4.cxx**](choice4.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Era6YM8da)
 ```cpp
-#pragma feature choice tuple new_decl_syntax
+#feature on choice tuple new_decl_syntax
 #include <tuple>
 #include <iostream>
 
@@ -1364,9 +1367,9 @@ if(std::get<1>(arg.a) == std::get<2>(arg.b))
 
 Provisionally, all choice types implicitly declare an enum member called `alternatives`. This is a scoped enum with a fixed underlying type that matches the underlying type of the implicit discriminator member. The constants in this enum match the names of the alternatives. Qualified lookup for a choice alternative actually returns an `alternatives` enumerator. There is an implicit data member for all choice types called `active`, which holds the enumerator for the currently active alternative. 
 
-[**choice5.cxx**](choice5.cxx) - [(Compiler Explorer)](https://godbolt.org/z/jE9Pbj7Ea)
+[**choice5.cxx**](choice5.cxx) - [(Compiler Explorer)](https://godbolt.org/z/vzTnfsqxo)
 ```cpp
-#pragma feature choice
+#feature on choice
 #include <type_traits>
 #include <iostream>
 
@@ -1479,9 +1482,9 @@ Many types have potentially-throwing copy constructors. Does that mean we can't 
 
 The temporary creation shifts the point of the exception outside of the compiler-generated assignment operator. As most move constructors and move assignment operators are compiler-generated, they'll be emitted inline and very likely optimized away, leading to code that is competitive with a copy assignment operator that would have the unhappy side effect of leaving the object valueless-by-exception.
 
-[**choice7.cxx**](choice7.cxx) - [(Compiler Explorer)](https://godbolt.org/z/eKv1fE6aj)
+[**choice7.cxx**](choice7.cxx) - [(Compiler Explorer)](https://godbolt.org/z/73KrT8dYP)
 ```cpp
-#pragma feature choice
+#feature on choice
 #include <type_traits>
 
 struct A {
@@ -1533,9 +1536,9 @@ The default-initializer for builtin types and class types with trivial default c
 
 The `[default_value_initialization]` feature implements this propsal, but scoped according to the feature pragma. I am calling it _value-initialization_ rather than _zero-initialization_, because not all builtin types are cleared to 0 for their default state. Namely, pointers-to-data-members should be set to -1! I think this was a bad ABI choice, but it's one we have to deal with. The C++ Standard is pretty unclear what [_zero-initialization_](http://eel.is/c++draft/dcl.init#general-6) really means, but a generous reading of it could include setting the bits of builtin types rather than clearing them. (In practice, "zero-initialization" does set pointers-to-data-members to -1.)
 
-[**default_value_initialization.cxx**](default_value_initialization.cxx) - [(Compiler Explorer)](https://godbolt.org/z/MdvvKTvKx)
+[**default_value_initialization.cxx**](default_value_initialization.cxx) - [(Compiler Explorer)](https://godbolt.org/z/eabfj8dao)
 ```cpp
-#pragma feature default_value_initialization
+#feature on default_value_initialization
 
 // Has a trivial default constructor, so it gets value-initialized.
 struct foo_t { int x, y, z, w; };
@@ -1746,9 +1749,9 @@ This is a common bug, because even the C++ Core Guidelines specify the wrong thi
 
 The `forward` keyword is robust. It's an operator with the highest precedence. It binds tightly. `forward pair.first` is parsed like `(forward pair).first`. That is, it applies to the _id-expression_ on the left, and then you can perform member-access to get subobjects, that keep the value category of the forwarded parameter.
 
-[**forward1.cxx**](forward1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/WaK476jja)
+[**forward1.cxx**](forward1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Yb5dP483E)
 ```cpp
-#pragma feature forward
+#feature on forward
 #include <iostream>
 
 void consume(forward auto... args) {
@@ -1798,10 +1801,10 @@ You can _only_ name `forward` parameters in a _forward-expression_. Naming any o
 
 It's worth noting that the invented template parameter 'auto' is deduced as either an lvalue reference or an rvalue reference. It is never deduced as a non-reference type. Reference collapsing is not involved in argument deduction for a `forward` parameter.
 
-[**forward2.cxx**](forward2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5534jYzo9)
+[**forward2.cxx**](forward2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/9f1oPoEYY)
 ```cpp
 // T&& is now freed up to mean rvalue reference.
-#pragma feature forward
+#feature on forward
 
 void f1(forward auto x);  // This is a forwarding parameter.
 void f2(auto&& x);        // This is an rvalue reference parameter.
@@ -1826,12 +1829,12 @@ cannot convert lvalue int to int&&
 
 Standard C++ makes it very difficult to declare rvalue reference function parameters, because that syntax is taken by forwarding references. But with the `forward` parameter directive, Circle reclaims that capability. `void f2(auto&& x)` is an _rvalue reference parameter_, not a _forwarding reference parameter_. We can't pass lvalues to it, because it expects an rvalue reference.
 
-[**forward3.cxx**](forward3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/1GcYjr198)
+[**forward3.cxx**](forward3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/aceKvYd8z)
 ```cpp
 // A function with a forwarding reference parameter.
 void func(auto&& x) { }    // #1
 
-#pragma feature forward
+#feature on forward
 
 // A function with an rvalue reference parameter. This is a different
 // overload from #1.
@@ -1864,7 +1867,7 @@ Some modern languages, notably Rust and Swift, include a third way to organize f
 
 Most simply, an interface declares a collection of functions. An impl statement implements the interface methods for a specific type, but external to that type's definition. This creates a loose coupling between data and methods, as opposed to the strong coupling of object-oriented programming. 
 
-[**polymorphism.cxx**](polymorphism.cxx) - [(Compiler Explorer)](https://godbolt.org/z/ad8TYT981)
+[**polymorphism.cxx**](polymorphism.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Y5M59zoqh)
 ```cpp
 // Classes: methods are bound with data.
 struct A1 {
@@ -1884,7 +1887,7 @@ void print(const B2& b);
 
 // Interfaces: types externally implement interfaces.
 // Rather than function overloading, interfaces are implemented by types.
-#pragma feature interface
+#feature on interface
 
 interface IPrint {
   void print() const;
@@ -1959,7 +1962,7 @@ I think it makes sense to let organizations do what they want, and avoid one-siz
 
 `Self` is a dependent type alias that's implicitly declared inside interfaces and interface templates. It's a placeholder for the to-be-determined receiver type. For interface templates, the interface's name is implicitly declared as an _injected-interface-name_, similar to the _injected-class-name_ in class templates. It behaves like an interface, unless given a _template-argument-list_, in which case it behaves like an interface template.
 
-[**interface.cxx**](interface.cxx) - [(Compiler Explorer)](https://godbolt.org/z/4GhbPPcE1)
+[**interface.cxx**](interface.cxx) - [(Compiler Explorer)](https://godbolt.org/z/355M1Ysc4)
 ```cpp
 #include <iostream>
 
@@ -1968,7 +1971,7 @@ int interface = 0;
 int impl = 1;
 
 // Bring interface, impl, dyn, make_dyn and self in as keywords.
-#pragma feature interface self
+#feature on interface self
 
 // interface is a keyword. Define an interface that allows implicit impls.
 interface IPrint auto {
@@ -2047,9 +2050,9 @@ impl __impl;
 
 This is a completely new language entity. It's _highly_ generic, yet it requires minimal wording because it builds on the existing partial template argument deduction framework.
 
-[**print_impl.cxx**](print_impl.cxx) - [(Compiler Explorer)](https://godbolt.org/z/dG3813zsT)
+[**print_impl.cxx**](print_impl.cxx) - [(Compiler Explorer)](https://godbolt.org/z/jz9arE76e)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 interface IScale {
@@ -2099,9 +2102,9 @@ impl<double, IPrint>::print(): 220
 
 The impl syntax `impl type-id : interface-name` is meant to suggest _inheritance_. It's _as if_ your type is _externally inheriting_ the interface, just like it would be _internally inheriting_ a base class.
 
-[**external_impl.cxx**](external_impl.cxx) - [(Compiler Explorer)](https://godbolt.org/z/MPWMYqMnT)
+[**external_impl.cxx**](external_impl.cxx) - [(Compiler Explorer)](https://godbolt.org/z/596G4xhvf)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 interface IPrint {
@@ -2148,9 +2151,9 @@ This feature was chosen to leverage programmer familiarity with object-oriented 
 
 The `impl` reserved word has another use: the _impl-expression_ tests if an impl is available for a type and interface. This is similar to evaluating a C++20 concept.
 
-[**impl_test.cxx**](impl_test.cxx) - [(Compiler Explorer)](https://godbolt.org/z/xGahvoTan)
+[**impl_test.cxx**](impl_test.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Eb9jxorfb)
 ```cpp
-#pragma feature interface
+#feature on interface
 #include <type_traits>
 #include <string>
 
@@ -2182,9 +2185,9 @@ We have to put an impl _in scope_ to use unqualified name lookup to call interfa
 
 * `using impl type-id-list : interface-list;` - Put all the impls in the outer product of _type-id-list_ and _interface-list_ in scope.
 
-[**impl_scope.cxx**](impl_scope.cxx) - [(Compiler Explorer)](https://godbolt.org/z/PfjsKvqsq)
+[**impl_scope.cxx**](impl_scope.cxx) - [(Compiler Explorer)](https://godbolt.org/z/q3fWdh4rx)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 interface IPrint {
@@ -2240,9 +2243,9 @@ This syntax has two effects:
 1. There is an implicit constraint on the template that fails if the template parameter does not implement all the listed interfaces.
 1. During template instantiation, the impl over T for each of the listed interfaces is put into scope, so that unqualified name lookup can be used to call interface methods. This is like injecting a _using-impl-declaration_ in the subsequent template definition.
 
-[**interface_template.cxx**](interface_template.cxx) - [(Compiler Explorer)](https://godbolt.org/z/q8cK656es)
+[**interface_template.cxx**](interface_template.cxx) - [(Compiler Explorer)](https://godbolt.org/z/eE6r45zbf)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 interface IPrint {
@@ -2293,9 +2296,9 @@ The `IPrint & IScale` requirements on the template parameter declaration are con
 
 #### Interface packs
 
-[**interface_template2.cxx**](interface_template2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/b3c4KzKoc)
+[**interface_template2.cxx**](interface_template2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/odbaYKcer)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 
 interface IPrint {
   void print() const;
@@ -2337,9 +2340,9 @@ Interfaces and interface templates are first-class language entities. The templa
 
 #### Interface inheritance
 
-[**interface_template3.cxx**](interface_template3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/nocYd4z7z)
+[**interface_template3.cxx**](interface_template3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/dW4xzxzfj)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 // IGroup inherits a pack of interfaces.
@@ -2403,9 +2406,9 @@ Circle's `dyn` type is used the same way. `dyn`, the reserved word, is a _type t
 
 The point of `dyn` is to provide a base pointer type that incorporates the interface, but _not the type_ being erased.
 
-[**dyn.cxx**](dyn.cxx) - [(Compiler Explorer)](https://godbolt.org/z/3hsefvWWP)
+[**dyn.cxx**](dyn.cxx) - [(Compiler Explorer)](https://godbolt.org/z/6fW9Gxovz)
 ```cpp
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 #include <string>
 
@@ -2482,9 +2485,9 @@ std::vector<std::unique_ptr<dyn<IFace>>> vec;
 
 By reusing the standard containers, I hope programmers can reuse their familiar coding idioms. The mental shift is just about going from _virtual function polymorphism_ to _external polymorphism_, not about learning an exotic programming paradigm.
 
-[**dyn2.cxx**](dyn2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/WThzce1EM)
+[**dyn2.cxx**](dyn2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/3Tde9j63n)
 ```cpp
-#pragma feature interface self forward template_brackets
+#feature on interface self forward template_brackets
 #include <iostream>
 #include <string>
 #include <vector>
@@ -2622,9 +2625,9 @@ IClone is the most sophisticated bit of code in this [New Circle](#new-circle-no
 
 The effect of IClone's is that users don't have to do anything to opt a type into this interface, as long as the type supports copy construction. If a type doesn't support copy construction, you can still manually implement IClone.
 
-[**dyn3.cxx**](dyn3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/j1PWzrn6s)
+[**dyn3.cxx**](dyn3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/hsvP6czE5)
 ```cpp
-#pragma feature interface forward self template_brackets
+#feature on interface forward self template_brackets
 #include <memory>
 #include <iostream>
 
@@ -2801,9 +2804,9 @@ int main() {
 
 The most vexing parse is the object declaration `b_t obj(a_t())`. Unfortunately, the C++ grammar doesn't see that as an object declaration, but rather as a function declaration like this: `b_t obj(a_t param)`. The parentheses in the initializer `a_t()` are parsed as superfluous parentheses around a non-existing _declaration-id_. 
 
-[**most_vexing_parse2.cxx**](most_vexing_parse.cxx) - [(Compiler Explorer)](https://godbolt.org/z/67nc6Evjo)
+[**most_vexing_parse2.cxx**](most_vexing_parse2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/qe3WTMdPa)
 ```cpp
-#pragma feature new_decl_syntax
+#feature on new_decl_syntax
 
 struct a_t { }
 
@@ -2826,9 +2829,9 @@ The `[new_decl_syntax]` requires marking function declarations with `fn` and obj
 
 ### Function declarations
 
-[**fn.cxx**](fn.cxx) - [(Compiler Explorer)](https://godbolt.org/z/PWE4a9cd7)
+[**fn.cxx**](fn.cxx) - [(Compiler Explorer)](https://godbolt.org/z/6djeYTWf9)
 ```cpp
-#pragma feature new_decl_syntax
+#feature on new_decl_syntax
 
 // Clearer function declaration syntax. Always use trailing-return-type.
 fn func1(x: int) -> double { return 3.14; }
@@ -2882,9 +2885,9 @@ Depending on your level of skill, this may be a valuable or a fairly trivial imp
 
 ### Object declarations
 
-[**var.cxx**](var.cxx) - [(Compiler Explorer)](https://godbolt.org/z/fsbMrz4fY)
+[**var.cxx**](var.cxx) - [(Compiler Explorer)](https://godbolt.org/z/avjbh9W5P)
 ```cpp
-#pragma feature new_decl_syntax placeholder_keyword
+#feature on new_decl_syntax placeholder_keyword
 #include <iostream>
 
 // Standard syntax.
@@ -3043,9 +3046,9 @@ We have two overloads of func: one taking a `const std::string&` and one taking 
 
 The `[no_implicit_pointer_to_bool]` feature disables _implicit_ conversions of pointers to bools, except in the context of a [contextual conversion to bool](http://eel.is/c++draft/conv#general-4), such as the _condition_ of an _if-statement_.
 
-[**pointer_to_bool2.cxx**](pointer_to_bool2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/71d1qM97d)
+[**pointer_to_bool2.cxx**](pointer_to_bool2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/oefTGvTns)
 ```cpp
-#pragma feature as
+#feature on as
 #include <iostream>
 #include <string>
 
@@ -3062,7 +3065,7 @@ int main() {
   func("Hello world!");
 
   // Opt into safety.
-  #pragma feature no_implicit_pointer_to_bool
+  #feature on no_implicit_pointer_to_bool
   
   // Error: no implicit conversion from const char* to bool.
   func("Hello world!");
@@ -3105,7 +3108,7 @@ The implicit conversion that chose the unwanted overload is prohibited under thi
 
 C++ automatically promotes values of integral types smaller than `int` to `int` during [usual arithmetic conversions](http://eel.is/c++draft/expr.arith.conv). This is a surprising operation, as the result type of your expression will not match the types of your operands. Most other languages don't do this. I think this is a surprising operation, especially since unsigned types are promoted to `signed int` (but _not always_). The `[no_integral_promotions]` feature disables this.
 
-[**promote.cxx**](promote.cxx) - [(Compiler Explorer)](https://godbolt.org/z/vEb74cnh7)
+[**promote.cxx**](promote.cxx) - [(Compiler Explorer)](https://godbolt.org/z/a4vKnTjMP)
 ```cpp
 int main() {
   char           x = 1;
@@ -3130,7 +3133,7 @@ int main() {
   static_assert(int      == decltype(d * d), "promote to int");
 
   // Turn this very surprising behavior off.
-  #pragma feature no_integral_promotions
+  #feature on no_integral_promotions
   static_assert(char           == decltype(x * x), "does not promote to int");
   static_assert(unsigned char  == decltype(y * y), "does not promote to int");
   static_assert(short          == decltype(z * z), "does not promote to int");
@@ -3161,7 +3164,7 @@ On the hardware, signed and unsigned addition, subtraction and multiplication al
 
 The `[no_signed_overflow_ub]` feature turns off undefined behavior during signed integer overflow. 
 
-[**signed_overflow.cxx**](signed_overflow.cxx) - [(Compiler Explorer)](https://godbolt.org/z/a1nocWaPG)
+[**signed_overflow.cxx**](signed_overflow.cxx) - [(Compiler Explorer)](https://godbolt.org/z/cs7G5o5xj)
 ```cpp
 int add_test1(int x, int y) {
   return x + y;
@@ -3173,7 +3176,7 @@ int mul_test1(int x, int y) {
   return x * y;
 }
 
-#pragma feature no_signed_overflow_ub
+#feature on no_signed_overflow_ub
 
 int add_test2(int x, int y) {
   return x + y;
@@ -3253,7 +3256,7 @@ This example file generates add, subtract and multiply ops with undefined behavi
 
 The `[no_zero_nullptr]` feature makes it so 0 literals are not null pointer constants. The `nullptr` keyword (and the `std::nullptr_t` first-class language entity) was only introduced in C++11. Prior to that, everyone used a macro NULL, which was defined to `0L`. Because we have `nullptr`, we don't need this capability, and this feature disables it.
 
-[**nullptr.cxx**](nullptr.cxx) - [(Compiler Explorer)](https://godbolt.org/z/PEqKGj6ro)
+[**nullptr.cxx**](nullptr.cxx) - [(Compiler Explorer)](https://godbolt.org/z/z1erxq9TG)
 ```cpp
 void func(const int*);
 
@@ -3261,7 +3264,7 @@ int main() {
   func(nullptr);  // OK
   func(0);        // OK
 
-  #pragma feature no_zero_nullptr
+  #feature on no_zero_nullptr
   func(nullptr);  // OK
   func(0);        // Error
 }
@@ -3285,9 +3288,9 @@ cannot convert prvalue int to const int*
 
 The `[placeholder_keyword]` feature implements this idea from the Epochs proposal, turning `_` (underscore) into a reserved word that creates anonymous declarations. This feature works with both the standard declaration syntax and [`[new_decl_syntax]`](#new_decl_syntax)
 
-[**placeholder.cxx**](placeholder.cxx) - [(Compiler Explorer)](https://godbolt.org/z/6d9sbqa6f)
+[**placeholder.cxx**](placeholder.cxx) - [(Compiler Explorer)](https://godbolt.org/z/r58aT9P6h)
 ```cpp
-#pragma feature placeholder_keyword
+#feature on placeholder_keyword
 
 // You can use a placeholder in parameter-declaration. It's clearer than
 // leaving the declarator unnamed.
@@ -3305,7 +3308,7 @@ void f1(int _, double _) {
 }
 
 // Works with [new_decl_syntax] too.
-#pragma feature new_decl_syntax
+#feature on new_decl_syntax
 
 // [new_decl_syntax] requires parameter names, so we must use placeholders
 // if we want them unnamed.
@@ -3352,9 +3355,9 @@ The Carbon project keeps its own collection of proposals, also with four-digit n
 
 The Circle feature `[require_control_flow_braces]` implements this change.
 
-[**require_control_flow_braces.cxx**](require_control_flow_braces.cxx) - [(Compiler Explorer)](https://godbolt.org/z/snvEzefT8)
+[**require_control_flow_braces.cxx**](require_control_flow_braces.cxx) - [(Compiler Explorer)](https://godbolt.org/z/55zP1sej3)
 ```cpp
-#pragma feature require_control_flow_braces
+#feature on require_control_flow_braces
 
 int main() {
   int x = 0;
@@ -3410,7 +3413,7 @@ error: require_control_flow_braces.cxx:25:5
 
 The `[safer_initializer_list]` feature changes the behavior of list-initialization [[over.match.list]](http://eel.is/c++draft/over.match.list), so that _even if_ an `std::initializer_list` constructor is found ([[over.match.list]/1.1](http://eel.is/c++draft/over.match.list#1.1)), overload resolution considers all constructors ([[over.match.list]/1.2](http://eel.is/c++draft/over.match.list#1.2)). If an `std::initializer_list` constructor is found in 1.1, and another constructor is found in 1.2, then the match is ambiguous and object initialization fails. The user should then disambiguate the initializer with an extra set of braces.
 
-[**safer_initializer_list.cxx**](safer_initializer_list.cxx) - [(Compiler Explorer)](https://godbolt.org/z/5W8vdjP3n)
+[**safer_initializer_list.cxx**](safer_initializer_list.cxx) - [(Compiler Explorer)](https://godbolt.org/z/xEv6ejTj4)
 ```cpp
 #include <vector>
 
@@ -3418,7 +3421,7 @@ int main() {
   std::vector<int> v1(4, 4);   // OK, [4, 4, 4, 4]
   std::vector<int> v2{4, 4};   // OK, [4, 4] - Surprising!
 
-  #pragma feature safer_initializer_list
+  #feature on safer_initializer_list
   std::vector<int> v3(4, 4);   // OK, [4, 4, 4, 4]
   std::vector<int> v4{4, 4};   // ERROR, Ambiguous initialization
   std::vector<int> v5{{4, 4}}; // OK, [4, 4]
@@ -3456,7 +3459,7 @@ Once you're in a silo, you may parse additional operator tokens in the same silo
 
 The `[simpler_precedence]` feature implements operator silos in a form that's similar, but not identical to, that considered in the Carbon design. For one thing, in Circle's version, `>>` and `<<` may be parsed in sequence, which allows us to continue using iostreams insertion and extraction operators.
 
-[**precedence.cxx**](precedence.cxx) - [(Compiler Explorer)](https://godbolt.org/z/axj1cc987)
+[**precedence.cxx**](precedence.cxx) - [(Compiler Explorer)](https://godbolt.org/z/6E6a7ozcn)
 ```cpp
 int main() {
   const int mask  = 0x07;
@@ -3464,7 +3467,7 @@ int main() {
 
   static_assert(3 != mask & value);
 
-  #pragma feature simpler_precedence
+  #feature on simpler_precedence
 
   static_assert(3 == mask & value);
 }
@@ -3478,10 +3481,10 @@ This feature fixes the precedence of bitwise AND, OR and XOR operations, by maki
 
 ** UNDER CONSTRUCTION **
 
-[**switch_break.cxx**](switch_break.cxx) - [(Compiler Explorer)](https://godbolt.org/z/85z7cK9ve)
+[**switch_break.cxx**](switch_break.cxx) - [(Compiler Explorer)](https://godbolt.org/z/v1qxY7eov)
 ```cpp
 #include <iostream>
-#pragma feature switch_break
+#feature on switch_break
 
 int main() {
   for(int arg = 1; arg < 8; ++arg) {
@@ -3535,7 +3538,7 @@ $ ./switch_break
 
 The `[template_brackets]` feature drops the `<` token as the sigil for _template-argument-list_. `!< >` is used instead. This forms a brace pair and never requires a user's disambiguation (the `template` keyword after a dependent name and before `<`). It's far easier for tools to parse. It's easier for humans to write. It provides more consistent use of _template-argument-list_ over all aspects of the language. The `<` that opens _template-parameter-list_ remains unchanged, because it was never a problem.
 
-[**lambda.cxx**](lambda.cxx) - [(Compiler Explorer)](https://godbolt.org/z/1nKP8brE5)
+[**lambda.cxx**](lambda.cxx) - [(Compiler Explorer)](https://godbolt.org/z/docqz7sfP)
 ```cpp
 #include <cstdio>
 
@@ -3549,7 +3552,7 @@ int main() {
   f.template operator()<int, double>();
 
   // Call it the new way.
-  #pragma feature template_brackets
+  #feature on template_brackets
   f!<int, double>();
 }
 ```
@@ -3575,9 +3578,9 @@ There are three kinds of entities you can specify after the `!`:
 
 In my experience, this helps code readibility, because the user doesn't have to mentally balance brackets.
 
-[**single_argument.cxx**](single_argument.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Mba3Gzd6q)
+[**single_argument.cxx**](single_argument.cxx) - [(Compiler Explorer)](https://godbolt.org/z/aeK1v7axe)
 ```cpp
-#pragma feature template_brackets
+#feature on template_brackets
 #include <vector>
 #include <string>
 
@@ -3634,9 +3637,9 @@ auto y = ((void)a, b);   // This discards a and returns b.
 
 To access a user-defined `operator,`, either write it outside of parenthesis, write the call syntax `operator,(a, b)`, or turn off the `[tuple]` feature.
 
-[**tuple1.cxx**](tuple1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/MoThbaMdc)
+[**tuple1.cxx**](tuple1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/G4YMvezdc)
 ```cpp
-#pragma feature tuple
+#feature on tuple
 #include <tuple>
 #include <iostream>
 
@@ -3679,9 +3682,9 @@ The convenience of `[tuple]` provides the apperance of multiple return values
 from a function.
 
 [**tuple2.cxx**](tuple2.cxx) - [(Compiler Explorer)](
-https://godbolt.org/z/n6jaYEb1P)
+https://godbolt.org/z/Yzonfjd9T)
 ```cpp
-#pragma feature new_decl_syntax tuple
+#feature on new_decl_syntax tuple
 #include <tuple>
 #include <iostream>
 
@@ -4194,9 +4197,9 @@ Because this construct occurs so frequently, Circle provides an abbreviated form
 
 Namespace parameters are a new feature. This allows parameterization of qualified name lookup. It's useful for specializing a template with a _version_ of code, when code is versioned by namespace. To pass a namespace argument, just pass the name of the namespace. To specify the global namespace, pass `::` as the template argument.
 
-[**template_params.cxx**](template_params.cxx) - [(Compiler Explorer)](https://godbolt.org/z/Wje4jaq9s)
+[**template_params.cxx**](template_params.cxx) - [(Compiler Explorer)](https://godbolt.org/z/rx1nW13Y7)
 ```cpp
-#pragma feature interface
+#feature on interface
 #include <iostream>
 #include <concepts>
 #include <vector>
@@ -4458,9 +4461,9 @@ Keep in mind that there is no actual _forwarding_ going on. This differs from th
 
 ### Template arguments for overload sets
 
-[**lifting3.cxx**](lifting3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/fhdc4W3zh)
+[**lifting3.cxx**](lifting3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/encojjKf3)
 ```cpp
-#pragma feature template_brackets
+#feature on template_brackets
 #include <iostream>
 
 // auto function parameters generate "invented" template parameters.

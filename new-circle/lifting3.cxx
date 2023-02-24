@@ -1,4 +1,4 @@
-#pragma feature template_brackets
+#feature on template_brackets
 #include <iostream>
 
 // auto function parameters generate "invented" template parameters.

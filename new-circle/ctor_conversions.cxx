@@ -7,7 +7,7 @@ struct S {
 void func(S);
 
 int main() {
-  #pragma feature as no_implicit_ctor_conversions
+  #feature on as no_implicit_ctor_conversions
 
   // Applies to implicit conversion sequences.
   func(1);       // Error

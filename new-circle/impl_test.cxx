@@ -1,4 +1,4 @@
-#pragma feature interface
+#feature on interface
 #include <type_traits>
 #include <string>
 

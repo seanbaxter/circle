@@ -1,4 +1,4 @@
-#pragma feature forward
+#feature on forward
 #include <iostream>
 
 void consume(forward auto... args) {

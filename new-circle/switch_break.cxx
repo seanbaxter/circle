@@ -1,5 +1,5 @@
 #include <iostream>
-#pragma feature switch_break
+#feature on switch_break
 
 int main() {
   for(int arg = 1; arg < 8; ++arg) {

@@ -3,7 +3,7 @@
 // [tuple] - Enables new syntax for tuple expressions and types.
 // [choice] - Enables the choice and match keywords.
 // [self] - Retires 'this' and replaces it with the lvalue 'self'.
-#pragma feature interface tuple choice self
+#feature on interface tuple choice self
 
 // These files are included after the features have been activated, but are
 // unaffected by them. Every file on disk gets its own feature mask.

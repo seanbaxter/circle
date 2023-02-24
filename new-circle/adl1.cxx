@@ -1,4 +1,4 @@
-#pragma feature adl
+#feature on adl
 #include <tuple>
 
 int main() {

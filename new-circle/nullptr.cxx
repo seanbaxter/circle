@@ -4,7 +4,7 @@ int main() {
   func(nullptr);  // OK
   func(0);        // OK
 
-  #pragma feature no_zero_nullptr
+  #feature on no_zero_nullptr
   func(nullptr);  // OK
   func(0);        // Error
 }

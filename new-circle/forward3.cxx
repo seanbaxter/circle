@@ -1,7 +1,7 @@
 // A function with a forwarding reference parameter.
 void func(auto&& x) { }    // #1
 
-#pragma feature forward
+#feature on forward
 
 // A function with an rvalue reference parameter. This is a different
 // overload from #1.

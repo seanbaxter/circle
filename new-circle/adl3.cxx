@@ -1,4 +1,4 @@
-#pragma feature adl
+#feature on adl
 
 namespace ns {
   struct obj_t { };

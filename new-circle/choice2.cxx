@@ -1,4 +1,4 @@
-#pragma feature choice new_decl_syntax
+#feature on choice new_decl_syntax
 #include <string>
 #include <tuple>
 #include <iostream>

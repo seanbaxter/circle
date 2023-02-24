@@ -1,4 +1,4 @@
-#pragma feature as    // Enable as-expression.
+#feature on as    // Enable as-expression.
 
 struct S {
   // [no_implicit_user_conversion] only applies to non-explicit 
@@ -18,7 +18,7 @@ int main() {
   int x1 = s;
   const char* pc1 = s;
 
-  #pragma feature no_implicit_user_conversions
+  #feature on no_implicit_user_conversions
 
   // Contextual conversions are permitted to use user-defined conversions.
   if(s) { }

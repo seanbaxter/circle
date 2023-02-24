@@ -1,4 +1,4 @@
-#pragma feature new_decl_syntax
+#feature on new_decl_syntax
 
 struct a_t { }
 

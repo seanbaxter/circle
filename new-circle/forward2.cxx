@@ -1,5 +1,5 @@
 // T&& is now freed up to mean rvalue reference.
-#pragma feature forward
+#feature on forward
 
 void f1(forward auto x);  // This is a forwarding parameter.
 void f2(auto&& x);        // This is an rvalue reference parameter.

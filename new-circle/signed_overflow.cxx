@@ -8,7 +8,7 @@ int mul_test1(int x, int y) {
   return x * y;
 }
 
-#pragma feature no_signed_overflow_ub
+#feature on no_signed_overflow_ub
 
 int add_test2(int x, int y) {
   return x + y;

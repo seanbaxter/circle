@@ -1,4 +1,4 @@
-#pragma feature interface self
+#feature on interface self
 
 interface IPrint {
   void print() const;

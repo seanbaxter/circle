@@ -1,4 +1,4 @@
-#pragma feature default_value_initialization
+#feature on default_value_initialization
 
 // Has a trivial default constructor, so it gets value-initialized.
 struct foo_t { int x, y, z, w; };

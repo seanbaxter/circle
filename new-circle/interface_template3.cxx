@@ -1,4 +1,4 @@
-#pragma feature interface self
+#feature on interface self
 #include <iostream>
 
 // IGroup inherits a pack of interfaces.

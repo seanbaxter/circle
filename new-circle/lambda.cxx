@@ -10,6 +10,6 @@ int main() {
   f.template operator()<int, double>();
 
   // Call it the new way.
-  #pragma feature template_brackets
+  #feature on template_brackets
   f!<int, double>();
 }

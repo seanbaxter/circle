@@ -4,7 +4,7 @@ int main() {
 
   static_assert(3 != mask & value);
 
-  #pragma feature simpler_precedence
+  #feature on simpler_precedence
 
   static_assert(3 == mask & value);
 }

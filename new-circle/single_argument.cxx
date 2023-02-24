@@ -1,4 +1,4 @@
-#pragma feature template_brackets
+#feature on template_brackets
 #include <vector>
 #include <string>
 

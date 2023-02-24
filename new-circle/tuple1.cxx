@@ -1,4 +1,4 @@
-#pragma feature tuple
+#feature on tuple
 #include <tuple>
 #include <cstdio>
 

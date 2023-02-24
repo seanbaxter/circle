@@ -21,7 +21,7 @@ int main() {
   static_assert(int      == decltype(d * d), "promote to int");
 
   // Turn this very surprising behavior off.
-  #pragma feature no_integral_promotions
+  #feature on no_integral_promotions
   static_assert(char           == decltype(x * x), "does not promote to int");
   static_assert(unsigned char  == decltype(y * y), "does not promote to int");
   static_assert(short          == decltype(z * z), "does not promote to int");

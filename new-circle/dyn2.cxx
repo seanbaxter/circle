@@ -1,4 +1,4 @@
-#pragma feature interface self forward template_brackets
+#feature on interface self forward template_brackets
 #include <iostream>
 #include <string>
 #include <vector>

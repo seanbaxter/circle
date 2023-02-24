@@ -1,4 +1,4 @@
-#pragma feature new_decl_syntax
+#feature on new_decl_syntax
 
 // Clearer function declaration syntax. Always use trailing-return-type.
 fn func1(x: int) -> double { return 3.14; }

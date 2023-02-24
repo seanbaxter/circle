@@ -1,4 +1,4 @@
-#pragma feature as
+#feature on as
 #include <iostream>
 #include <string>
 
@@ -15,7 +15,7 @@ int main() {
   func("Hello world!");
 
   // Opt into safety.
-  #pragma feature no_implicit_pointer_to_bool
+  #feature on no_implicit_pointer_to_bool
   
   // Error: no implicit conversion from const char* to bool.
   func("Hello world!");

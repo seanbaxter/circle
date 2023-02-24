@@ -5,7 +5,7 @@ int interface = 0;
 int impl = 1;
 
 // Bring interface, impl, dyn, make_dyn and self in as keywords.
-#pragma feature interface self
+#feature on interface self
 
 // interface is a keyword. Define an interface that allows implicit impls.
 interface IPrint auto {

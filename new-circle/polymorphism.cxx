@@ -16,7 +16,7 @@ void print(const B2& b);
 
 // Interfaces: types externally implement interfaces.
 // Rather than function overloading, interfaces are implemented by types.
-#pragma feature interface
+#feature on interface
 
 interface IPrint {
   void print() const;

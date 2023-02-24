@@ -1,4 +1,4 @@
-#pragma feature new_decl_syntax placeholder_keyword
+#feature on new_decl_syntax placeholder_keyword
 #include <iostream>
 
 // Standard syntax.

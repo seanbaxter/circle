@@ -1,4 +1,4 @@
-#pragma feature require_control_flow_braces
+#feature on require_control_flow_braces
 
 int main() {
   int x = 0;

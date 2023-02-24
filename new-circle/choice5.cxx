@@ -1,4 +1,4 @@
-#pragma feature choice
+#feature on choice
 #include <type_traits>
 #include <iostream>
 

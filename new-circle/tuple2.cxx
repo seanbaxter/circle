@@ -1,4 +1,4 @@
-#pragma feature new_decl_syntax tuple
+#feature on new_decl_syntax tuple
 #include <tuple>
 #include <iostream>
 

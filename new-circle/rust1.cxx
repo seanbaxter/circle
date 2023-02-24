@@ -1,4 +1,4 @@
-#pragma feature edition_carbon_2023
+#feature on edition_carbon_2023
 #include <string_view>
 #include <iostream>
 
