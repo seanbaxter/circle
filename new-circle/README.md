@@ -3724,7 +3724,7 @@ With the [`[new_decl_syntax]`](#new_decl_syntax), write the tuple kind as a _tra
 
 ## `[argument_directives]`
 
-* Reserved words: `addressof`, copy`, `move`, `ref`, `refmut`, `relocate`, `lvalue` and `xvalue`.
+* Reserved words: `addressof`, `copy`, `move`, `ref`, `refmut`, `relocate`, `lvalue` and `xvalue`.
 * Requirements: [`[borrow_checker]`](#borrow_checker).
 
 [Parameter-passing directives](#parameter_directives) have been a long-sought feature for C++. They de-emphasize the role of reference types in parameter passing by introducing directives (reserved words) that prefix parameter types. The directives are declarative: they indicate not only the mechanism of the parameter but also its intent.
