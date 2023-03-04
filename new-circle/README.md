@@ -3724,7 +3724,7 @@ With the [`[new_decl_syntax]`](#new_decl_syntax), write the tuple kind as a _tra
 
 ## `[argument_directives]`
 
-* Reserved words: `copy`, `move`, `ref`, `refmut` and `relocate`.
+* Reserved words: `addressof`, copy`, `move`, `ref`, `refmut`, `relocate`, `lvalue` and `xvalue`.
 * Requirements: [`[borrow_checker]`](#borrow_checker).
 
 [Parameter-passing directives](#parameter_directives) have been a long-sought feature for C++. They de-emphasize the role of reference types in parameter passing by introducing directives (reserved words) that prefix parameter types. The directives are declarative: they indicate not only the mechanism of the parameter but also its intent.
@@ -3736,6 +3736,17 @@ Modern language design usually prefers **explicitness over implicitness**.
 Parameter directives are **implicit**: at the point of the call, the user doesn't know which parameter directives are in play. Name lookup finds the candidate set and overload resolution finds the best viable candidate (which may involve the parameter directives of the candidates). But when the best viable candidate is found, the user still doesn't know what the semantics for the call are.
 
 Argument directives are **explicit**. Write them in the argument expressions. You effectively overload the function at the point of the call rather than the point of its definition. This is design chosen by Rust and most other languages. Because C++'s overload resolution is so sophisticated, it's become a habit to continue shoveling responsibilities on that, since we know it can be extended. But I think that impulse is as trap.
+
+Consider these new entities:
+* `addressof` - Take the address of an lvalue or nvalue. This replaces the `&` syntax in C/C++. It yields a pointer.
+* `lvalue` - Form an lvalue to an object. In C++, this is the default behavior for naming a variable. By making it opt-in, we require to specify it in order to bind to lvalue-accepting functions. Usage of this keyword is an _lvalue-expression_.
+* `xvalue` - Form an xvalue to an object. This is equivalent to calling `std::move`. Usage of this keyword is an _xvalue-expression_.
+* `copy` - Copy-construct an object and yield a prvalue. Usage of this keyword is a _copy-expression_.
+* `move` - Move-construct an object and yield a prvalue. This is different from calling `std::move`, which _does not move anything_. `std::move` changes the value category (which is what `xvalue` does in this model), while `move` creates a new prvalue. Usage of this keyword is a _move-expression_.
+* `ref` and `&` - The shared borrow type and expression. Use `&` on an nvalue to create a shared borrow. Usage of this operator is a _borrow-expression_.
+* `refmut` and `&mut` - The mutable borrow type and expression. Use `&mut` on an nvalue to create a mutable borrow. Usage of this operator is a _borrow-expression_.
+* `relocate` - Relocate the nvalue operand and create a new prvalue. This is the default behavior. It may be necessary only to support this keyword for user-declared relocation constructors. Usage of this keyword is a _relocate-expression_.
+* nvalue - The neutral value category. This supplements the existing categories: lvalue, xvalue and prvalue. lvalue and xvalue expressions are gained through the `lvalue` and `xvalue` keywords. prvalues are gained through `copy`, `move` and `relocate`. Nvalue is the new default value category when naming an object. It's flexible. It can source any of the expressions listed above. It's different from an lvalue in that it does not bind to lvalue references. If you want to bind to an lvalue reference, use an _lvalue-expression_.
 
 Consider a function that takes an argument _by value_:
 
@@ -3769,17 +3780,19 @@ void func(obj_t ref obj);     // #1
 void func(obj_t refmut obj);  // #2
 
 void call(obj_t obj) {
-  // Get a non-mutable ref to the object and call #1.
-  func(ref obj);
+  // Get a shared borrow (immutable) to the object and call #1.
+  func(&obj);
 
-  // Get a mutable ref to the object and call #2.
-  func(refmut obj);
+  // Get a mutable borrow to the object and call #2.
+  func(&mut obj);
 }
 ```
 
-The argument directive design is the only way to implement the [`[borrow_checker]`](#borrow_checker) model, where the checked reference entities `ref` and `refmut` are part of a type, not just options in an expression's value category. At the call site the user explicitly requires a `ref` or `refmut` from an object and passes that to a compatible function.
+The argument directive design is a way to implement the [`[borrow_checker]`](#borrow_checker) model, where the checked reference entities `ref` and `refmut` are part of a type, not just options in an expression's value category. At the call site the user explicitly requires a `&` (shared borrow) or `&mut` (mutable borrow) from an object and passes that to a compatible function.
 
-Pass by value, pass by ref and pass by refmut provide a memory-safe parameter strategy, and all are best annotated at the call site. Feature directives establish source domains with per-file scope, letting us reach further towards this modernization.
+Pass by value and pass by borrow provide a memory-safe parameter strategy, and all are best annotated at the call site. Feature directives establish source domains with per-file scope, letting us reach further towards this modernization.
+
+Additionally, we want to make lvalue and xvalue access _explicit_ rather than implicit.
 
 Consider making **relocation the default**. Rather than implicitly copy to a per-value parameter, implicitly relocate. This is Rust's default. It makes the cheap operation (relocation) the one you're naturally going to use in preference to the potentially expensive operation (copy).
 
@@ -3787,6 +3800,11 @@ Consider making **relocation the default**. Rather than implicitly copy to a per
 void func(obj_t obj);        // #1
 void func(obj_t ref obj);    // #2
 void func(obj_t refmut obj); // #3
+void func(const obj_t& obj); // #4
+void func(obj_t& obj);       // #5
+void func(obj_t&& obj);      // #6
+void func(const obj_t* obj); // #7
+void func(obj_t* obj);       // #8
 
 void call(obj_t obj) {
   // Copy-construct the object and call #1.
@@ -3798,11 +3816,26 @@ void call(obj_t obj) {
   // Implicitly relocate the object and call #1.
   func(obj);
 
-  // Pass a non-mutable ref to #2.
-  func(ref obj);
+  // Pass a shared borrow to #2.
+  func(&obj);
 
-  // Pass a mutable ref to #3.
-  func(refmut obj);
+  // Pass a mutable borrow to #3.
+  func(&mut obj);
+
+  // Pass a const lvalue to #4.
+  func(const lvalue obj);
+
+  // Pass an lvalue to #5.
+  func(lvalue obj);
+
+  // Pass an xvalue to #6.
+  func(xvalue obj);
+
+  // Pass a const pointer to #7.
+  func(const addressof obj);
+
+  // Pass a pointer to #8.
+  func(addressof obj);
 }
 ```
 
