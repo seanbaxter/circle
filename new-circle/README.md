@@ -217,7 +217,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
         * [Abbreviated template arguments](#abbreviated-template-arguments)
     1. [`[tuple]`](#tuple)
 1. [Research catalog](#research-catalog)
-    1. [`[argument_directives]`](#argument_directives)
+    1. [`[ncom]`](#ncom)
     1. [`[borrow_checker]`](#borrow_checker)
     1. [`[context_free_grammar]`](#context_free_grammar)
     1. [`[cyclone_pointers]`](#cyclone_pointers)
@@ -3722,10 +3722,12 @@ With the [`[new_decl_syntax]`](#new_decl_syntax), write the tuple kind as a _tra
 
 # Research catalog
 
-## `[argument_directives]`
+## `[ncom]`
 
 * Reserved words: `addressof`, `copy`, `move`, `ref`, `refmut`, `relocate`, `lvalue` and `xvalue`.
 * Requirements: [`[borrow_checker]`](#borrow_checker).
+
+New Circle Object Model. This is a new treatment of object lifetimes and expressions. It's designed to accommodate borrow checking, to bring compiler-checked memory safety to C++. It changes many defaults, to promote object relocation, pass-by-value, and borrows, over legacy features like pass-by-reference. The `nvalue` category replaces the `lvalue` for an expression that names an owned object (i.e. an object or subobject with automatic storage duration).
 
 [Parameter-passing directives](#parameter_directives) have been a long-sought feature for C++. They de-emphasize the role of reference types in parameter passing by introducing directives (reserved words) that prefix parameter types. The directives are declarative: they indicate not only the mechanism of the parameter but also its intent.
 
