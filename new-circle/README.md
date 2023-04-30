@@ -252,6 +252,16 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [Type traits](#type-traits)
     1. [Non-type traits](#non-type-traits)
     1. [Universal traits](#universal-traits)
+1. [The tuple experience](#the-tuple-experience)
+    1. [The easy tuple](#the-easy-tuple)
+    1. [The hard tuple](#the-hard-tuple)
+    1. [The Circle tuple](#the-circle-tuple)
+    1. [Tuple algorithms](#tuple-algorithms)
+        * [Take](#take)
+        * [Fold](#fold)
+        * [Repeat](#repeat)
+        * [Concatenation](#concatenation)
+    1. [Tuple benchmark](#tuple-benchmark)
 
 # Versioning with feature directives
 
@@ -5365,3 +5375,603 @@ Most of Circle's metaprogramming value is delivered with _traits_ and _metafunct
     * `to_interface` - change the semantics of the parameter to an interface.
     * `to_interface_template` - change the semantics of the parameter to an interface template.
     * `to_namespace` - change the semantics of the parameter to a namespace.
+
+
+# The tuple experience
+
+The tuple data structure is important in a number of problem domains. Many machine learning libraries build their tensor classes on tuple primitives. Compile times for high-dimension tuples is a pain point for these applications. 
+
+The [Circle tuple](#the-circle-tuple) is written as a library, but leverages many language extensions unique to Circle. The design of the tuple continues to evolve, to improve build times, ergonomics, expressiveness, and interoperability with the existing Standard tuple design.
+
+This section of the New Circle document describes two goals:
+1. Fast tuple compilation.
+1. Compatibility with existing tuple users via the Standard Library's [tuple_element](https://en.cppreference.com/w/cpp/utility/tuple/tuple_element) and [tuple_size](https://en.cppreference.com/w/cpp/utility/tuple/tuple_size) extension points.
+
+We achieve speed with Circle's language extensions:
+* [Member pack declarations](#member-pack-declarations) lets us define a tuple class with a pack of data members. There's no complex inheritance used. Access pack members with the `...[]` pack subscript operator.
+* [Tuple subscripts and slices](#tuple-subscripts-and-slices), `.[index]` and `.[begin:end:step]`, respectively, access elements of the tuple. These may internally call the associated `get` function template, but we aim for first-class access that avoids that expensive template instantiation.
+* The [forward](#forward) directive and its constraint syntax. The constraint 
+* The `[[circle::native_tuple]]` attribute is brand new. It tells the compiler to route tuple subscripts directly to the public non-static data members of the class object, _even when the class provides a partial specialization of std::tuple_size_. This creates two concept interfaces for the tuple: the fast interface with `.[]`, and the slow (but standard) interface with `std::get`.
+* The `[[circle::no_unique_address_any]]` is the infinite lives cheat code for writing a tuple. Using this on the member pack declaration greatly reduces the complexity of writing a fast tuple.
+
+## The easy tuple
+
+[**tuple/tuple1.cxx**](tuple/tuple1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/77ev6Mzeb)
+```cpp
+#feature on forward
+#include <tuple>
+#include <iostream>
+
+namespace cir {
+
+template<typename... Ts>
+struct tuple {
+  [[no_unique_address]] Ts ...m;   // Wow!
+};
+
+template<size_t I, typename Tup>
+decltype(auto) get(forward Tup tup : tuple) noexcept {
+  return (tup. ...m ...[I]);
+}
+
+// Be careful when using make_tuple. ADL may pull in std::make_tuple
+// if you pass any argument types from that namespace. Please qualify
+// your function calls.
+template<typename... Ts>
+tuple<Ts~remove_cvref...> make_tuple(forward Ts... x) {
+  return { forward x ... };
+}
+
+template<typename F, typename Tup>
+auto transform(F f, forward Tup tup : tuple) {
+  return make_tuple(f(forward tup.[:])...);
+}
+
+} // namespace cir
+
+namespace std {
+
+// Implement the C++ extension points.
+template<size_t I, typename... Ts>
+struct tuple_element<I, cir::tuple<Ts...>> {
+  using type = Ts...[I];
+};
+
+template<typename... Ts>
+struct tuple_size<cir::tuple<Ts...>> : 
+  integral_constant<size_t, sizeof...(Ts)> { };
+
+} // namespace std
+
+int main() {
+  // Declare a big tuple and fill it with ascending numbers.
+  const size_t N = 50;
+  auto tup1 = cir::make_tuple(int...(N)...);
+
+  // sqrt the elements. Promote to double.
+  auto tup2 = cir::transform([](auto x) { return sqrt(x); }, tup1);
+
+  // Write the elements to the terminal. 
+  std::cout<< "{:3}: ".format(int...)<< tup2.[:]<< "\n" ...;
+}
+```
+
+This first attempt at a tuple is very serviceable, and a huge improvement on the tuple in the Standard Library. Use `[[no_unique_address]]` to permit address aliasing of _empty_ and _distinct_ types to the same address. This is a form of empty type compression. It's common to store `[std::integral_constant`](https://en.cppreference.com/w/cpp/types/integral_constant) specializations in tuples, and this C++20 attribute means they have no data layout cost, _provided they are all different specializations_. We'll resolve that issue in [the hard tuple](#the-hard-tuple).
+
+A single forwarding implementation of `get` supports all cv- and reference-qualifiers on the argument type. Standard C++ is pretty bad. It doesn't let you specify the pattern or otherwise constrain a forwarding reference. For example,
+
+```cpp
+template<size_t I, typename Tup>
+decltype(auto) get(Tup&& tup) noexcept;
+```
+
+How do we know that Tup is actually a tuple type? It can't be made part of the parameter type. You can use a _requires-clause_ to externally constrain Tup, but that's not really what we want, since it doesn't permit conversions to tuple or passing of types that inherit tuple.
+
+```cpp
+template<size_t I, typename Tup>
+auto&& get(forward Tup tup : tuple) noexcept {
+  return forward tup. ...m ...[I];
+}
+``` 
+
+The Circle getter declares a forwarding parameter (with the [forward](#forward) keyword) while requiring that it be a specialization of the tuple template, or a class that inherits such a specialization. This is the most economical way to implement a getter. `forward tup` sets the correct value category on the parameter expression. We want to access the member pack, but since the left-hand side is dependent, we must use the `...` token to indicate to the compiler that we expect a pack member. Then use the subscript operator `...[I]` to access the I'th member.
+
+```cpp
+template<typename F, typename Tup, size_t... Is>
+auto transform(F f, Tup&& tup, std::integer_sequence<size_t, Is...>) {
+  return make_tuple(f(get<Is>(std::forward<Tup>(tup)))...);
+}
+
+template<typename F, typename Tup>
+auto transform(F f, Tup&& tup) {
+  return transform(f, std::forward<Tup>(tup), 
+    std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tup>>>());
+}
+```
+
+Standard C++ requires two functions to do anything with tuples. The first function, your entry point, creates an index sequence that matches the size of the tuple. The second function deduces the integer sequence pack Is from the arguments of the [std::integer_sequence](https://en.cppreference.com/w/cpp/utility/integer_sequence) specialization. It feeds those deduced parameters through `get`, to access each element of the tuple.
+
+```cpp
+template<typename F, typename Tup>
+auto transform(F f, forward Tup tup : tuple) {
+  return make_tuple(f(forward tup.[:])...);
+}
+```
+
+The Circle transform is a single shot. Just slice the tuple with the tuple slice operator `.[begin:end:step]`. That creates a pack, and the locus of expansion is outside the call to f. The tuple subscript and slice operators are pretty sophisticated. If your type opts into the language's tuple extension points, by providing partial specializations of `std::tuple_size` and `std::tuple_element`, then the compiler performs argument-dependent lookup for a get function, and uses that. Otherwise, it yields up the collection of non-static public data members of the class object. This is modeled on the behavior of structured bindings.
+
+While it's good that we can implement the extension points, to integrate with existing code that is written using `get` access, it does mean that our tuple will compile slowly! The compiler will instantiate a getter function template for every index probed, for every tuple argument type. Our getter is trivial: it just returns the I'th data member. The [Circle tuple](#the-circle-tuple) implementation will achieve both our goals: adherence to the expected tuple interface with `get`, but also high performance access with `.[]`.
+
+## The hard tuple
+
+[**tuple/tuple2.cxx**](tuple/tuple2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/8vY1dxKj1)
+```cpp
+namespace cir {
+
+namespace detail {
+
+template<size_t I, typename T, 
+  bool is_empty = T~is_empty && T~is_default_constructible>
+struct EBO {
+  // Don't inherit from the base class, because that would prevent the 
+  // empty base optimization from aliasing elements of the same type.
+  T get_m() const { return { }; }
+};
+
+
+template<size_t I, typename T>
+struct EBO<I, T, false> {
+  T& get_m() & noexcept { return m; }
+  const T& get_m() const & noexcept { return m; }
+  T&& get_m() && noexcept { return m; }
+
+  // Make the non-empty (or the final) type a data memebr.
+  T m;
+};
+
+} // namespace detail
+
+template<typename... Ts>
+struct tuple {
+  // We really should have constructors to ease initialization of the
+  // EBO members.
+
+  // Use int... to set each EBO to a different index.
+  [[no_unique_address]] detail::EBO<int..., Ts> ...m;
+};
+
+template<size_t I, typename Tup>
+auto&& get(forward Tup tup : tuple) {
+  // Call the getter.
+  return forward tup. ...m ...[I].get_m();
+}
+
+// Be careful when using make_tuple. ADL may pull in std::make_tuple
+// if you pass any argument types from that namespace. Please qualify
+// your function calls.
+template<typename... Ts>
+tuple<Ts~remove_cvref...> make_tuple(forward Ts... x) {
+  return { forward x ... };
+}
+
+template<typename F, typename Tup>
+auto transform(F f, forward Tup tup : tuple) {
+  return make_tuple(f(forward tup.[:])...);
+}
+
+} // namespace cir
+
+// Prove that we can alias multiple non-distinct empty types.
+using T1 = std::integral_constant<size_t, 1>;
+using T2 = std::integral_constant<size_t, 2>;
+
+// Empty elements take up no space, even non-distinct ones.
+using Tup = cir::tuple<T1, T2, T2, T1>;
+static_assert(1 == sizeof(Tup));
+static_assert(Tup~is_empty);
+
+// With std::tuple, empty elements may not alias with others of the same type.
+// This is a two byte tuple. T1 and T2 are at address 0. T2 and T1 are at
+// address 1.
+using StdTup = std::tuple<T1, T2, T2, T1>;
+static_assert(2 == sizeof(StdTup));
+static_assert(StdTup~is_empty);
+```
+
+The easy tuple has a performance defect and a data layout defect. We address the data layout defect in this section. We want all empty types to alias, so that you can load up your tuple with any number of `integral_constant` specializations, and the tuple remains an empty 1-byte type.
+
+To do this, we can introduce an empty-base optimization interposer. Call it EBO. It's a huge cheat. Instead of containing or inheriting empty types (the ones whose storage we wish to wave away), we instead inherit the EBO, which is an empty type, as a proxy for the type we want. The getter member function simply creates a object and returns that. This changes the semantics of empty object access compared to std::tuple, since we can no longer write to them (can't write to prvalues), and side effects in construction or destruction will be different. But the upside is that we've resolved our storage difficulties!
+
+The downside is that tuple access _is even more expensive_. Instead of instantiating one function template per access, the `get`, you now also have to access the `get_m` member function. That's twice as much work for the frontend and backend (it has to inline away those calls), just to get the data layout we desire. We resolved the data layout problem at the expense of performance.
+
+## The Circle tuple
+
+The [hard tuple](#the-hard-tuple) delivered efficient packing of empty elements, but the interface is wonky (the getter of those empty elements returns prvalues, not glvalues) and the compiler is doing significant extra work by instantiating both the get function template and the EBO's getter. We can do better.
+
+[**tuple/tuple3.cxx**](tuple/tuple3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/8EhveKhhd)
+```cpp
+namespace cir {
+
+// [[circle::native_tuple]] means .[] always accesses the data members
+// directly, rather than going through the 'get' extension point.
+template<typename... Ts>
+struct [[circle::native_tuple]] tuple {
+  // [[circle::no_unique_address_any]] aliases all empty types, distinct or
+  // not, to the same address. This means any tuple with all empty elements
+  // has size 1.
+  [[circle::no_unique_address_any]] Ts ...m;
+};
+
+// Provide a getter for existing code that expects this extension point.
+template<size_t I, typename Tup>
+auto&& get(forward Tup tup : tuple) noexcept {
+  return forward tup. ...m ...[I];
+}
+
+// Be careful when using make_tuple. ADL may pull in std::make_tuple
+// if you pass any argument types from that namespace. Please qualify
+// your function calls.
+template<typename... Ts>
+tuple<Ts~remove_cvref...> make_tuple(forward Ts... x) {
+  return { forward x ... };
+}
+
+template<typename F, typename Tup>
+auto transform(F f, forward Tup tup : tuple) {
+  return cir::make_tuple(f(forward tup.[:])...);
+}
+
+} // namespace cir
+
+using T1 = std::integral_constant<size_t, 1>;
+using T2 = std::integral_constant<size_t, 2>;
+
+// Empty elements take up no space, even non-distinct ones.
+using Tup = cir::tuple<T1, T2, T2, T1>;
+static_assert(1 == sizeof(Tup));
+static_assert(Tup~is_empty);
+```
+
+Circle provides a great attribute: `[[circle::no_unique_address_any]]`. This does what users think `[[no_unique_address]]` ought to do: it aliases all empty objects, no matter if they are of distinct types or not. We achieve the hard tuple's efficient packing but without the EBO interposer. Getting empty elements now returns references instead of default-constructing and returning new objects. This is exactly what users expect, and it's consistent with the behavior of `std::tuple`, but unlike `std::tuple`, gives us the most efficient packing of empty elements.
+
+```cpp
+template<size_t I, typename Tup>
+auto&& get(forward Tup tup : tuple) noexcept {
+  return forward tup. ...m ...[I];
+}
+```
+
+Notice that the `get` function is back to a trivial subscript of the member pack declaration. This opens up a cascade of optimization opportunities. To get the best compile-time performance, we want the compiler to ignore the `get` function when generating code for the `.[]` subscript/slice operator, and instead access the public non-static data members directly. This saves us a function instantiation and call per element access over the easy implementation, and two instantiations and calls per element over the hard implementation.
+
+[**tuple/tuple4.cxx**)](tuple/tuple4.cxx) - [(Compiler Explorer)](https://godbolt.org/z/o6TM1Yr4o)
+```cpp
+#include <tuple>
+#include <iostream>
+
+// Duplicate all elements of a tuple.
+template<typename... Ts>
+auto duplicate_elements(const std::tuple<Ts...>& tup) {
+  // Slice the tuple twice into a group, then expand outside of the group.
+  // This emits each instance twice.
+  return std::make_tuple(.{tup.[:], tup.[:]}...);
+}
+
+int main() {
+  auto tup1 = std::make_tuple(1, 2.2, "A tuple");
+  auto tup2 = duplicate_elements(tup1);
+
+  std::cout<< decltype(tup2).[:]~string<< " : "<< tup2.[:]<< "\n" ...;
+}
+```
+```
+$ circle tuple4.cxx  
+$ ./tuple4
+int : 1
+int : 1
+double : 2.2
+double : 2.2
+const char* : A tuple
+const char* : A tuple
+```
+
+Normally, in response to `.[]`, the Circle frontend attempts to find a partial specialization of `std::tuple_size`, indicating that the type participates in the C++'s tuple extension point. If it finds a specialization, then `.[]` is lowered to calls to `get`, and `.[]` on a type operand lowers to instantiations of `std::tuple_element`.
+
+This allows all the existing tuple-like types to participate in algorithms written using Circle's pack primitives. In this example, I form a group `.{ }` with two slices of the same tuple, and then expand outside of the group. This duplicates each of the elements into a new tuple. This is kind of function requires real thought to implement with Standard C++, where the only tool for pack manipulation is argument deduction. Circle provides rich, declarative mechanisms for succinctly expressing how you want to transform collections.
+
+```cpp
+// [[circle::native_tuple]] means .[] always accesses the data members
+// directly, rather than going through the 'get' extension point.
+template<typename... Ts>
+struct [[circle::native_tuple]] tuple {
+  [[circle::no_unique_address_any]] Ts ...m;
+};
+```
+
+The `[[circle::native_tuple]]` attribute on your type turns this search off. Circle detects the attribute and lowers `.[]` to public non-static data member access, which doesn't involve any template instantiation or function calls. It just gets at the data. Now, this high-performance `.[]` operator co-exists with a type that implements the `std::tuple_size` and `get` extension point, allowing existing code to use the legacy interface, which goes through templates, and new code to use the first-class interface, which uses direct access to data members. Your type has the _ergonomics_ of a tuple, but the _performance_ of a plain old struct.
+
+## Tuple algorithms
+
+Tuple functions expressed with Circle's pack mechanisms are much easier to program, and compile much faster than those written with Standard C++. Let's take a look at a few.
+
+### Take
+
+Consider constant terms Begin and End. We want to cut out the elements in the half-open interval [Begin, End) and return them in a new tuple.
+
+[**tuple/algos-std.hxx**](tuple/algos-std.hxx)
+```cpp
+// Take
+// Takes elements in the range [Begin, End)
+
+namespace detail {
+
+template<size_t Begin, typename Tup, size_t... Is>
+constexpr auto take(Tup&& tup, std::index_sequence<Is...>) {
+  return std::make_tuple(std::get<Begin + Is>(std::forward<Tup>(tup))...);
+}
+
+} // namespace detail
+
+template<size_t Begin, size_t End, typename Tup>
+constexpr auto take(Tup&& tup) {
+  return detail::take<Begin>(
+    std::forward<Tup>(tup), 
+    std::make_index_sequence<End - Begin>()
+  );
+}
+```
+
+The Standard C++ implementation follows the recipe of many simple tuple functions. You create a helper function template in a `detail` namespace, which takes a `std::index_sequence` function parameter, and deduces its template arguments into template parameter pack `Is`. That pack is fed through `get`, to access the `Begin + Is` element of `tup`, and a new tuple is created.
+
+Why do we have to deduce everything? Why can't we justh get at the data?!?
+
+[**tuple/algos-circle.hxx**](tuple/algos-circle.hxx)
+```cpp
+template<size_t Begin, size_t End, typename T>
+constexpr auto take(forward T tup : cir::tuple) {
+  return cir::make_tuple(forward tup.[Begin:End] ...);
+}
+```
+
+The Circle code is far more expressive. The tuple slice operator `.[Begin:End:Step]` turns the operand `tup` into a pack of element expressions. We just slice on Begin and End, to get the half-open interval requested, then expand that into `make_tuple`. Consider the compile-time benefits, which otherwise plague programs that use large tuples:
+* The [_forward-expression_](#forward) elides name lookup, overload resoluction and argument deduction on `std::forward`. 
+* The tuple slice lowers, for native tuple types, to plain data member access. There's no `get` call, which for `std::tuple` drags in all sorts of expensive 
+helper functions.
+* There's no call to `make_index_sequence`.
+* There's no argument deduction on `index_sequence`, which is an expensive operation for large tuples, as the cost of deduction scales with the size of the tuple.
+
+As you'll see in the [benchmark section](#tuple-benchmark), all this cost-cutting adds up to deliver tuple algorithms which are lighting quick.
+
+### Fold
+
+Consider an initial value `v`, a tuple `tup`, and a fold function `f`. We want to evaluate the recurrence `x_i = f(x_(i-1), tup.[i])`, for all the tuple elements, where x_(-1) is set to `v`. If the tuple is empty, the fold just returns `v`. This is like a [C++-17 fold expression](https://en.cppreference.com/w/cpp/language/fold), but generalized to functions and not just operators.
+
+[**tuple/algos-std.hxx**](tuple/algos-std.hxx)
+```cpp
+// Fold
+// (t, v, f) => f(...f(f(v,t_0),t_1),...,t_n)
+
+namespace detail {
+
+// Overload for empty tuple.
+template<typename Tup, typename V, typename F>
+constexpr auto fold(Tup&& tup, V&& v, F f, std::index_sequence<>) {
+  return std::forward<V>(v);
+}
+
+// Overload for non-empty tuple.
+template<typename Tup, typename V, typename F, size_t I, size_t... Is>
+constexpr auto fold(Tup&& tup, V&& v, F f, std::index_sequence<I, Is...>) {
+  if constexpr(sizeof...(Is) == 0) {
+    // Fold the remaining element with the accumulated value.
+    return f(std::forward<V>(v), std::get<I>(std::forward<Tup>(tup)));
+
+  } else {
+    // Left-recurse.
+    return fold(
+      std::forward<Tup>(tup), 
+      f(std::forward<V>(v), std::get<I>(std::forward<Tup>(tup))),
+      f,
+      std::index_sequence<Is...>()
+    );
+  }
+}
+
+} // namespace detail
+
+template<typename Tup, typename V, typename F>
+constexpr auto fold(Tup&& tup, V&& v, F f) {
+  return detail::fold(
+    std::forward<Tup>(tup), 
+    std::forward<V>(v),
+    f,
+    std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tup>>>()
+  );
+}
+```
+
+This Standard C++ implementation is horrendous. It's obvious why _fold-expression_ for operators was added as a language feature in C++17. But why didn't we get something more general?
+
+Here, we have the usual `index_sequence` argument deduction in the helper function, but we also have recursive calls to the helper function. And for each recursive call, we generate a new `index_sequence`, peeling off one element at at time. As a function of the tuple size, there are a linear number of function calls and a quadratic cost of deducing the index_sequence arguments. It's likely that somebody can come up with an implementation that improves on this, but I can't, and I think that demonstrates the cleverness bar for C++ metaprogramming has been set way too high.
+
+
+[**tuple/algos-circle.hxx**](tuple/algos-circle.hxx)
+```cpp
+// Fold
+// (t, v, f) => f(...f(f(v,t_0),t_1),...,t_n)
+template<typename T, typename V, typename F>
+constexpr auto fold(forward T tup : cir::tuple, forward V v, F f) {
+  return (forward v f ... forward tup.[:]);
+}
+```
+
+The Circle implementation is another one-liner. It uses Circle's _functional fold_ support.
+
+* **(... op pack)** - Left unary operator fold.
+* **(... f pack)** - Left unary functional fold.
+* **(v op ... op pack)** - Left binary operator fold.
+* **(v f ... pack)** - Left binary functional fold.
+
+The functional fold is just like an operator _fold-expression_, but you can feed it any callable entity, like a function or a lambda object. The syntax is a slightly different, since we're parsing _postfix-expressions_ in that slot, and not just matching tokens, you specify the callable only once.
+
+During substitution, Circle lowers this functional fold just as efficiently as it lowers folds using operators. The AST is built with _a single expression_ with, for native tuples, _no additional function calls_ to access the tuple data. It's concise and it copmiles quickly.
+
+### Repeat
+
+Make a tuple with N instances of x.
+
+[**tuple/algos-std.hxx**](tuple/algos-std.hxx)
+```cpp
+namespace detail {
+
+template<typename X, size_t... Is>
+constexpr auto repeat(const X& x, std::index_sequence<Is...>) {
+  return std::make_tuple((void(Is), x)...);
+}
+
+} // namespace detail
+
+template<size_t N, typename X>
+constexpr auto repeat(const X& x) {
+  return detail::repeat(x, std::make_index_sequence<N>());
+}
+```
+
+To repeat a value into a tuple with Standard C++, do the same argument deduction song and dance. The helper function names the parameter pack `Is`, discards it, and yields the argument x, which is expanded into `make_tuple`.
+
+[**tuple/algos-circle.hxx**](tuple/algos-circle.hxx)
+```cpp
+template <size_t N, typename X>
+constexpr auto repeat(const X& x) {
+  return cir::make_tuple(for i : N => x);
+}
+```
+
+The Circle version is another one-liner, this time using _argument-for_. Inside the argument list for `make_tuple`, we loop N times, and emit `x`. This is very programmable mechanism, and you can nest _argument-for_, loop over types, over packs. _argument-if_ will test a predicate and filter iterations. Loops are a foundation of programming, yet we don't have them in Standard C++ metaprogramming.
+
+### Concatenation
+
+[`std::tuple_cat`](https://en.cppreference.com/w/cpp/utility/tuple/tuple_cat) has some of the ugliest implementations for all Standard Library functions. But it's a very useful operation, and "zip" functions often do the same thing, but without explicit library support. 
+
+[**tuple/algos-circle.hxx**](tuple/algos-circle.hxx)
+```cpp
+template<typename... Tuples>
+constexpr cir::tuple<for typename Tuple : Tuples => Tuple~remove_cvref.[:] ...>
+tuple_cat(forward Tuples... tpls : cir::tuple) {
+  return { for tpl : forward tpls => tpl.[:] ... };
+}
+```
+
+The Circle implementation uses _argument-for_ to range over the function arguments, and inside of that, a tuple slice `.[:]` to range over the elements in each argument. _There are no hidden function calls_. During substitution, Circle generates a call to the tuple constructor or aggregate initializer directly.
+ This may compile hundreds of times faster than the Standard Library implementation, depending on usage. 
+
+## Tuple benchmark
+
+[**tuple/benchmark.cxx**](tuple/benchmark.cxx)
+```cpp
+#ifdef USE_STD_TUPLE
+#include <tuple>
+namespace cir = std;
+#include "algos-std.hxx"
+#else
+#include "tuple.hxx"
+#include "algos-circle.hxx"
+#endif
+#include <functional>
+#include <cstdio>
+
+template<int... Is>
+constexpr int test(std::integer_sequence<int, Is...>) {
+  constexpr int Size = sizeof...(Is);
+
+  // Fill a tuple with integers.
+  cir::tuple tup1 = cir::make_tuple(Is...);
+
+  // Fill with negative integers.
+  cir::tuple tup2 = cir::make_tuple(-Is...);
+
+  // Get the products.
+  cir::tuple tup3 = algo::transform([](auto x, auto y) { return x * y; },
+    tup1, tup2);
+
+  // Take the 80% elements from the center.
+  cir::tuple tup4 = algo::take<Size / 10, Size - Size / 10>(tup3);
+
+  // Repeat 100 20% times.
+  cir::tuple tup5 = algo::repeat<Size - std::tuple_size_v<decltype(tup4)>>(100);
+
+  // Cat them together.
+  cir::tuple tup6 = algo::tuple_cat(tup4, tup5);
+
+  // We're back to Size elements.
+  static_assert(std::tuple_size_v<decltype(tup6)> == Size);
+
+  // Reduce the elements with a fold.
+  int sum = algo::fold(tup6, 0, std::plus<int>());
+  return sum;
+}
+
+// Make sure we don't actually generate LLVM code by doing a consteval and
+// returning the result in a type. This can be called in an unevaluated context.
+template<size_t N>
+constexpr auto run_test() {
+  constexpr int result = test(std::make_integer_sequence<int, N>());
+  return std::integral_constant<int, result>();
+}
+
+template<int... Is>
+int test_suite(std::integer_sequence<int, Is...>) {
+  // Call run_test for each index in an unevaluated context. This is guaranteed
+  // to only run the code in constexpr, so we aren't benchmarking backend
+  // costs.
+  int result = (... + decltype(run_test<Is>())::value);
+  return result;
+}
+
+int main() {
+  const int NumTests = BENCHMARK_SIZE;
+
+  int x = test_suite(std::make_integer_sequence<int, NumTests>());
+  printf("Result = %d\n", x);
+}
+```
+
+I separated the Standard C++ and Circle tuple algorithms into separate header files, both in the `algo` namespace. This benchmark will test the algorithms against each other, as well as the three different Circle tuple type implementations. In order to control for backend costs (which can be very vendor-specific), the `test` function is evaluated only at compile time, in the frontend. I guarantee this by calling it inside a _decltype-specifier_, which is an unevaluated context which performs constexpr evaluation but generates no code.
+
+The benchmarks using Standard Library algorithms represent an adversarial case for all the compilers tested. A max tuple size of 150 was chosen because GCC and Clang use more than my available 32GB of RAM when I go much higher.
+
+Run the [build_benchmark.sh](tuple/build_benchmark.sh) script to compile the program for gcc, nvcc, clang and circle. The [easy tuple](#the-easy-tuple), [hard tuple](#the-hard-tuple) and [Circle tuple](#the-circle-tuple) implementations with algorihms using Circle's pack support are also benchmarked.
+
+```
+BENCHMARK_SIZE = 150
+gcc 10 std tuple:        1:50.59   1.000x
+nvcc 12 std tuple:       2:10.84   0.768x
+nvc++ 12 std tuple:      segmentation fault
+clang 12 std tuple:      1:12.33   1.391x
+circle 191 std tuple:    0:21.30   4.722x
+circle 191 easy tuple:   0:00.65 154.753x
+circle 191 hard tuple:   0:00.73 137.794x
+circle 191 circle tuple: 0:00.35 287.400x
+
+Number of template instantiations:
+
+std::tuple:   280265
+easy tuple:   24209
+hard tuple:   24529
+circle tuple: 5653
+```
+
+Circle is pretty fast compiling templates, so even on Standard C++ code, it has a 4.7x advantage over gcc and a 3.4x advantage over clang. But where we get order-of-magnitude improvements is by using the Circle pack metaprogramming features to radically cut down the number of template instantiations and function calls. The circle command line option `-dump-templates` prints out all template instantations in a translation unit. Compare the number of instantiations between the Standard C++ paths and the Circle paths. There's almost a 10x reduction in templates instantiated when we use the easy or hard tuple implementations. There's a 50x reduciton in templates instantiated when we use the native [Circle tuple](#the-circle-tuple).
+
+```
+BENCHMARK_SIZE = 80
+gcc 10 std tuple:        0:15.41   1.000x
+nvcc 12 std tuple:       0:18.03   0.854x
+nvc++ 12 std tuple:      4:53.24   0.053x
+clang 12 std tuple:      0:14.17   1.088x
+circle 191 std tuple:    0:03.72   4.142x
+circle 191 easy tuple:   0:00.28  55.036x
+circle 191 hard tuple:   0:00.30  51.367x
+circle 191 circle tuple: 0:00.22  70.045x
+```
+
+nvc++ uses EDG. This is also the compiler frontend used for compiling GPU device code with nvcc. nvc++ suffers segmentation faults for problem `BENCHMARK_SIZE`s of 81 or larger. We reduce the BENCHMARK_SIZE to 80 and [try again](tuple/build_benchmark_small.sh). EDG is incredibly unreliable and slow at compiling these complex metaprogramming libraries. It's **724x** slower than Circle at building the same Standard C++ code, and at least **12,242x** slower than Circle when using the Circle tuple and first-class pack algorithms. Circle and nvc++ are the two single-pass CUDA compilers (NVCC and clang are multi-pass compilers), and the difference in their metaprogramming capabilities is remarkable.
