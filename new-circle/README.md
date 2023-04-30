@@ -5390,7 +5390,7 @@ This section of the New Circle document describes two goals:
 We achieve speed with Circle's language extensions:
 * [Member pack declarations](#member-pack-declarations) lets us define a tuple class with a pack of data members. There's no complex inheritance used. Access pack members with the `...[]` pack subscript operator.
 * [Tuple subscripts and slices](#tuple-subscripts-and-slices), `.[index]` and `.[begin:end:step]`, respectively, access elements of the tuple. These may internally call the associated `get` function template, but we aim for first-class access that avoids that expensive template instantiation.
-* The [forward](#forward) directive and its constraint syntax. The constraint 
+* The [forward](#forward) directive and its constraint syntax.
 * The `[[circle::native_tuple]]` attribute is brand new. It tells the compiler to route tuple subscripts directly to the public non-static data members of the class object, _even when the class provides a partial specialization of std::tuple_size_. This creates two concept interfaces for the tuple: the fast interface with `.[]`, and the slow (but standard) interface with `std::get`.
 * The `[[circle::no_unique_address_any]]` is the infinite lives cheat code for writing a tuple. Using this on the member pack declaration greatly reduces the complexity of writing a fast tuple.
 
@@ -5456,7 +5456,7 @@ int main() {
 }
 ```
 
-This first attempt at a tuple is very serviceable, and a huge improvement on the tuple in the Standard Library. Use `[[no_unique_address]]` to permit address aliasing of _empty_ and _distinct_ types to the same address. This is a form of empty type compression. It's common to store `[std::integral_constant`](https://en.cppreference.com/w/cpp/types/integral_constant) specializations in tuples, and this C++20 attribute means they have no data layout cost, _provided they are all different specializations_. We'll resolve that issue in [the hard tuple](#the-hard-tuple).
+This first attempt at a tuple is very serviceable, and a huge improvement on the tuple in the Standard Library. Use `[[no_unique_address]]` to permit address aliasing of _empty_ and _distinct_ types to the same address. This is a form of empty type compression. It's common to store [`std::integral_constant`](https://en.cppreference.com/w/cpp/types/integral_constant) specializations in tuples, and this C++20 attribute means they have no data layout cost, _provided they are all different specializations_. We'll resolve that issue in [the hard tuple](#the-hard-tuple).
 
 A single forwarding implementation of `get` supports all cv- and reference-qualifiers on the argument type. Standard C++ is pretty bad. It doesn't let you specify the pattern or otherwise constrain a forwarding reference. For example,
 
@@ -5465,7 +5465,7 @@ template<size_t I, typename Tup>
 decltype(auto) get(Tup&& tup) noexcept;
 ```
 
-How do we know that Tup is actually a tuple type? It can't be made part of the parameter type. You can use a _requires-clause_ to externally constrain Tup, but that's not really what we want, since it doesn't permit conversions to tuple or passing of types that inherit tuple.
+How do we know that `Tup` is actually a tuple type? It can't be made part of the parameter type. You can use a _requires-clause_ to externally constrain `Tup`, but that's not really what we want, since it doesn't permit passing of types that inherit tuple.
 
 ```cpp
 template<size_t I, typename Tup>
@@ -5474,7 +5474,7 @@ auto&& get(forward Tup tup : tuple) noexcept {
 }
 ``` 
 
-The Circle getter declares a forwarding parameter (with the [forward](#forward) keyword) while requiring that it be a specialization of the tuple template, or a class that inherits such a specialization. This is the most economical way to implement a getter. `forward tup` sets the correct value category on the parameter expression. We want to access the member pack, but since the left-hand side is dependent, we must use the `...` token to indicate to the compiler that we expect a pack member. Then use the subscript operator `...[I]` to access the I'th member.
+The Circle getter declares a forwarding parameter (with the [forward](#forward) keyword) while requiring that it be a specialization of the `tuple` class template, or a class that inherits such a specialization. This is the most economical way to implement a getter. `forward tup` sets the correct value category on the parameter expression. We want to access the member pack, but since the left-hand side is dependent, we must use the `...` token to indicate to the compiler that we expect a pack member. Then use the subscript operator `...[I]` to access the I'th member.
 
 ```cpp
 template<typename F, typename Tup, size_t... Is>
@@ -5489,7 +5489,7 @@ auto transform(F f, Tup&& tup) {
 }
 ```
 
-Standard C++ requires two functions to do anything with tuples. The first function, your entry point, creates an index sequence that matches the size of the tuple. The second function deduces the integer sequence pack Is from the arguments of the [std::integer_sequence](https://en.cppreference.com/w/cpp/utility/integer_sequence) specialization. It feeds those deduced parameters through `get`, to access each element of the tuple.
+Standard C++ requires two functions to do anything with tuples. The first function, your entry point, creates an index sequence that matches the size of the tuple. The second function deduces the integer sequence pack `Is` from the arguments of the [`std::integer_sequence`](https://en.cppreference.com/w/cpp/utility/integer_sequence) specialization. It feeds those deduced parameters through `get`, to access each element of the tuple.
 
 ```cpp
 template<typename F, typename Tup>
@@ -5498,9 +5498,9 @@ auto transform(F f, forward Tup tup : tuple) {
 }
 ```
 
-The Circle transform is a single shot. Just slice the tuple with the tuple slice operator `.[begin:end:step]`. That creates a pack, and the locus of expansion is outside the call to f. The tuple subscript and slice operators are pretty sophisticated. If your type opts into the language's tuple extension points, by providing partial specializations of `std::tuple_size` and `std::tuple_element`, then the compiler performs argument-dependent lookup for a get function, and uses that. Otherwise, it yields up the collection of non-static public data members of the class object. This is modeled on the behavior of structured bindings.
+The Circle transform is a single shot. Just slice the tuple with the tuple slice operator `.[begin:end:step]`. That creates a pack. The locus of expansion is outside the call to f. The tuple subscript and slice operators are pretty sophisticated. If your type opts into the language's tuple extension points, by providing partial specializations of `std::tuple_size` and `std::tuple_element`, the compiler will perform argument-dependent lookup for a `get` function and use that. Otherwise, it yields up the collection of non-static public data members of the class object. This is modeled on the behavior of structured bindings.
 
-While it's good that we can implement the extension points, to integrate with existing code that is written using `get` access, it does mean that our tuple will compile slowly! The compiler will instantiate a getter function template for every index probed, for every tuple argument type. Our getter is trivial: it just returns the I'th data member. The [Circle tuple](#the-circle-tuple) implementation will achieve both our goals: adherence to the expected tuple interface with `get`, but also high performance access with `.[]`.
+It's good that we can implement the extension points to integrate with existing code that is written using `get` access. But it does mean that our tuple will compile a bit more slowly! The compiler will instantiate a getter function template for every index probed, for every tuple argument type. Our getter is trivial: it just returns the I'th data member. The [Circle tuple](#the-circle-tuple) implementation will achieve both our goals: adherence to the expected tuple interface with `get`, but also high performance access with `.[]`.
 
 ## The hard tuple
 
@@ -5578,15 +5578,15 @@ static_assert(2 == sizeof(StdTup));
 static_assert(StdTup~is_empty);
 ```
 
-The easy tuple has a performance defect and a data layout defect. We address the data layout defect in this section. We want all empty types to alias, so that you can load up your tuple with any number of `integral_constant` specializations, and the tuple remains an empty 1-byte type.
+The easy tuple has a performance defect and a data layout defect. We address the data layout defect in this section. We want all empty types to alias, so that you can load up your tuple with any number of `integral_constant` specializations with the tuple remaining an empty 1-byte type.
 
-To do this, we can introduce an empty-base optimization interposer. Call it EBO. It's a huge cheat. Instead of containing or inheriting empty types (the ones whose storage we wish to wave away), we instead inherit the EBO, which is an empty type, as a proxy for the type we want. The getter member function simply creates a object and returns that. This changes the semantics of empty object access compared to std::tuple, since we can no longer write to them (can't write to prvalues), and side effects in construction or destruction will be different. But the upside is that we've resolved our storage difficulties!
+To do this we introduce an empty-base optimization interposer. Call it `EBO`. It's a huge cheat. Instead of containing or inheriting empty types (the ones whose storage we wish to wave away), we instead inherit the EBO, which is an empty class, as a proxy for the type we want. The getter member function for the EBO's empty type partial specialization simply creates a new object and returns that! This changes the semantics of empty element type access compared to `std::tuple`, since we can no longer write to them (can't write to prvalues). Side effects in construction or destruction may be different. But the upside is that we've resolved our storage difficulties!
 
-The downside is that tuple access _is even more expensive_. Instead of instantiating one function template per access, the `get`, you now also have to access the `get_m` member function. That's twice as much work for the frontend and backend (it has to inline away those calls), just to get the data layout we desire. We resolved the data layout problem at the expense of performance.
+The downside is that tuple access _has gotten a bit more expensive_. Instead of instantiating one function template per access, the `get` function, you now also have to access the `get_m` member function. That's twice as much work for the frontend and backend (it has to inline away those calls), just to get the data layout we desire. We resolved the data layout problem but at the expense of performance.
 
 ## The Circle tuple
 
-The [hard tuple](#the-hard-tuple) delivered efficient packing of empty elements, but the interface is wonky (the getter of those empty elements returns prvalues, not glvalues) and the compiler is doing significant extra work by instantiating both the get function template and the EBO's getter. We can do better.
+The [hard tuple](#the-hard-tuple) delivered efficient packing of empty elements, but the interface is wonky (the getter of those empty elements returns new objects, not references to elemenst) and the compiler is doing measurably more work by instantiating both the get function template and the EBO's getter. We can do better.
 
 [**tuple/tuple3.cxx**](tuple/tuple3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/8EhveKhhd)
 ```cpp
