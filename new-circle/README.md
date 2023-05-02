@@ -3409,7 +3409,7 @@ int main() {
 ```
 ```
 sum: 70
-max: 144000
+product: 144000
 ```
 
 These two recurrence relations are like binary folds. The `reduce` function you can write with C++ _fold expressions_. But the `fold` function you can't, is it invokes a callable rather than naming an operator. Let's step through the `fold` substitution:
