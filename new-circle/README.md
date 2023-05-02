@@ -3559,6 +3559,21 @@ And there's a pack expression which defines the recurrence relation:
 
 At each step during substitution, the result object of the previous step is fed back in for `X`.
 
+**Unary fold is sugar:**
+
+A recurrence relation requires a seed value, indicated by the _recurrence-expression_. C++'s unary fold doesn't have this. You provide it a pack of values, and it folds over them. It's easy to transform a unary fold into a recurrence:
+
+`(... + xs)` => `(recurrence xs...[0] + xs...[1:] ...)`
+
+The first pack element becomes the seed value, and the slice of the remaining values is added into that. Unary fold expressions are ill-formed for empty packs, because they're essentially rewritten recurrence relations. Keep using a unary fold if that suits your purpose.
+
+The `(... || xs)` and `(... && xs)` unary folds are _not_ ill-formed for empty packs. But that's because they're actually binary folds with an implicit seed. These can be expressed with recurrence very easily:
+
+`(... || xs)` => `(recurrence false || xs ...)`, and
+`(... && xs)` => `(recurrence true && xs ...)`.
+
+Recurrence relations cover a broad class of operations, of which binary folds are a special case. Unary fold is a bit of sugar, for problems where you don't want to break out the initializer.
+
 ## `[require_control_flow_braces]`
 
 * Interactions: Requires `{ }` after control-flow statement constructs `if`, `else` (unless immediately followed by `if`), `for`, `while`, `do` and `switch`.
