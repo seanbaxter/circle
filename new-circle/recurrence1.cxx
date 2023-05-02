@@ -6,7 +6,7 @@ auto reduce(const auto& init, const auto&... args) {
   // Equivalent to a left-binary fold:
   // As if
   //   return (init + ... + args);
-  // Expnads to init + args#0 + args#1 + args#2 etc.
+  // Expands to init + args#0 + args#1 + args#2 etc.
   return (recurrence init + args ...);
 }
 
