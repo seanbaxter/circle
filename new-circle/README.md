@@ -3542,7 +3542,7 @@ Let's walk through substitution for `(get<Is>(recurrence forward tuple) ...)`:
 
 The placement of the `recurrence` keyword has similar powers as the placement of the pack _expansion locus_ `...`. Allowing the user to position the _recurrence-expression_ tremendously increases the usefulness of the feature.
 
-`(f(recurrence init, args) ...)`  - a fold 
+`(f(recurrence init, args) ...)` - a fold
 `(recurrence arr[ii] ...)` - a postfix subscript
 `(get<Is>(recurrence forward tuple) ...)` - a getter
 
