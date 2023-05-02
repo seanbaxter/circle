@@ -208,6 +208,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
     1. [`[no_virtual_inheritance]`](#no_virtual_inheritance)
     1. [`[no_zero_nullptr]`](#no_zero_nullptr)
     1. [`[placeholder_keyword]`](#placeholder_keyword)
+    1. [`[recurrence]`](#recurrence)
     1. [`[require_control_flow_braces]`](#require_control_flow_braces)
     1. [`[safer_initializer_list]`](#safer_initializer_list)
     1. [`[self]`](#self)
@@ -3358,7 +3359,204 @@ error: placeholder.cxx:30:3
   ^
 ```
 
-Note from epochs:
+## `[recurrence]`
+
+* Reserved words: `recurrence`
+
+The `recurrence` keyword introduces a _recurrence-expression_. This is a pack expression, which infers its size from the other packs in the expression. But instead of generating a list of expressions when expanded, it yields the final expression in the [recurrence relation](https://en.wikipedia.org/wiki/Recurrence_relation).
+
+Circle's recurrence is a superset of all C++-17 [_fold-expressions_](https://en.cppreference.com/w/cpp/language/fold). It's a superset of the proposal [P2355 - Postfix fold expressions](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2355r1.html). It's a superset of Circle's existing _functional fold-expressions_. It's a programmable mechanism that replaces fixed-function mechanisms.
+
+**It's a fold:**
+
+[**recurrence1.cxx**](recurrence1.cxx) - [(Compiler Explorer)](https://godbolt.org/z/E3q3Tbos3)
+```cpp
+#feature on recurrence
+#include <algorithm>
+#include <iostream>
+
+auto reduce(const auto& init, const auto&... args) {
+  // Equivalent to a left-binary fold:
+  // As if
+  //   return (init + ... + args);
+  // Expnads to init + args#0 + args#1 + args#2 etc.
+  return (recurrence init + args ...);
+}
+
+// f is any callable.
+auto fold(auto f, const auto& init, const auto&... args) {
+  // Equivalent to a left-binary fold, but calls a function!
+  // As if 
+  //   return (init f ... f args);
+  // were supported.
+
+  // Expands to:
+  //   f(f(f(init, args#0), args#1), args#2) etc
+  return (f(recurrence init, args) ...);
+}
+
+int main() {
+  int data[] { 2, 3, 4, 10, 20, 30 };
+
+  // Send a pack of arguments to reduce.
+  auto sum = reduce(1, data...);
+  std::cout<< "sum: "<< sum<< "\n";
+
+  // Reduce with a lambda function.
+  auto product = fold([](auto x, auto y) { return x * y; }, 1, data...);
+  std::cout<< "product: "<< product<< "\n";
+}
+```
+```
+sum: 70
+max: 144000
+```
+
+These two recurrence relations are like binary folds. The `reduce` function you can write with C++ _fold expressions_. But the `fold` function you can't, is it invokes a callable rather than naming an operator. Let's step through the `fold` substitution:
+
+* seed:   `init`
+* step 0: `f(init, args#0)`
+* step 1: `f(f(init, args#0), args#1)`
+* step 2: `f(f(f(init, args#0), args#1), args#2)`
+* step 3: `f(f(f(f(init, args#0), args#1), args#2), args#3)`
+* step 4: `f(f(f(f(f(init, args#0), args#1), args#2), args#3), args#4)`
+* step 5: `f(f(f(f(f(f(init, args#0), args#1), args#2), args#3), args#4), args#5)`
+
+There is one substitution step per element in the `args` pack. At each step, the expanded expression is evaluated with the previous step's result substitituted in for the _recurrence-expression_. The _recurrence-expression_ specifies the seed value.
+
+What's wonderful is that there _is no recursion_. The compiler doesn't do any recursion. The programmer doesn't do any recursion. You write one expression and the compiler expands it into one expression. If you were to write these by hand, you wouldn't use recursion. Writing it as a collection shouldn't require that either.
+
+**It's a multi-dimensional index:**
+
+[**recurrence2.cxx**](recurrence2.cxx) - [(Compiler Explorer)](https://godbolt.org/z/7xWr665ox)
+```cpp
+#feature on recurrence
+#include <vector>
+#include <iostream>
+
+// P2355 - Postfix fold expressions
+// decltype(auto) index(auto &arr, auto... ii) {
+//   return (arr[...][ii]);
+// }
+
+// Circle's recurrence relation.
+decltype(auto) index(auto& arr, auto... ii) {
+  return (recurrence arr[ii] ...);
+}
+
+int main() {
+  using std::vector;
+  vector<vector<vector<vector<int>>>> data;
+  data.resize(4);
+  data[1].resize(4);
+  data[1][3].resize(4);
+  data[1][3][2].resize(4);
+  data[1][3][2][3] = 100;
+
+  // Perform an n-dimensional index to get our value out.
+  std::cout<< index(data, 1, 3, 2, 3)<< "\n";
+}
+```
+```
+100
+```
+
+[P2355 - Postfix fold expressions](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2355r1.html) advances new syntax to support postfix _fold-expressions_: `[...]` and `(...)`. I don't think it makes sense to keep adding special cases to _fold-expression_, which is a fixed-function feature. These postfix operators are supported by the programmable recurrence relation.
+
+P2355 teases a multi-dimensional index function, which iteratively invokes `operator[]`, subscripting on an element of a pack at each step. This is handled with the _recurrence-expression_ `(recurrence arr[ii] ...)`:
+
+* seed:   `arr`
+* step 0: `arr[ii#0]`
+* step 1: `arr[ii#0][ii#1]`
+* step 2: `arr[ii#0][ii#1][ii#2]`
+* step 3: `arr[ii#0][ii#1][ii#2][ii#3]`
+
+Start with the _recurrence-expression_ as the seed. Then turn the substitution crank. At each step, replace the _recurrence-expression_ with the previous step's result object. This tags on additional subscript operators, from left to right.
+
+Keep in mind that the `recurrence` keyword builds a _recurrence-expression_ with _primary-expression_ precedence. That is, `arr` is the seed value, because it's a _primary-expression_. `arr[i]]` is not the seed value, because that's a _postfix-expression_. You can parenthesize your _requires-expressions_ to select more complex seed values.
+
+**It's good for tuples:**
+
+My inspiration for designing the `[recurrence]` feature was my frustration at writing a clean multi-dimensional tuple `get` function. I already had functional _fold-expressions_ in Circle, but that wasn't the right pattern, since `get` isn't a binary operator. P235 - Postfix fold expressions wouldn't help, because that only covers the postfix operators `[...]` and `(...)`. But I felt that multi-dimensional `get` should be supported by the same feature that provides folds, because they _feel_ like very similar operations. It's C++17's choice of non-programmable folds that frustrates users from treating a large class of problems with one language mechanism.
+
+[**recurrence3.cxx**](recurrence3.cxx) - [(Compiler Explorer)](https://godbolt.org/z/99xYeYrM4)
+```cpp
+#feature on forward tuple recurrence
+#include <tuple>
+#include <iostream>
+
+// Rank 0 case. This just returns the parameter.
+template <typename Tuple>
+constexpr decltype(auto) getN(forward Tuple t) noexcept {
+  return forward t;
+}
+
+// Rank1 or higher case.
+template<size_t I0, size_t... Is, typename Tuple>
+constexpr decltype(auto) getN(forward Tuple tuple) noexcept {
+  // Recursive on getN. Exits out with the overload above.
+  return getN<Is...>(get<I0>(forward tuple));
+}
+
+// [recurrence] implementation:
+template<size_t... Is, typename Tuple>
+constexpr decltype(auto) getN2(forward Tuple tuple) noexcept {
+  // Non-recursive. This does not call back into getN2.
+  return (get<Is>(recurrence forward tuple) ...);
+}
+
+int main() {
+  // Use [tuple] to declare a complicated tuple.
+  auto tup = (1, "Hello", (2i16, (3.14, ("Recurrence", "World"), 4ul)), 5i8);
+
+  // We want to pull out the "Recurrence" element, which has index:
+  // [2, 1, 1, 0]
+
+  // We can use the old recursive approach:
+  std::cout<< getN<2, 1, 1, 0>(tup)<< "\n";
+
+  // Or the new recurrence approach:
+  std::cout<< getN2<2, 1, 1, 0>(tup)<< "\n";
+}
+```
+```
+Recurrence
+Recurrence
+```
+
+With Standard C++, you'll probably implement a multi-dimensional `get` with a recursion and two overloads. The first overload is the exit case, and gets matched when there are no indices remaining for subscripting. All it does is return the parameter.
+
+**_I think it's dumb to write a function just to return a parameter!_**
+
+The second overload makes an ADL call to get (likely `std::get` when fed `std::tuple`), and sends the result of that back into `getN`, but with the first index parameter peeled away.
+
+The `[recurrence]` implementation is non-recursive. There's just one expression to write. And the form of this expression reveals how similar the problem is to both the array multi-dimensional subscript of [recurrence2.cxx](recurrence2.cxx) and the binary fold of [recurrence1.cxx](recurrence1.cxx). 
+
+Let's walk through substitution for `(get<Is>(recurrence forward tuple) ...)`:
+
+* seed:    `forward tuple`
+* step 0:  `get<Is#0>(forward tuple)`
+* step 1:  `get<Is#1>(get<Is#0>(forward tuple))`
+* step 2:  `get<Is#2>(get<Is#1>(get<Is#0>(forward tuple)))`
+* step 3:  `get<Is#3>(get<Is#2>(get<Is#1>(get<Is#0>(forward tuple))))`
+
+The placement of the `recurrence` keyword has similar powers as the placement of the pack _expansion locus_ `...`. Allowing the user to position the _recurrence-expression_ tremendously increases the usefulness of the feature.
+
+`(f(recurrence init, args) ...)`  - a fold 
+`(recurrence arr[ii] ...)` - a postfix subscript
+`(get<Is>(recurrence forward tuple) ...)` - a getter
+
+In each case there is a seed which defines the start of the recurrence:
+* `init`
+* `arr`
+* `forward tuple`
+
+And there's a pack expression which defines the recurrence relation:
+* `f(X, args)`
+* `X[ii]`
+* `get<Is>(X)`
+
+At each step during substitution, the result object of the previous step is fed back in for `X`.
 
 ## `[require_control_flow_braces]`
 
