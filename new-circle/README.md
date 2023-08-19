@@ -685,7 +685,7 @@ Carbon has stuck down some of C++'s most complicated aspects:
 
 With much of C++'s foundation gone, how will Carbon achieve a high level of interoperability? As a separate toolchain, I don't think it's possible. 
 
-Overload resolution is a crucial part of C++. You can't use any Standard Library types or algorithms without it. Everything is overloaded. Carbon doesn't do overload resolution. How does a Carbon code call into C++ code? That overload resolution knowledge has reside somewhere.
+Overload resolution is a crucial part of C++. You can't use any Standard Library types or algorithms without it. Everything is overloaded. Carbon doesn't do overload resolution. How does a Carbon code call into C++ code? That overload resolution knowledge has to reside somewhere.
 
 In my experience, an architecture with two separate type systems and two separate ASTs will prove irreconcilable. 
 
