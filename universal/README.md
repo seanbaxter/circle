@@ -57,14 +57,14 @@ int main() {
   auto [...parts] = tuple;
 
   // Print its components.
-  std::cout<< sizeof... tuple<< " components:\n";
+  std::cout<< sizeof. tuple<< " components:\n";
   std::cout<< int...<< ": "<< parts<< "\n" ...;
 }
 ```
 ```
 $ circle structured2.cxx
 $ ./structured2
-3 components
+3 components:
 0: 3.14
 1: 100
 2: Hello tuple
