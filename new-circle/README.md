@@ -237,6 +237,7 @@ The design tradeoffs of the Carbon project represent just one point on the Paret
         * [Unqualified and qualified name lookup](#unqualified-and-qualified-name-lookup)
         * [Template arguments for overload sets](#template-arguments-for-overload-sets)
         * [Lifting lambdas over customization points](#lifting-lambdas-over-customization-points)
+    1. [Pipeline operator](#pipeline-operator)
     1. [String constant operators](#string-constant-operators)
         * [String constant formatting](#string-constant-formatting)
     1. [Backtick identifiers](#backtick-identifiers)
@@ -4868,6 +4869,19 @@ triangle
 ```
 
 Circle has powerful compile-time mechanisms. The `~enum_names` [reflection trait](#reflection-traits) yields a non-type pack of string constants for each enumerator in the left-hand enumeration type. The `~sort` [pack algorithm](#pack-traits) sorts the elements of a pack and returns a new pack. We use the string comparison operator `<` to _lexicographically_ sort the enumerators of `shapes_t`, and print them to the terminal in one go with a pack-expansion statement `...`.
+
+### Pipeline operator
+
+Circle implements the pipeline operator `|>`, examined in detail in [https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2672r0.html](P2672 - Exploring the Design Space for a Pipeline Operator). This is a fixed-function (i.e, non-overloadable) operator which substitutes the expression on the left into one or more placeholder tokens `$` on the right:
+
+```
+x |> f(a, $, c)  =>  f(a, x, c)
+```
+
+P2672 lays out motivation for the pipeline operator. Essentially, we want to write our code so that it's read left-to-right, rather than from the inside-out. The pipeline operator chains operations together, using the resulting object from one expression as an input in the subsequent one.
+
+
+
 
 ### String constant formatting
 

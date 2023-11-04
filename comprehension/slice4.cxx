@@ -12,7 +12,7 @@ template<typename type_t>
 void print_object(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    decltype(obj.[:]).string<< " : "<< 
+    decltype(obj.[:])~string<< " : "<< 
     obj.[:]<< "\n" ...;
 }
 
@@ -20,7 +20,7 @@ template<typename type_t>
 void print_reverse(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    decltype(obj.[::-1]).string<< " : "<< 
+    decltype(obj.[::-1])~string<< " : "<< 
     obj.[::-1]<< "\n" ...;
 }
 
@@ -28,7 +28,7 @@ template<typename type_t>
 void print_odds(const type_t& obj) {
   std::cout<< @type_string(type_t)<< "\n";
   std::cout<< "  "<< int... << ") "<< 
-    decltype(obj.[1::2]).string<< " : "<< 
+    decltype(obj.[1::2])~string<< " : "<< 
     obj.[1::2]<< "\n" ...;
 }
 
