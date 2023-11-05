@@ -289,7 +289,7 @@ Setting or clearing features _only effects the current file_. The active masks o
 [**features.cxx**](features.cxx) - [(Compiler Explorer)](https://godbolt.org/z/75x87vcbq)
 ```cpp
 // Enable four features:
-// [interface] - Enables the dyn, interface, impl and make_dyn keywordcs.
+// [interface] - Enables the dyn, interface, impl and make_dyn keywords.
 // [tuple] - Enables new syntax for tuple expressions and types.
 // [choice] - Enables the choice and match keywords.
 // [self] - Retires 'this' and replaces it with the lvalue 'self'.
@@ -577,7 +577,7 @@ Circle implements a collection of feature directives that allow it to look and o
 
 1. [`[new_decl_syntax]`](#new_decl_syntax) - [Carbon uses `var` to declare objects.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#variable-var-declarations)
 1. [`[require_control_flow_braces]`](#require_control_flow_braces) - [Carbon requires braces after control flow statements.](https://github.com/carbon-language/carbon-lang/blob/trunk/proposals/p0623.md)
-1. [`[no_function_overloading]`](#no_function_overloading) - [Carbon does not support funciton overloading.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#inheritance) Instead, it relies on [interfaces](#interface) to dispatch functions based on a receiver type.
+1. [`[no_function_overloading]`](#no_function_overloading) - [Carbon does not support function overloading.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#inheritance) Instead, it relies on [interfaces](#interface) to dispatch functions based on a receiver type.
 1. [`[no_multiple_inheritance]`](#no_multiple_inheritance) - [Carbon does not support multiple inheritance.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#inheritance)
 1. [`[no_user_defined_ctors]`](#no_user_defined_ctors) - [Carbon does not support C++ constructors.](https://github.com/carbon-language/carbon-lang/tree/trunk/docs/design#class-functions-and-factory-functions)
 1. [`[no_virtual_inheritance]`](#no_virtual_inheritance) - [Carbon does not support virtual inheritance.](https://github.com/carbon-language/carbon-lang/blob/trunk/docs/design/classes.md#virtual-base-classes)
@@ -686,7 +686,7 @@ Carbon has stuck down some of C++'s most complicated aspects:
 
 With much of C++'s foundation gone, how will Carbon achieve a high level of interoperability? As a separate toolchain, I don't think it's possible. 
 
-Overload resolution is a crucial part of C++. You can't use any Standard Library types or algorithms without it. Everything is overloaded. Carbon doesn't do overload resolution. How does a Carbon code call into C++ code? That overload resolution knowledge has reside somewhere.
+Overload resolution is a crucial part of C++. You can't use any Standard Library types or algorithms without it. Everything is overloaded. Carbon doesn't do overload resolution. How does a Carbon code call into C++ code? That overload resolution knowledge has to reside somewhere.
 
 In my experience, an architecture with two separate type systems and two separate ASTs will prove irreconcilable. 
 
