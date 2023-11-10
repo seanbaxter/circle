@@ -284,7 +284,7 @@ This section describes Circle's file-scope versioning. During lexing, each file 
 * `#feature reset [X Y Z]` - reset the active feature mask and optionally set new fields.
 * `#feature include "feature-file"` - load a file and activate the features listed there.
 
-Setting or clearing features _only effects the current file_. The active masks of all other files in the translation unit are unaffected.
+Setting or clearing features _only affects the current file_. The active masks of all other files in the translation unit are unaffected.
 
 [**features.cxx**](features.cxx) - [(Compiler Explorer)](https://godbolt.org/z/75x87vcbq)
 ```cpp
