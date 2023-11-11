@@ -85,7 +85,7 @@ $ circle -c info.cxx
 std::tuple<int, char*, char*, double, double, double, short, short, short, short>
 ```
 
-If you aren't sure what this does at first glance, the wise coarse of action is to print it and find out. Use `@meta std::cout` along with `.string` reflection to print types at compile time. This works even if the translation unit doesn't otherwise compile; just put the print statement before where the error occurs. This is a big help when trying to deciper arcane stuff.
+If you aren't sure what this does at first glance, the wise course of action is to print it and find out. Use `@meta std::cout` along with `.string` reflection to print types at compile time. This works even if the translation unit doesn't otherwise compile; just put the print statement before where the error occurs. This is a big help when trying to deciper arcane stuff.
 
 CIA leverages [pack subscripts and slices](https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-subscripts-and-slices) and [pack indices](
 https://github.com/seanbaxter/circle/blob/master/universal/README.md#pack-indices), powerful features already documented [here](https://github.com/seanbaxter/circle/blob/master/universal/README.md). [Constexpr conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-conditional--) and [constexpr multi-conditional](https://github.com/seanbaxter/circle/tree/master/conditional#constexpr-multi-conditional---) are documented [here](https://github.com/seanbaxter/circle/tree/master/conditional#readme).
